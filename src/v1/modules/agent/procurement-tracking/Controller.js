@@ -22,7 +22,8 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
 
     let query = search ? {
         $or: [
-            { "pointOfContact.name": { $regex: search, $options: 'i' } },
+            { "reqNo": { $regex: search, $options: 'i' } },
+            { "product.name": { $regex: search, $options: 'i' } },
         ]
     } : {};
 
@@ -64,10 +65,20 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
         .populate({ path: "head_office_id", select: "company_details.name" })
         .populate({ path: "sla_id", select: "_id basic_details.name" })
         .populate({ path: "branch_id", select: "branchName" })
-        .populate({ path: "product.schemeId", select: "schemeName" })
+        .populate({ path: "product.schemeId", select: "" })
         .sort(sortBy)
         .skip(skip)
         .limit(parseInt(limit))
+
+     records.rows = records.rows.map((doc) => {
+            const obj = doc.toObject(); 
+            const commdityName = obj?.product?.name || '';
+            const schemeName= obj?.product?.schemeId?.schemeName || '';
+            const season= obj?.product?.schemeId?.season || '';
+            const period= obj?.product?.schemeId?.period || '';
+            obj.scheme_name = `${schemeName} ${commdityName} ${season} ${period}`;
+            return obj;
+        });
 
     records.count = await RequestModel.countDocuments(query);
 
@@ -186,6 +197,7 @@ module.exports.getAssociateOffers = asyncErrorHandler(async (req, res) => {
 
 })
 
+/*
 module.exports.getFarmersByAssocaiteId = asyncErrorHandler(async (req, res) => {
 
     const { page, limit, skip, paginate = 1, sortBy, search = '', id } = req.query
@@ -205,7 +217,7 @@ module.exports.getFarmersByAssocaiteId = asyncErrorHandler(async (req, res) => {
     }
 
     const records = { count: 0 };
-
+    records.count = await FarmerOrders.countDocuments(query);
     records.rows = paginate == 1 ? await FarmerOrders.find(query)
         .populate("procurementCenter_id")
         .populate({
@@ -218,7 +230,8 @@ module.exports.getFarmersByAssocaiteId = asyncErrorHandler(async (req, res) => {
             path: "farmer_id",
             select: "farmer_id"
         }).sort(sortBy);
-    records.count = await FarmerOrders.countDocuments(query);
+
+   
 
     if (paginate == 1) {
         records.page = page;
@@ -228,6 +241,75 @@ module.exports.getFarmersByAssocaiteId = asyncErrorHandler(async (req, res) => {
 
     return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("farmer orders") }))
 })
+*/
+
+module.exports.getFarmersByAssocaiteId = asyncErrorHandler(async (req, res) => {
+    let { page = 1, limit = 10, paginate = 1, sortBy = 'createdAt', search = '', id } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+    paginate = parseInt(paginate);
+
+    // Debugging: Check if page, limit are parsed correctly
+    console.log(`Page: ${page}, Limit: ${limit}, Paginate: ${paginate}`);
+
+    let query = search ? {
+        $or: [
+            { "metaData.name": { $regex: search, $options: 'i' } }
+        ]
+    } : {};
+
+    query.associateOffers_id = id;
+
+    // Fetching the total count of records first
+    const totalRecords = await FarmerOrders.countDocuments(query);
+    if (totalRecords === 0) {
+        return res.status(400).send(new serviceResponse({
+            status: 400,
+            errros: [{ message: _response_message.notFound("farmer orders") }]
+        }));
+    }
+
+    const records = { count: totalRecords };
+
+    // Set default sort to descending order (by 'createdAt' or another field)
+    let sort = {};
+    if (sortBy) {
+        sort[sortBy] = -1;  // default to descending order
+    }
+
+    let findQuery = FarmerOrders.find(query)
+        .populate("procurementCenter_id")
+        .populate({
+            path: "farmer_id",
+            select: "farmer_id"
+        })
+        .sort(sort);  // Apply the sorting
+
+    if (paginate === 1) {
+        // Calculate skip for pagination
+        const skip = (page - 1) * limit;
+        console.log(`Skip: ${skip}`); // Debugging: Check skip calculation
+        findQuery = findQuery.skip(skip).limit(limit);
+    }
+
+    // Fetch the rows after applying pagination and sorting
+    records.rows = await findQuery;
+
+    // If paginate is 1, calculate the page numbers
+    if (paginate === 1) {
+        records.page = page;
+        records.limit = limit;
+        records.pages = limit !== 0 ? Math.ceil(records.count / limit) : 0;
+    }
+
+    return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("farmer orders")
+    }));
+});
+
 
 module.exports.getFarmersOrdersData = asyncErrorHandler(async (req, res) => {
 
@@ -266,3 +348,36 @@ module.exports.updateFarmerTracking = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("offer") }));
 
 });
+
+module.exports.updateMarkReady = async (req, res) => {
+    try {
+        const { id, material_img = [], weight_slip = [], qc_report = [], lab_report = [] } = req.body;
+        const { user_id } = req;
+        const record = await Batch.findOne({ _id: id });
+        if (!record) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }));
+        }
+ 
+        if (record.status == _batchStatus.delivered) {
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                errors: [{ message: "Order already has been delivered." }]
+            }));
+        }
+ 
+        // Overwrite the arrays with the new payload data
+        record.dispatched.material_img.inital = material_img.map(i => ({ img: i, on: moment() }));
+        record.dispatched.weight_slip.inital = weight_slip.map(i => ({ img: i, on: moment() }));
+        record.dispatched.qc_report.inital = qc_report.map(i => ({ img: i, on: moment() }));
+        record.dispatched.lab_report.inital = lab_report.map(i => ({ img: i, on: moment() }));
+ 
+        await record.save();
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: record,
+            message: _response_message.updated("batch")
+        }));
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};

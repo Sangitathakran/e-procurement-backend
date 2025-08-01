@@ -123,10 +123,7 @@ const addressSchema = Joi.object({
 });
 
 const companyDetailsSchema = Joi.object({
-    cin_number: Joi.string().trim().required().pattern(/^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/).messages({
-        'string.empty': _middleware.require('CIN number'),
-        'string.pattern.base': _response_message.invalid('CIN number format'),
-    }),
+    cin_number: Joi.string().trim(),
     cin_image: Joi.string().trim().required().messages({
         'string.empty': _middleware.require('CIN image'),
     }),
@@ -141,18 +138,22 @@ const companyDetailsSchema = Joi.object({
         'string.pattern.base': _response_message.invalid('PAN card format'),
     }),
     pan_image: Joi.string().trim().optional(),
-    aadhar_number: Joi.string().trim().required().pattern(/^\d{12}$/).messages({
-        'string.empty': _middleware.require('Aadhar number'),
-        'string.pattern.base': _response_message.invalid('Aadhar number format'),
+    gst_no: Joi.string().trim().pattern(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9][Z][0-9A-Z]$/).optional().messages({
+        'string.pattern.base': _response_message.invalid('GST number format'),
     }),
-    aadhar_certificate: {
-        front: Joi.string().required().messages({
-            'string.empty': _middleware.require('Aadhar Front Image'),
-        }),
-        back: Joi.string().required().messages({
-            'string.empty': _middleware.require('Aadhar back Image'),
-        }),
-    }
+
+    // aadhar_number: Joi.string().trim().required().pattern(/^\d{12}$/).messages({
+    //     'string.empty': _middleware.require('Aadhar number'),
+    //     'string.pattern.base': _response_message.invalid('Aadhar number format'),
+    // }),
+    // aadhar_certificate: {
+    //     front: Joi.string().required().messages({
+    //         'string.empty': _middleware.require('Aadhar Front Image'),
+    //     }),
+    //     back: Joi.string().required().messages({
+    //         'string.empty': _middleware.require('Aadhar back Image'),
+    //     }),
+    // }
 });
 
 const authorisedSchema = Joi.object({

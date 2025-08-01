@@ -20,7 +20,7 @@ module.exports.getAgency = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
         let query = {
-            ...(search ? { first_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+            ...(search ? { "agent_name": { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
         };
         const records = { count: 0 };
         records.rows = paginate == 1
@@ -60,7 +60,8 @@ module.exports.createAgency = async (req, res) => {
             return sendResponse({ res, status: 400, message: "user already existed with this mobile number or email in Master" })
         }
 
-        const password = generateRandomPassword();
+        // const password = generateRandomPassword();
+        const password = "lakshit@123";
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const agency = new Agency({
@@ -81,7 +82,10 @@ module.exports.createAgency = async (req, res) => {
         }
         await emailService.sendAgencyCredentialsEmail(emailPayload);
 
-        const type = await TypesModel.findOne({ _id: "67110114f1cae6b6aadc2425" })
+        // const type = await TypesModel.findOne({ _id: "67110114f1cae6b6aadc2425" }) // SLA testing
+        const type = await TypesModel.findOne({ _id: "67110114f1cae6b6aadc2425" }) // SLA testing
+        // const type = await TypesModel.findOne({ _id: "680f6390c55aae436a063e32" }) // Admin live
+        // const type = await TypesModel.findOne({ _id: "680f6390c55aae436a063e32" }) // Admin testing
 
         if (savedAgency._id) {
             const masterUser = new MasterUser({
@@ -91,7 +95,8 @@ module.exports.createAgency = async (req, res) => {
                 mobile: phone.trim(),
                 password: hashedPassword,
                 user_type: type.user_type,
-                createdBy: req.user._id,
+                // createdBy: req.user._id,
+                createdBy: "675fd3ae93199f01ec1e56e0",
                 userRole: [type.adminUserRoleId],
                 portalId: savedAgency._id,
                 ipAddress: getIpAddress(req)
@@ -104,7 +109,7 @@ module.exports.createAgency = async (req, res) => {
 
         }
 
-        return res.status(200).send(new serviceResponse({ message: _response_message.created('Agency'), data: record }));
+        return res.status(200).send(new serviceResponse({ message: _response_message.created('Agency'), data: savedAgency }));
     } catch (error) {
         _handleCatchErrors(error, res);
     }

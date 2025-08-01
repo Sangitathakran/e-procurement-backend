@@ -6,7 +6,7 @@ const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET_KEY } = require('@config/index');
 const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-const { _userType, _poAdvancePaymentStatus, _poBatchStatus, _poBatchPaymentStatus } = require('@src/v1/utils/constants');
+const { _userType, _poAdvancePaymentStatus, _poBatchStatus, _poBatchPaymentStatus, _penaltypaymentStatus } = require('@src/v1/utils/constants');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
@@ -281,21 +281,24 @@ module.exports.getOrderById = asyncErrorHandler(async (req, res) => {
 
 module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
     try {
+       
         const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id, isExport = 0 } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
-
+       // console.log(order_id)
         if (!order_id) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order_id") }] }));
         }
 
         const branch = await PurchaseOrderModel.findOne({ _id: order_id }).select({ _id: 0, branch_id: 1 }).lean();
+    
 
         let query = search ? {
             $or: [
                 { 'companyDetails.name': { $regex: search, $options: 'i' } },
                 { 'ownerDetails.name': { $regex: search, $options: 'i' } },
-                { 'warehouseDetails.basicDetails.warehouseName': { $regex: search, $options: 'i' } },
+                { 'basicDetails.warehouseName': { $regex: search, $options: 'i' } },
+                { 'wareHouse_code': { $regex: search, $options: 'i' } }
             ],
             ...filters, // Additional filters
         } : {};
@@ -344,6 +347,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
                             else: '$inventory.requiredStock'
                         }
                     },
+                    warehouseName: '$basicDetails.warehouseName',
                     nodalOfficerName: '$warehousev2Details.ownerDetails.name',
                     nodalOfficerContact: '$warehousev2Details.ownerDetails.mobile',
                     nodalOfficerEmail: '$warehousev2Details.ownerDetails.email',
@@ -361,11 +365,11 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
 
         const records = { count: 0, rows: [] };
         records.rows = await wareHouseDetails.aggregate(aggregationPipeline);
-
         const countAggregation = [
             { $match: query },
             { $count: 'total' }
         ];
+    
         const countResult = await wareHouseDetails.aggregate(countAggregation);
         records.count = countResult.length > 0 ? countResult[0].total : 0;
 
@@ -403,6 +407,7 @@ module.exports.warehouseList = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
+
 
 module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
     try {
@@ -486,7 +491,7 @@ module.exports.requiredStockUpdate = asyncErrorHandler(async (req, res) => {
 
         // Execute bulk operations
         const result = await wareHouseDetails.bulkWrite(bulkOperations);
-
+        console.log(result)
         return res.status(200).send(
             new serviceResponse({
                 status: 200,
@@ -824,3 +829,40 @@ module.exports.batchRejectedList = asyncErrorHandler(async (req, res) => {
         _handleCatchErrors(error, res);
     }
 });
+
+module.exports.penaltyApply = asyncErrorHandler(async (req, res) => {
+    try {
+        const { batchId, penaltyAmount } = req.body;
+
+        if (!batchId) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch/purchase Id") }] }));
+        }
+
+        if (!penaltyAmount) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("penalty Amount") }] }));
+        }
+
+        const record = await BatchOrderProcess.findOne({ _id: batchId });
+
+        if (!record) {
+            return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Batch") }] }));
+        }
+
+        record.penaltyDetails.penaltyAmount = penaltyAmount;
+        record.penaltyDetails.penaltypaymentStatus =  _penaltypaymentStatus.pending
+
+        await record.save();
+
+        const order = await PurchaseOrderModel.findOne({ _id: record.orderId });
+        
+        order.paymentInfo.penaltyAmount = penaltyAmount
+        order.paymentInfo.penaltyStaus=  _penaltypaymentStatus.pending
+
+        await order.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.updated("Batch") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+})

@@ -2,14 +2,17 @@ const mongoose = require('mongoose');
 const { _collectionName, _paymentmethod, _paymentstatus, _userType, _paymentApproval } = require('@src/v1/utils/constants');
 
 const PaymentSchema = new mongoose.Schema({
-    req_id: { type: mongoose.Schema.Types.ObjectId, ref:_collectionName.Request, required: true },
-    farmer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
+    req_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Request, required: true, index: true  },
+    farmer_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true, index: true  },
     farmer_order_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
     ho_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice, required: true },
     bo_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true },
+    sla_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.SLA },
+    sla_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
+    sla_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
     associate_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
     sla_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.SLA },
-    associateOffers_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers },
+    associateOffers_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers, index: true  },
     batch_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Batch, required: true },
     qtyProcured: { type: String, required: true },
     amount: { type: Number, required: true },
@@ -27,6 +30,7 @@ const PaymentSchema = new mongoose.Schema({
     transaction_id: { type: String, default: null },
     payment_method: { type: String, enum: Object.values(_paymentmethod) },
     ekhrid_payment: { type: Boolean, default: false },
+    jformID:{type:Number,default:null},
 }, { timestamps: true });
 
 const Payment = mongoose.model(_collectionName.Payment, PaymentSchema);

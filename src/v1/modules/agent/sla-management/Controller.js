@@ -1,14 +1,24 @@
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { mongoose } = require("mongoose");
+const { TypesModel } = require("@src/v1/models/master/Types");
+const { generateRandomPassword } = require("@src/v1/utils/helpers/randomGenerator");
+const bcryptjs = require("bcryptjs");
+const { MasterUser } = require("@src/v1/models/master/MasterUser");
+const { _frontendLoginRoutes } = require("@src/v1/utils/constants");
+const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const { ObjectId } = require("mongoose").Types;
+const {dumpJSONToExcel} = require("@src/v1/utils/helpers")
+const bcrypt = require('bcryptjs');
+// const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
   try {
@@ -90,8 +100,85 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
       );
     }
 
-    // Create SLA document
+    const existUser = await SLAManagement.findOne({
+      'basic_details.email': data.basic_details.email,
+    });
+    if (existUser) {
+      return res.send(
+        new serviceResponse({
+          status: 400,
+          errors: [{ message: _response_message.allReadyExist('Email') }],
+        })
+      );
+    }
+
+    // checking the existing user in Master User collection
+    const isUserAlreadyExist = await MasterUser.findOne({
+      $or: [
+        { mobile: { $exists: true, $eq: data.basic_details.mobile.trim() } },
+        { email: { $exists: true, $eq: data.basic_details.email.trim() } },
+      ],
+    });
+
+    if (isUserAlreadyExist) {
+      return sendResponse({
+        res,
+        status: 400,
+        message:
+          'user already existed with this mobile number or email in Master',
+      });
+    }
+
+    const type = await TypesModel.findOne({ _id: '67110114f1cae6b6aadc2425' });
+
     const sla = await SLAManagement.create(data);
+
+    if (!sla?._id) {
+      await SLAManagement.deleteOne({ _id: sla._id });
+      throw new Error('Agency not created ');
+    }
+    // create master user document
+    const password = generateRandomPassword();
+
+    const hashedPassword = await bcryptjs.hash(password, 10);
+    let login_url;
+
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local') {
+      login_url = `${_frontendLoginRoutes.slaDev}`;
+    } else {
+      login_url = `${_frontendLoginRoutes.slaProd}`;
+    }
+
+    const emailPayload = {
+      email: data.basic_details.email,
+      user_name: data.basic_details.name,
+      name: data.basic_details.name,
+      password: password,
+
+      login_url: login_url,
+    };
+
+    const masterUser = new MasterUser({
+      firstName: data.basic_details.name,
+      isAdmin: true,
+      email: data.basic_details.email.trim(),
+      mobile: data.basic_details.mobile.trim(),
+      password: hashedPassword,
+      user_type: type.user_type,
+      createdBy: req.user._id,
+      userRole: [new mongoose.Types.ObjectId('6719c40ed5366fae365ae084')], //[type.adminUserRoleId],
+      portalId: sla._id,
+      ipAddress: getIpAddress(req),
+    });
+
+    await masterUser.save();
+
+    console.log("dsff", emailPayload)
+
+    await emailService.sendAgencyCredentialsEmail(emailPayload);
+
+
+
 
     return res.status(200).send(
       new serviceResponse({
@@ -104,123 +191,13 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
-// module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
-//   const {
-//     page = 1,
-//     limit = 10,
-//     skip = 0,
-//     paginate = 1,
-//     sortBy,
-//     search = "",
-//     isExport = 0,
-//   } = req.query;
 
-//   // Initialize matchQuery
-//   let matchQuery = search
-//     ? {
-//         $or: [
-//           { "basic_details.name": { $regex: search, $options: "i" } },
-//           { "basic_details.email": { $regex: search, $options: "i" } },
-//           { "basic_details.mobile": { $regex: search, $options: "i" } },
-//         ],
-//         deletedAt: null,
-//       }
-//     : { deletedAt: null };
 
-//   let aggregationPipeline = [
-//     { $match: matchQuery },
-//     {
-//       $project: {
-//         _id: 1,
-//         slaId: 1,
-//         email: "$basic_details.email",
-//         sla_name: "$basic_details.name",
-//         associate_count: { $size: "$associatOrder_id" }, // Count of associated orders
-//         address: {
-//           $concat: [
-//             "$address.line1",
-//             ", ",
-//             { $ifNull: ["$address.line2", ""] },
-//             ", ",
-//             "$address.city",
-//             ", ",
-//             "$address.district",
-//             ", ",
-//             "$address.state",
-//             ", ",
-//             "$address.pinCode",
-//             ", ",
-//             { $ifNull: ["$address.country", ""] },
-//             ", ",
-//           ],
-//         },
-//         status: 1,
-//         poc: "$point_of_contact.name",
-//         branch: "$schemes.branch",
-//       },
-//     },
-//   ];
-//   if (paginate == 1) {
-//     aggregationPipeline.push(
-//       { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Secondary sort by _id for stability
-//       { $skip: parseInt(skip) },
-//       { $limit: parseInt(limit) }
-//     );
-//   } else {
-//     aggregationPipeline.push({
-//       $sort: { [sortBy || "createdAt"]: -1, _id: -1 },
-//     });
-//   }
-//   const rows = await SLAManagement.aggregate(aggregationPipeline);
-//   const countPipeline = [{ $match: matchQuery }, { $count: "total" }];
-//   const countResult = await SLAManagement.aggregate(countPipeline);
-//   const count = countResult[0]?.total || 0;
-//   const records = { rows, count };
-//   if (paginate == 1) {
-//     records.page = parseInt(page);
-//     records.limit = parseInt(limit);
-//     records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
-//   }
-//   if (isExport == 1) {
-//     const record = rows.map((item) => {
-//       return {
-//         "Scheme Id": item?.schemeId || "NA",
-//         "scheme Name": item?.schemeName || "NA",
-//         "Scheme Commodity": item?.Schemecommodity || "NA",
-//         season: item?.season || "NA",
-//         period: item?.period || "NA",
-//         procurement: item?.procurement || "NA",
-//       };
-//     });
-//     if (record.length > 0) {
-//       dumpJSONToExcel(req, res, {
-//         data: record,
-//         fileName: `Scheme-record.xlsx`,
-//         worksheetName: `Scheme-record`,
-//       });
-//     } else {
-//       return res
-//         .status(200)
-//         .send(
-//           new serviceResponse({
-//             status: 200,
-//             data: records,
-//             message: _response_message.notFound("Scheme"),
-//           })
-//         );
-//     }
-//   } else {
-//     return res
-//       .status(200)
-//       .send(
-//         new serviceResponse({
-//           status: 200,
-//           data: records,
-//           message: _response_message.found("Scheme"),
-//         })
-//       );
-//   }
-// });
+
+
+
+
+ 
 
 module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
   const {
@@ -319,26 +296,26 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     const count = countResult[0]?.total || 0;
 
     const records = { rows, count };
-    if (paginate == 1) {
+    if (paginate == 1 && isExport != 1) {
       records.page = parseInt(page);
       records.limit = parseInt(limit);
       records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
     }
 
-    if (isExport == 1) {
-      return dumpJSONToExcel(req, res, {
-        data: rows.map((item) => ({
-          "Scheme Id": item?.schemeId || "NA",
-          "Scheme Name": item?.schemeName || "NA",
-          "Scheme Commodity": item?.Schemecommodity || "NA",
-          season: item?.season || "NA",
-          period: item?.period || "NA",
-          procurement: item?.procurement || "NA",
-        })),
-        fileName: "Scheme-Assignments.xlsx",
-        worksheetName: "Scheme Assignments",
-      });
-    }
+    // if (isExport == 1) {
+    //   return dumpJSONToExcel(req, res, {
+    //     data: rows.map((item) => ({
+    //       "Scheme Id": item?.schemeId || "NA",
+    //       "Scheme Name": item?.schemeName || "NA",
+    //       "Scheme Commodity": item?.Schemecommodity || "NA",
+    //       season: item?.season || "NA",
+    //       period: item?.period || "NA",
+    //       procurement: item?.procurement || "NA",
+    //     })),
+    //     fileName: "Scheme-Assignments.xlsx",
+    //     worksheetName: "Scheme Assignments",
+    //   });
+    // }
 
     return res.status(200).send(
       new serviceResponse({
@@ -351,13 +328,14 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
   let matchQuery = search
     ? {
-        $or: [
-          { "basic_details.name": { $regex: search, $options: "i" } },
-          { "basic_details.email": { $regex: search, $options: "i" } },
-          { "basic_details.mobile": { $regex: search, $options: "i" } },
-        ],
-        deletedAt: null,
-      }
+      $or: [
+        { "slaId": { $regex: search, $options: "i" } }, 
+        { "basic_details.name": { $regex: search, $options: "i" } },
+        { "basic_details.email": { $regex: search, $options: "i" } },
+        { "basic_details.mobile": { $regex: search, $options: "i" } },
+      ],
+      deletedAt: null,
+    }
     : { deletedAt: null };
 
   if (state) matchQuery["address.state"] = { $regex: state, $options: "i" };
@@ -394,20 +372,34 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
       },
     },
   ];
-
-  if (paginate == 1)
+  aggregationPipeline.push({ $sort: { [sortBy || "createdAt"]: -1, _id: -1 } });
+  if (paginate == 1 && isExport != 1 )
     aggregationPipeline.push(
-      { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
+      //{ $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
       { $skip: parseInt(skip) },
       { $limit: parseInt(limit) }
     );
 
   const rows = await SLAManagement.aggregate(aggregationPipeline);
+
   const countResult = await SLAManagement.aggregate([
     { $match: matchQuery },
     { $count: "total" },
   ]);
   const count = countResult[0]?.total || 0;
+  if (isExport == 1) {
+    return dumpJSONToExcel(req, res, {
+      data: rows.map((item) => ({
+        "SLA Id": item?.slaId || "NA",
+        "SLA Name": item?.sla_name || "NA",
+        "Associate": item?.associate_count || 0,
+        "Address": item?.address || "NA",
+      })),
+      fileName: "SLA-List.xlsx",
+      worksheetName: "SLA List",
+    });
+  }
+
 
   return res.status(200).send(
     new serviceResponse({
@@ -704,6 +696,47 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
     // Use Mongoose's insertMany to insert multiple documents
     const records = await SchemeAssign.insertMany(recordsToInsert);
 
+    if (sla_id) {
+      const schemeIds = schemeData.map(item => item._id);
+    
+      // Fetch existing SLA document
+      const sla = await SLAManagement.findById(sla_id);
+    
+      if (!sla) {
+        return res.status(404).send(
+          new serviceResponse({
+            status: 404,
+            message: "SLA not found.",
+          })
+        );
+      }
+    
+      // Extract current saved values
+      const existingSchemes = sla.schemes?.scheme?.map(id => id.toString()) || [];
+      const incomingSchemes = schemeIds.map(id => id.toString());
+    
+      const existingCna = sla.schemes?.cna?.toString();
+      const existingBranch = sla.schemes?.branch?.toString();
+    
+      // Check if any differences
+      const hasSchemeChange = incomingSchemes.length !== existingSchemes.length ||
+        !incomingSchemes.every(id => existingSchemes.includes(id));
+      const hasCnaChange = cna_id.toString() !== existingCna;
+      const hasBranchChange = bo_id.toString() !== existingBranch;
+    
+      if (hasSchemeChange || hasCnaChange || hasBranchChange) {
+        await SLAManagement.updateOne(
+          { _id: sla_id },
+          {
+            $set: {
+              "schemes.scheme": schemeIds,
+              "schemes.cna": cna_id,
+              "schemes.branch": bo_id,
+            },
+          }
+        );
+      }
+    }
     return res.status(200).send(
       new serviceResponse({
         status: 200,
@@ -758,6 +791,15 @@ module.exports.getAssignedScheme = async (req, res) => {
     { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
     {
       $lookup: {
+          from: 'commodities',
+          localField: 'schemeDetails.commodity_id',
+          foreignField: '_id',
+          as: 'commodityDetails',
+      },
+    },
+    { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
         from: "headoffices", // Adjust this to your actual collection name for branches
         localField: "ho_id",
         foreignField: "_id",
@@ -767,28 +809,38 @@ module.exports.getAssignedScheme = async (req, res) => {
     {
       $unwind: { path: "$headOfficeDetails", preserveNullAndEmptyArrays: true },
     },
+    
     {
       $project: {
         _id: 1,
         schemeId: "$schemeDetails.schemeId",
         // schemeName: '$schemeDetails.schemeName',
+        // schemeName: {
+        //   $concat: [
+        //     "$schemeDetails.schemeName",
+        //     "",
+        //     { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
+        //     "",
+        //     { $ifNull: ["$schemeDetails.season", ""] },
+        //     "",
+        //     { $ifNull: ["$schemeDetails.period", ""] },
+        //   ],
+        // },
         schemeName: {
           $concat: [
-            "$schemeDetails.schemeName",
-            "",
-            { $ifNull: ["$schemeDetails.commodityDetails.name", ""] },
-            "",
-            { $ifNull: ["$schemeDetails.season", ""] },
-            "",
-            { $ifNull: ["$schemeDetails.period", ""] },
-          ],
-        },
+              { $ifNull: [{ $getField: { field: "schemeName", input: "$schemeDetails" } }, ""] }, " ",
+              { $ifNull: [{ $getField: { field: "name", input: "$commodityDetails" } }, ""] }, " ",
+              { $ifNull: [{ $getField: { field: "season", input: "$schemeDetails" } }, ""] }, " ",
+              { $ifNull: [{ $getField: { field: "period", input: "$schemeDetails" } }, ""] }
+          ]
+      },
         branchName: "$branchDetails.branchName",
         headOfficeName: "$headOfficeDetails.company_details.name",
         createdOn: "$createdAt",
       },
     },
   ];
+
   if (paginate == 1) {
     aggregationPipeline.push(
       { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Secondary sort by _id for stability

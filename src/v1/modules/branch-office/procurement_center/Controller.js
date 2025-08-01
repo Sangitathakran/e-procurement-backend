@@ -14,7 +14,16 @@ module.exports.getProcurementCenter = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, associateName, state, city } = req.query
         let query = {
-            ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+            // ...(search ? { center_name: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+            ...(search ? {
+                $or: [
+                    { "center_name": { $regex: search, $options: "i" } },
+                    { "center_code": { $regex: search, $options: "i" } },
+                    { "address.state": { $regex: search, $options: "i" } },
+                    { slaId: { $regex: search, $options: "i" } },
+                ], deletedAt: null
+            } : { deletedAt: null })
+
         };
         if (associateName) {
             query["user_id.basic_details.associate_details.associate_name"] = { $regex: `^${associateName}$`, $options: "i" };
@@ -27,7 +36,7 @@ module.exports.getProcurementCenter = async (req, res) => {
             query["address.city"] = { $regex: city, $options: "i" };
         }
         const records = { count: 0 };
-        records.rows = paginate == 1
+        records.rows = (paginate == 1 && isExport != 1)
             ? await ProcurementCenter.find(query)
                 .populate({
                     path: 'user_id',
@@ -46,7 +55,7 @@ module.exports.getProcurementCenter = async (req, res) => {
 
         records.count = await ProcurementCenter.countDocuments(query);
 
-        if (paginate == 1) {
+        if (paginate == 1 && isExport != 1) {
             records.page = page
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
@@ -60,6 +69,8 @@ module.exports.getProcurementCenter = async (req, res) => {
                 return {
                     "Center ID": item?.center_code || 'NA',
                     "Center Name": item?.center_name || 'NA',
+                    "Contact": item?.point_of_contact?.mobile || 'NA',
+                    "Email": item?.point_of_contact?.email || 'NA',
                     "State": item?.address?.state || 'NA',
                     "City": item?.address?.city || 'NA',
                     "Point Of Contact": item?.point_of_contact?.name || 'NA',

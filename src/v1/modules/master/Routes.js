@@ -7,6 +7,7 @@ const { getVariety, getVarietyById, createVariety, updateVariety, getUnit, getUn
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
 const { _status } = require("@src/v1/utils/constants/index");
+const {authenticateUser,authorizeRoles} = require("@middlewares/jwt");
 
 masterRoutes.get("/variety", getVariety);
 masterRoutes.get("/variety/:id", getVarietyById);

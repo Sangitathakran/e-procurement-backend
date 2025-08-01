@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
     },
     email : { 
         type: String, 
-        required: true
+        // required: true  // commented it due to warehouse portal because it is email is non mendatory 
     },
     userId : { 
         type: String,

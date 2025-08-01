@@ -4,25 +4,26 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const {  _batchStatus, received_qc_status, _paymentmethod,_paymentApproval } = require("@src/v1/utils/constants");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-const { Payment } = require("@src/v1/models/app/procurement/Payment")
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
+// const paymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
 
 module.exports.getBatches = async (req, res) => {
     try {
-        const { req_id, seller_id, limit=300 } = req.body;
+        const { req_id, seller_id, limit=500 } = req.body;
 
         let query = { ekhrid_payment: null };
         if (req_id) query.req_id = req_id;
         if (seller_id) query.seller_id = seller_id;
 
-        let record = { count: 0, data: [] };
+        let record = { count: 0, batchIds: [] };
 
-        record.data = (await Batch.find(query)
+        record.batchIds = (await Batch.find(query)
             .select("_id")
             .limit(limit ? parseInt(limit) : 10) // Default limit to 10 if not provided
             .lean()
         ).map(({ _id }) => _id);
 
-        record.count = record.data.length;
+        record.count = record.batchIds.length;
 
         return res.status(200).json({ status: 200, data: record, message: "Batches fetched successfully" });
 
@@ -31,10 +32,6 @@ module.exports.getBatches = async (req, res) => {
         return res.status(500).json({ status: 500, message: "Internal Server Error" });
     }
 };
-
-
-
-
 
 
 module.exports.batchMarkDelivered = async (req, res) => {
@@ -51,6 +48,7 @@ module.exports.batchMarkDelivered = async (req, res) => {
         }
         
         const paymentUpdates = [];
+        // const paymentLogs = [];
         for (let record of batches) {
             record.dispatched.qc_report["received_qc_status"] = received_qc_status.accepted;
             
@@ -60,7 +58,7 @@ module.exports.batchMarkDelivered = async (req, res) => {
             for (let farmer of record.farmerOrderIds) {
                 const farmerData = farmerOrders.find(f => f._id.equals(farmer.farmerOrder_id));
                 if (!farmerData) continue;
-                
+           
                 const paymentData = {
                     req_id: request?._id,
                     sla_id: request?.sla_id,
@@ -90,11 +88,14 @@ module.exports.batchMarkDelivered = async (req, res) => {
                     payment_method: _paymentmethod.bank_transfer,
                     transaction_id: farmerData.ekhridPaymentDetails.transactionId,
                     amount: farmerData.ekhridPaymentDetails.transactionAmount,
+                    jformID:farmerData?.jformID
                     // Neeraj code end
-
-
                 };
-                
+
+                // paymentLogs.push(
+                //     paymentLogsHistory.insertMany(data)   
+                // );
+            
                 paymentUpdates.push(
                     Payment.findOneAndUpdate(
                         { batch_id: record._id, farmer_id: farmerData.farmer_id },

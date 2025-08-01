@@ -14,7 +14,7 @@ distillerAuthRoutes.get("/onboarding", verifyDistiller, formPreview);
 distillerAuthRoutes.get("/onboarding-status", verifyDistiller, onboardingStatus);
 distillerAuthRoutes.get("/find-user-status", verifyDistiller, findUserStatus);
 distillerAuthRoutes.patch("/final-submit", verifyDistiller, finalFormSubmit);
-distillerAuthRoutes.post("/bulk-upload",  bulkUploadDistiller);
+distillerAuthRoutes.post("/bulk-upload",verifyDistiller , bulkUploadDistiller);
 
 // distillerAuthRoutes.get("/editOnboarding", verifyDistiller, editOnboarding);
 // distillerAuthRoutes.post("/distiller-bulkuplod", distillerBulkuplod);
