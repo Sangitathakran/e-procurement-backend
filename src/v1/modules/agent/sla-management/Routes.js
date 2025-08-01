@@ -8,9 +8,9 @@ slaRoute.post("/schemeAssign", Auth, schemeAssign);
 slaRoute.get("/getAssignedScheme", Auth, getAssignedScheme);
 
 slaRoute.post("/", Auth, createSLA);
-slaRoute.get("/", getSLAList);   
-slaRoute.get("/states", getUniqueStates);
-slaRoute.get("/filterOption", getUniqueHOBOScheme);
+slaRoute.get("/",Auth ,getSLAList);   
+slaRoute.get("/states",Auth, getUniqueStates);
+slaRoute.get("/filterOption",Auth, getUniqueHOBOScheme);
 
 
 slaRoute.get("/:slaId",Auth, getSLAById);

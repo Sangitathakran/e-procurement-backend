@@ -14,15 +14,16 @@ const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { smsService } = require("@src/v1/utils/third_party/SMSservices");
 const OTPModel = require("../../../models/app/auth/OTP");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
-const { _collectionName} = require('@src/v1/utils/constants');
-const  SLA = require("@src/v1/models/app/auth/SLAManagement");
-const { Branches }= require("@src/v1/models/app/branchManagement/Branches")
+const { _collectionName } = require('@src/v1/utils/constants');
+const SLA = require("@src/v1/models/app/auth/SLAManagement");
+const { Branches } = require("@src/v1/models/app/branchManagement/Branches")
 const { Scheme } = require("@src/v1/models/master/Scheme");
 
 const validateMobileNumber = async (mobile) => {
     let pattern = /^[0-9]{10}$/;
     return pattern.test(mobile);
 };
+
 
 module.exports.payment = async (req, res) => {
 
@@ -62,42 +63,42 @@ module.exports.payment = async (req, res) => {
             // },
             {
                 $lookup: {
-                  from: 'batches',
-                  localField: '_id',
-                  foreignField: 'req_id',
-                  as: 'batches',
-                  pipeline: [
-                    {
-                      $lookup: {
-                        from: 'payments',
-                        localField: '_id',
-                        foreignField: 'batch_id',
-                        as: 'payment',
-                        pipeline: [
-                          {
-                            $project: {
-                              _id: 1,
-                              batch_id: 1,
-                              payment_status: 1 // Only required field for logic
+                    from: 'batches',
+                    localField: '_id',
+                    foreignField: 'req_id',
+                    as: 'batches',
+                    pipeline: [
+                        {
+                            $lookup: {
+                                from: 'payments',
+                                localField: '_id',
+                                foreignField: 'batch_id',
+                                as: 'payment',
+                                pipeline: [
+                                    {
+                                        $project: {
+                                            _id: 1,
+                                            batch_id: 1,
+                                            payment_status: 1 // Only required field for logic
+                                        }
+                                    }
+                                ]
                             }
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      $project: {
-                        _id: 1,
-                        req_id: 1,
-                        bo_approve_status: 1,
-                        batchId: 1,
-                        totalPrice: 1,
-                        qty: 1,
-                        payment: 1 // already projected above
-                      }
-                    }
-                  ]
+                        },
+                        {
+                            $project: {
+                                _id: 1,
+                                req_id: 1,
+                                bo_approve_status: 1,
+                                batchId: 1,
+                                totalPrice: 1,
+                                qty: 1,
+                                payment: 1 // already projected above
+                            }
+                        }
+                    ]
                 }
-              },              
+            },
             {
                 $lookup: {
                     from: "slas",
@@ -1485,10 +1486,10 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
                 branch,
                 scheme: {
                     id: schemeData._id,
-                    season : schemeData.season,
+                    season: schemeData.season,
                     period: schemeData.period,
                     commodity_id: schemeData.commodity_id,
-                    schemeName: schemeNameFinal 
+                    schemeName: schemeNameFinal
                 },
                 qtyPurchased,
                 amountPayable,
@@ -1511,9 +1512,9 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
         }
 
         if (isExport == 1) {
-           
+
             let exportData = enrichedRequests;
-            
+
             const exportLimit = parseInt(req.query.exportLimit || 0);
             if (exportLimit > 0) {
                 exportData = exportData.slice(0, exportLimit);
@@ -1678,7 +1679,7 @@ module.exports.paymentWithoutAggregtionExport = async (req, res) => {
         }
 
         if (isExport == 1) {
-            
+
             let exportData = enrichedRequests;
             const record = exportData.map((item) => ({
                 "Order ID": item?.reqNo || 'NA',
@@ -1715,3 +1716,28 @@ module.exports.paymentWithoutAggregtionExport = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+
+/// resend OTP
+
+module.exports.reSendOtp = async (req, res) => {
+    try {
+        const { mobileNumber } = req.body;
+        // Validate the mobile number
+        const isValidMobile = await validateMobileNumber(mobileNumber);
+        if (!isValidMobile) {
+            return sendResponse({
+                res,
+                status: 400,
+                message: _response_message.invalid("mobile number"),
+            })
+        }
+
+        await smsService.sendResendSMS(mobileNumber);
+
+        return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Mobile") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}

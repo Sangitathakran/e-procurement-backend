@@ -6,7 +6,7 @@ const { serviceResponse } = require('@src/v1/utils/helpers/api_response');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
 const jwt = require('jsonwebtoken');
 const { LoginHistory } = require('@src/v1/models/master/loginHistery');
-
+const { sendResponse } = require('@src/v1/utils/helpers/api_response');
 const tokenBlacklist = [];
 
 
