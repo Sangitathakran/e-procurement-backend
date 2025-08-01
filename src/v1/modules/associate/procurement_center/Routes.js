@@ -6,12 +6,11 @@ const express = require("express");
 const { verifyAssociate } = require("../utils/verifyAssociate");
 const procurementCenterRoutes = express.Router();
 const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
+const {commonAuth} = require("@src/v1/middlewares/jwt");
 
-
-
-procurementCenterRoutes.get("/ho-list", verifyJwtToken, getHoProcurementCenter);
-procurementCenterRoutes.get("/", verifyAssociate, getProcurementCenter);
-procurementCenterRoutes.get("/:id", verifyAssociate, getProcurementById);
+procurementCenterRoutes.get("/ho-list", commonAuth,getHoProcurementCenter);
+procurementCenterRoutes.get("/", commonAuth, getProcurementCenter);
+procurementCenterRoutes.get("/:id", commonAuth, getProcurementById);
 
 procurementCenterRoutes.post("/import-centers", ImportProcurementCenter);
 procurementCenterRoutes.post("/generateCenterCode", generateCenterCode);
