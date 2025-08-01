@@ -205,7 +205,7 @@ module.exports.verifyOTP = async (req, res) => {
 
     // Prepare the response data
     const resp = {
-      token: generateJwtToken({ mobile_no: mobileNumber }),
+      token: generateJwtToken({ mobile_no: mobileNumber,user_type:_userType.farmer }),
       ...JSON.parse(JSON.stringify(individualFormerData)), // Use individualFormerData (existing or newly saved)
     };
 
