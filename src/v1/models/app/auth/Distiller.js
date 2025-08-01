@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+// const mongoose = require("mongoose");
 const {
   _collectionName,
   _userType,
@@ -6,7 +6,7 @@ const {
   _userStatus,
 } = require("@src/v1/utils/constants");
 const { _commonKeys } = require("@src/v1/utils/helpers/collection");
-const { string } = require("joi");
+const { string, required } = require("joi");
 
 const distillerSchema = new mongoose.Schema(
   {
@@ -18,9 +18,9 @@ const distillerSchema = new mongoose.Schema(
           enum: Object.values(_trader_type),
           default: _trader_type.ORGANISATION,
         },
-        organization_name: { type: String, trim: true, required:true },
+        organization_name: { type: String, trim: true },
         email: { type: String, trim: true, lowercase: true },
-        phone: { type: String, trim: true , required:true },
+        phone: { type: String, trim: true,required :true },
         company_logo: { type: String, trim: true },
       },
       point_of_contact: {
@@ -98,7 +98,7 @@ const distillerSchema = new mongoose.Schema(
       pan_image: { type: String, trim: true },
     },
     bank_details: {
-      bank_name: { type: String, trim: true ,defsult:null },
+      bank_name: { type: String, trim: true },
       branch_name: { type: String, trim: true },
       account_holder_name: { type: String, rim: true },
       ifsc_code: { type: String, trim: true },
