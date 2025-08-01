@@ -70,6 +70,13 @@ module.exports.verifyBankAccount = async (req, res) => {
       );
     }
 
+    if(!responseData?.data?.bank_account_data){
+      return res.json( new serviceResponse({
+          status: 400,
+          message: responseData?.data?.message || _query.invalid('response from service provider'),
+        }));
+    }
+
     let farmerUpdatedBankData = await farmer
       .findOneAndUpdate(
         { _id: farmer_id },
@@ -93,7 +100,7 @@ module.exports.verifyBankAccount = async (req, res) => {
     return res.status(200).send(
       new serviceResponse({
         status: 200,
-        message: 'Bank account verified successfully',
+        message: responseData?.data?.message,
         data: { bank_data: farmerUpdatedBankData?.bank_details, responseData },
       })
     );
