@@ -4024,7 +4024,6 @@ module.exports.getStatesByPincode = async (req, res) => {
         })
       );
     }
-
     if (pincode.length !== 6) {
       return res.send(
         new serviceResponse({
