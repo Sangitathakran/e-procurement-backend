@@ -2,7 +2,10 @@ const { JWT_SECRET_KEY } = require('@config/index');
 const { compareSync } = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require("crypto");
-
+const { sendResponse } = require('@src/v1/utils/helpers/api_response');
+const { _auth_module } = require('@src/v1/utils/constants/messages');
+const { _userType } = require('@src/v1/utils/constants/index');
+const { LoginHistory } = require('@src/v1/models/master/loginHistery');
 const tokenBlacklist = [];
 /**
  * @param {String} inputHash
@@ -41,6 +44,7 @@ exports.decryptJwtToken = async (token) => {
       }
       if (err) return resolve(resp)
       else {
+
         resp.hasToken = true
         resp.data = decoded
         return resolve(resp)
@@ -68,7 +72,7 @@ exports.verifyJwtToken = async (req, res, next) => {
         .json({ message: "Token has been revoked", status: 401 });
     }
 
-    jwt.verify(token, JWT_SECRET_KEY, function (err, decodedToken) {
+    jwt.verify(token, JWT_SECRET_KEY, async function (err, decodedToken) {
       if (err) {
         return res.status(401).send({ message: "Token is invalid", status: 401 });
       }
@@ -76,6 +80,10 @@ exports.verifyJwtToken = async (req, res, next) => {
         return res
           .status(401)
           .json({ message: "Token has been revoked", status: 401 });
+      }
+      let loginHistory = await LoginHistory.findOne({ token: token, logged_out_at: null }).sort({ createdAt: -1 });
+      if (!loginHistory) {
+        return sendResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
       }
       Object.entries(decodedToken).forEach(([key, value]) => {
         req[key] = value
