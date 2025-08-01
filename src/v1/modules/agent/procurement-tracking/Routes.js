@@ -1,7 +1,7 @@
 
 
 const express = require("express");
-const { getProcurementTracking, getAssociateOffers, getFarmersByAssocaiteId, getFarmersOrdersData, updateFarmerTracking } = require("./Controller");
+const { getProcurementTracking, getAssociateOffers, getFarmersByAssocaiteId, getFarmersOrdersData, updateFarmerTracking, updateMarkReady } = require("./Controller");
 const { Auth } = require("@src/v1/middlewares/jwt")
 
 const procTrackingRoutes = express.Router();
@@ -12,4 +12,5 @@ procTrackingRoutes.get("/associate-offer", Auth, getAssociateOffers);
 procTrackingRoutes.get("/farmer-associate", Auth, getFarmersByAssocaiteId);
 procTrackingRoutes.get("/farmers/:id", Auth, getFarmersOrdersData);
 procTrackingRoutes.put("/update-farmer-tracking", Auth, updateFarmerTracking);
-module.exports = { procTrackingRoutes }; 
+procTrackingRoutes.put("/update-mark-ready-docs", Auth, updateMarkReady);
+module.exports = { procTrackingRoutes };

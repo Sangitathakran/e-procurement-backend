@@ -54,7 +54,7 @@ exports.verifyWarehouseOwner = asyncErrorHandler(async (req, res, next) => {
         }
 
 
-        let loginHistory = await LoginHistory.findOne({ token: token}).sort({ createdAt: -1 });
+         let loginHistory = await LoginHistory.findOne({ token: token, logged_out_at: null }).sort({ createdAt: -1 });
 
         if (!loginHistory) {
             return sendResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
