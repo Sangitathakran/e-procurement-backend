@@ -209,7 +209,7 @@ module.exports.forgetPassword = async (req, res) => {
       return res.status(200).send(
         new serviceResponse({
           status: 200,
-          message: `User is not found for email:  ${email}`
+          message: `Forget password email sent successfully to ${email}`
         })
       );
     }
