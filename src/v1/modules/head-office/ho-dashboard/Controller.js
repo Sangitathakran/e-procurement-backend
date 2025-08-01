@@ -1247,7 +1247,7 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-
+    const {  portalId } = req;
     const matchConditions = {};
    // if (state) matchConditions["address.registered.state"] = state;
    if (state) matchConditions["address.registered.state_id"] = { $in: state.split(',').map( id=> new mongoose.Types.ObjectId(id)) };
@@ -1269,7 +1269,9 @@ module.exports.getStateWiseCommodityStats = async (req, res) => {
           from: "requests",
           let: { reqId: "$offers.req_id" },
           pipeline: [
-            { $match: { $expr: { $eq: ["$_id", "$$reqId"] } } },
+            { $match: { $expr: { $eq: ["$_id", "$$reqId"] },
+            head_office_id:new mongoose.Types.ObjectId(portalId),
+           } },
             ...(commodityId ? [{
               $match: {
                 "product.commodity_id": { $in: commodityId.split(',').map( id => new mongoose.Types.ObjectId(id))}
