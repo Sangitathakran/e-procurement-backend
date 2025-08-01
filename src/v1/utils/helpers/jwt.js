@@ -25,6 +25,7 @@ exports.compareBcryptHash = (inputHash, savedHash) => {
  * @returns {String}
  */
 exports.generateJwtToken = (data) => {
+  console.log(data)
   const token = jwt.sign({ ...data }, JWT_SECRET_KEY)
   return token
 }
