@@ -1408,7 +1408,6 @@ if (dateRange) {
     });
   }
 };
-
 module.exports.getStateWiseProcuredQty = async (req, res) => {
   try {
     const { season, commodity_id, schemeId, states, dateRange } = req.query;

@@ -14,23 +14,28 @@ const { schemeRoutes } = require("./scheme/Routes");
 const { commodityRoutes } = require("./commodity/Routes");
 const { slaRoute } = require("./sla-management/Routes");
 const { standardRoutes } = require("./standard/Routes");
+const { Auth ,authenticateUser,authorizeRoles,} = require("@src/v1/middlewares/jwt")
+const { _userType } = require("@src/v1/utils/constants/index")
+const { mandiWiseProcurementRoute } = require("./mandiWiseProcurement/Routes");
 
 const agentRoutes = express.Router();
 
-agentRoutes.use('/request', requestRoutes);
+agentRoutes.use('/request',authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), requestRoutes);
 agentRoutes.use('/scheme', schemeRoutes);
-agentRoutes.use("/associate", associateMngmntRoutes);
-agentRoutes.use("/ho", hoMngmntRoutes);
-agentRoutes.use("/bo", boManagementRoutes);
-agentRoutes.use("/warehouse", warehouseRoutes);
-agentRoutes.use("/procurement", procurementCenterRoutes);
-agentRoutes.use("/track-orders", trackDeliveryRoutes);
-agentRoutes.use('/payment', paymentRoutes);
-agentRoutes.use("/dashboard", dashboardRoutes);
-agentRoutes.use("/proc-track", procTrackingRoutes);
-agentRoutes.use("/agency", agencyMngmntRoutes);
-agentRoutes.use("/commodity", commodityRoutes);
-agentRoutes.use("/sla", slaRoute);
-agentRoutes.use("/standard", standardRoutes);
+agentRoutes.use("/associate",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), associateMngmntRoutes);
+agentRoutes.use("/ho",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), hoMngmntRoutes);
+agentRoutes.use("/bo",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), boManagementRoutes);
+agentRoutes.use("/warehouse",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), warehouseRoutes);
+agentRoutes.use("/procurement", authenticateUser,authorizeRoles(_userType.agent ,_userType.admin),procurementCenterRoutes);
+agentRoutes.use("/track-orders",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), trackDeliveryRoutes);
+agentRoutes.use('/payment',authenticateUser,authorizeRoles(_userType.agent ,_userType.admin,_userType.associate), paymentRoutes);
+agentRoutes.use("/dashboard",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), dashboardRoutes);
+agentRoutes.use("/proc-track",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), procTrackingRoutes);
+agentRoutes.use("/agency",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), agencyMngmntRoutes);
+agentRoutes.use("/commodity",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), commodityRoutes);
+agentRoutes.use("/sla",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), slaRoute);
+agentRoutes.use("/standard",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin,_userType.associate), standardRoutes);
+agentRoutes.use("/mandiWiseProcurement",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), mandiWiseProcurementRoute )
+
 
 module.exports = { agentRoutes } 

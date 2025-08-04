@@ -15,7 +15,6 @@ const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDeta
 
 
 module.exports.batch = async (req, res) => {
-
     try {
 
         const { req_id, truck_capacity, farmerData = [] } = req.body;
@@ -100,7 +99,6 @@ module.exports.batch = async (req, res) => {
             farmer.amt = handleDecimal(farmer.qty * procurementRecord?.quotedPrice);
             farmerOrderIds.push(farmer.farmerOrder_id);
         }
-
         // given farmer's order should be in received state
         const farmerRecords = await FarmerOrders.findOne({ status: { $ne: _procuredStatus.received }, associateOffers_id: record?._id, _id: { $in: farmerOrderIds } });
         if (farmerRecords)
@@ -114,9 +112,11 @@ module.exports.batch = async (req, res) => {
         let batchId, isUnique = false;
         while (!isUnique) {
             batchId = await generateBatchId();
-            if (!(await Batch.findOne({ batchId: batchId }))) isUnique = true;
+            let batchObj = await Batch.findOne({ batchId: batchId });
+            if (!batchObj) {
+                isUnique = true;
+            }
         }
-
         const findwarehouseUser = await RequestModel.findOne({ _id: req_id });
 
         const qty_value = handleDecimal(sumOfQtyDecimal);
@@ -184,13 +184,42 @@ module.exports.batch = async (req, res) => {
 };
 
 async function generateBatchId() {
-    // Fetch the most recent batch by sorting in descending order
-    const latestBatch = await Batch.findOne({})
-        .sort({ _id: -1 }) // Sort by `_id` in descending order (latest first)
-        .select("batchId"); // Only fetch the `batchId` field to minimize data transfer
+        // Fetch the most recent batch by sorting in descending order
+        // const latestBatch = await Batch.findOne({})
+        // .sort({ updatedAt: -1 }) // Sort by `_id` in descending order (latest first)
+        // .select("batchId"); // Only fetch the `batchId` field to minimize data transfer
 
-    let nextSequence = 1;
+        // let latestBatch = await Batch.find({
+        //     batchId: { $regex: /^BH-\d+$/ }, // Case-sensitive match
+        // }, { batchId: 1})
+        // .sort({ updatedAt: -1 }).limit(1) // Sort by latest `updatedAt`
 
+        let latestBatch = await Batch.aggregate([
+            {
+                $match: {
+                    batchId: { $regex: /^BH-\d+$/ } // Match only valid batch IDs
+                }
+            },
+            {
+                $addFields: {
+                    numericBatchId: { $toInt: { $substr: ["$batchId", 3, -1] } } // Extract number part
+                }
+            },
+            {
+                $sort: { numericBatchId: -1 } // Sort in descending order (largest first)
+            },
+            {
+                $limit: 1 // Get only the highest batch ID
+            },
+            {
+                $project: { batchId: 1 } // Only return batchId
+            }
+        ]);
+        
+
+        latestBatch = latestBatch[0];
+        let nextSequence = 1;
+  
     if (latestBatch && latestBatch.batchId) {
         // Extract the sequence number from the latest batch ID
         const match = latestBatch.batchId.match(/BH-(\d+)$/);
@@ -201,6 +230,7 @@ async function generateBatchId() {
 
     // Generate the new batch ID
     const batchId = `BH-${nextSequence.toString().padStart(4, "0")}`; // Zero-padded to 4 digits
+
     return batchId;
 }
 
@@ -350,7 +380,6 @@ module.exports.editTrackDelivery = async (req, res) => {
 }
 
 module.exports.viewTrackDelivery = async (req, res) => {
-
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query
         const user_id = req.user_id
@@ -358,7 +387,6 @@ module.exports.viewTrackDelivery = async (req, res) => {
         let query = {
             req_id,
             seller_id: user_id,
-            ...(search ? { name: { $regex: search, $options: "i" } } : {})
         };
 
         const records = { count: 0 };
@@ -368,27 +396,36 @@ module.exports.viewTrackDelivery = async (req, res) => {
               { path: "procurementCenter_id", select: "center_name" },
           ])
           */
-        records.rows = paginate == 1 ? await Batch.find(query).populate([
-            {
-                path: 'req_id', select: 'product address branch_id head_office_id sla_id',
-                populate: [
-                    { path: 'product.schemeId', select: 'schemeName season period' },
-                    { path: "sla_id", select: "basic_details.name" },
-                    { path: 'branch_id', select: '_id branchName branchId' },
-                    { path: "head_office_id", select: "_id company_details.name" }
-                ]
-
-            },
-            { path: 'associateOffer_id', select: 'offeredQty procuredQty' },
-            { path: "procurementCenter_id", select: "center_name" }
-        ])
+         let rows = await Batch.find(query)
+            .populate([
+                {
+                    path: 'req_id',
+                    select: 'product address branch_id head_office_id sla_id',
+                    populate: [
+                        { path: 'product.schemeId', select: 'schemeName season period' },
+                        { path: 'sla_id', select: 'basic_details.name' },
+                        { path: 'branch_id', select: '_id branchName branchId' },
+                        { path: 'head_office_id', select: '_id company_details.name' }
+                    ]
+                },
+                { path: 'associateOffer_id', select: 'offeredQty procuredQty' },
+                { path: 'procurementCenter_id', select: 'center_name' }
+            ])
             .sort(sortBy)
             .skip(skip)
-            .limit(parseInt(limit)) : await Batch.find(query).sort(sortBy);
+            .limit(parseInt(limit));
 
-        // Modify each record to concatenate schemeName, season, and period
-
-        records.count = await Batch.countDocuments(query);
+       if (search?.trim()) {
+            const lowerSearch = search.trim().toLowerCase();
+            rows = rows.filter(item => {
+                const batchMatch = item?.batchId?.toString().toLowerCase().includes(lowerSearch);
+                const centerMatch = item?.procurementCenter_id?.center_name?.toLowerCase().includes(lowerSearch);
+                return batchMatch || centerMatch;
+            });
+        }
+       
+        records.rows = rows;
+        records.count = rows.length;
 
         if (paginate == 1) {
             records.page = page
@@ -430,21 +467,24 @@ module.exports.viewTrackDelivery = async (req, res) => {
 module.exports.trackDeliveryByBatchId = async (req, res) => {
 
     try {
-
         const { id } = req.params;
         console.log('check trandsitt', id)
         const record = await Batch.findOne({ _id: id })
             .select({ dispatched: 1, intransit: 1, status: 1, delivered: 1 })
             .populate({
                 path: 'req_id', select: 'product address'
-            });
+            }).lean();
 
         if (!record) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
         }
-
+        if (record.req_id?.address?.deliveryLocation) {
+            record.intransit = {
+                ...record.intransit,
+                deliveryLocation: record.req_id.address.deliveryLocation
+            };
+        }
         return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("Track order") }));
-
     } catch (error) {
         _handleCatchErrors(error, res);
     }

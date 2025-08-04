@@ -59,6 +59,49 @@ module.exports.createProcurementCenter = async (req, res) => {
 
 }
 
+module.exports.editProcurementCenter = async (req, res) => {
+    try {
+        const { user_id, user_type } = req;
+        const { id } = req.params; 
+        const {
+            center_name, line1, line2, state, district, city,
+            name, email, mobile, designation, aadhar_number,
+            aadhar_image, postalCode, lat, long, addressType, location_url
+        } = req.body;
+
+        let center_type;
+        if (user_type == '4') {
+            center_type = _center_type.associate;
+        } else if (user_type == '6') {
+            center_type = _center_type.head_office;
+        } else {
+            center_type = _center_type.agent;
+        }
+
+        const updated = await ProcurementCenter.findOneAndUpdate(
+            { id }, // or { _id: req.body._id }
+            {
+                center_name,
+                center_type,
+                address: { line1, line2, country: 'India', state, district, city, postalCode, lat, long },
+                point_of_contact: { name, email, mobile, designation, aadhar_number, aadhar_image },
+                addressType,
+                location_url
+            },
+            { new: true } // return updated document
+        );
+
+        if (!updated) {
+            return res.status(404).send(new serviceResponse({ status: 404, message: "Procurement center not found" }));
+        }
+
+        return res.send(new serviceResponse({ status: 200, data: updated, message: _response_message.updated("Collection Center") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
 module.exports.getProcurementCenter = async (req, res) => {
 
     try {
@@ -83,7 +126,7 @@ module.exports.getProcurementCenter = async (req, res) => {
         if (city) query["address.city"] = city;
 
         const records = { count: 0 };
-        records.rows = paginate == 1
+        records.rows = (paginate == 1 && isExport != 1)
             ? await ProcurementCenter.find(query)
                 .populate({
                     path: 'user_id',
@@ -103,43 +146,60 @@ module.exports.getProcurementCenter = async (req, res) => {
                 .sort(sortBy);
         records.count = await ProcurementCenter.countDocuments(query);
 
-        if (paginate == 1) {
+        if (paginate == 1  && isExport != 1) {
             records.page = page
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
         }
 
-        if (isExport == 1) {
+        if (isExport == 1 && centerType === 'self') {
 
             const record = records.rows.map((item) => {
                 return {
-                    "Address Line 1": item?.address?.line1 || 'NA',
-                    "Address Line 2": item?.address?.line2 || 'NA',
-                    "Country": item?.address?.country || 'NA',
-                    "State": item?.address?.country || 'NA',
-                    "District": item?.address?.district || 'NA',
-                    "City": item?.address?.city || 'NA',
-                    "PIN Code": item?.address?.postalCode || 'NA',
-                    "Name": item?.point_of_contact?.name || 'NA',
-                    "Email": item?.point_of_contact?.email || 'NA',
-                    "Mobile": item?.point_of_contact?.mobile || 'NA',
-                    "Designation": item?.point_of_contact?.designation || 'NA',
-                    "Aadhar Number": item?.point_of_contact?.aadhar_number || 'NA',
+                    "Centre ID": item?.center_code || 'NA',
+                    "CENTRE NAME": item?.center_name || 'NA',
+                     "STATE": item?.address?.state || 'NA',
+                      "City": item?.address?.city || 'NA',
+                       "POINT OF CONTACT": item?.point_of_contact?.name || 'NA',
+                        "STATUS": item?.active || 'NA',
                 }
             })
             if (record.length > 0) {
                 dumpJSONToExcel(req, res, {
                     data: record,
-                    fileName: `collection-center.xlsx`,
-                    worksheetName: `collection-center}`
+                    fileName: `My-Procurement-Centre.xlsx`,
+                    worksheetName: `My-Procurement-Centre-record`
                 });
             } else {
                 return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
             }
-        } else {
+        } else if( isExport == 1 && centerType === 'associate' )
+        {
+             const record = records.rows.map((item) => {
+                return {
+                    "Centre ID": item?.center_code || 'NA',
+                    "CENTRE NAME": item?.center_name || 'NA',
+                    "Associate ID": item?.user_id?.user_code || 'NA',
+                    "Organization Name": item?.user_id?.basic_details?.associate_details?.organization_name || 'NA',
+                     "STATE": item?.address?.state || 'NA',
+                      "City": item?.address?.city || 'NA',
+                       "POINT OF CONTACT": item?.point_of_contact?.name || 'NA',
+                        "STATUS": item?.active || 'NA',
+                }
+            })
+            if (record.length > 0) {
+                dumpJSONToExcel(req, res, {
+                    data: record,
+                    fileName: `Associate-Procurement-Centre.xlsx`,
+                    worksheetName: `Associate-Procurement-Centre-record`
+                });
+            } else {
+                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _query.notFound() }))
+            }
+        }
+        else {
             return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
         }
-        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("collection center") }));
 
     } catch (error) {
         _handleCatchErrors(error, res);
@@ -230,7 +290,7 @@ module.exports.getProcurementCenter = async (req, res) => {
 //             }
 //         }
 
-//         // ✅ Return Paginated Response
+//         // Return Paginated Response
 //         return res.status(200).json({
 //             status: 200,
 //             data: {

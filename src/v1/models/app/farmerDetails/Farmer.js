@@ -3,23 +3,23 @@ const { _collectionName, _proofType, _titles, _gender, _religion, _maritalStatus
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const farmerSchema = new mongoose.Schema({
-    associate_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: _collectionName.Users, default: null },
+    associate_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: _collectionName.Users, default: null, index: true  },
     mobile_no: { type: String, required: false },
-    name: { type: String, default: null },
+    name: { type: String, default: null, index: true },
     is_verify_otp: { type: Boolean, default: false },
-    farmer_id: { type: String, default: null },
+    farmer_id: { type: String, default: null, index: true },
     is_welcome_msg_send: { type: Boolean, default: false },
-
+    harynaNewFarmer_code: { type: String, default: null },
     farmer_type: {
         type: String,
         enum: ['Individual', 'Associate'],
         required: false
     },
-    user_type: { type: String,default:"1", required: false },
+    user_type: { type: String, default: "1", required: false },
     farmer_code: { type: String, trim: true, },
-    basic_details: { 
+    basic_details: {
         name: { type: String, trim: true },
-        profile_pic:{ type: String, trim: true },
+        profile_pic: { type: String, trim: true },
         email: { type: String, trim: false },
         father_husband_name: { type: String, trim: true },
         mobile_no: { type: String, trim: true },
@@ -56,16 +56,17 @@ const farmerSchema = new mongoose.Schema({
         branch_name: { type: String, trim: true },
         account_holder_name: { type: String, trim: true },
         ifsc_code: { type: String, trim: true },
-        account_no: { type: String, trim: true },
+        account_no: { type: String, trim: true, index: true },
         proof_doc_key: { type: String, trim: true },
-        is_verified: { type: Boolean, default:false },
+        accountstatus: { type: String, trim:true},
+        is_verified: { type: Boolean, default: false }
     },
     land_details: [{ land_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Lands, required: false } }],
 
     crop_details: [{
         crop_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Crops, required: false }
     }],
-    
+
     infrastructure_needs: {
         warehouse: { type: Boolean, required: false },
         cold_storage: { type: Boolean, required: false },
@@ -93,9 +94,10 @@ const farmerSchema = new mongoose.Schema({
         type: { type: String, enum: Object.values(_proofType), default: null, trim: true },
         doc: { type: String, trim: true },
         aadhar_no: { type: String, required: false, trim: true },
-        is_verified: { type: Boolean, default:false }, // aadhar verified or not
+        is_verified: { type: Boolean, default:false },
+        is_verfiy_aadhar_date: { type: Date, default : null },
     },
-    farmer_tracent_code: { type: String, trim: true, },
+    source_by: { type: String, required: false, trim: true },
     status: { type: String, enum: Object.values(_status), default: _status.active },
     // steps: [{
     //     label: { type: String },
@@ -103,7 +105,19 @@ const farmerSchema = new mongoose.Schema({
     //     status: { type: String, enum: ['active', 'pending', 'completed'], default: "pending" }
     // }],
 
-    external_farmer_id : {type:Number},
+    external_farmer_id: { type: Number, require: true, unique: true },
+    hr_p_code: {
+        p_DCodeLGD: { type: String, required: false },  // Example: '64'
+        p_BtCodeLGD: { type: String, required: false }, // Example: '496'
+        p_WvCodeLGD: { type: String, required: false }, // Example: '61939'
+        p_address: { type: String, required: false },   // Example: 'JHAJJAR,MATANHAIL BL,Khaparwas'
+        Dis_code: { type: String, required: false },    // Example: '07'
+        Teh_code: { type: String, required: false },    // Example: '045'
+        Vil_code: { type: String, required: false },    // Example: '03448'
+        statecode: { type: String, required: false },   // Example: '06'
+      },
+    date: { type: String, default: new Date().toISOString().split("T")[0] },
+
     all_steps_completed_status: { type: Boolean, default: false },
     ekhrid: { type: Boolean, default: false },
     ..._commonKeys

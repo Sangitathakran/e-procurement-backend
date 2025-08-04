@@ -1,0 +1,876 @@
+const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
+const mongoose = require("mongoose");
+const { Batch } = require("@src/v1/models/app/procurement/Batch");
+const { Payment } = require("@src/v1/models/app/procurement/Payment");
+const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { _query, _response_message } = require("@src/v1/utils/constants/messages");
+const { RequestModel } = require("@src/v1/models/app/procurement/Request");
+const { Query } = require("mongoose");
+
+
+// module.exports.mandiWiseProcurementdata = async (req, res) => {
+//   try {
+//     const { portalId } = req;
+//     const { commodity, scheme, season } = req.query;
+//     let page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+//     let skip = (page - 1) * limit;
+//     const isExport = parseInt(req.query.isExport) === 1;
+//     const centerNames = req.query.search?.trim();
+//     const searchDistrict = req.query.districtNames
+//       ? Array.isArray(req.query.districtNames)
+//         ? req.query.districtNames
+//         : req.query.districtNames.split(',').map(c => c.trim())
+//       : null;
+
+//     // Filter
+//     let query = [];
+
+//     if (commodity) {
+//       const rawArray = Array.isArray(commodity)
+//         ? commodity
+//         : commodity.split(',');
+
+//       const commodityArray = rawArray
+//         .map(s => String(s).trim())
+//         .filter(s => s.length > 0);
+
+//       if (commodityArray.length > 0) {
+//         const regexCommodity = commodityArray.map(
+//           name => new RegExp(`^${name}$`, 'i')
+//         );
+//         // console.log('IN commodity block >>>>>>>>>>>>>');
+//         // console.dir({ $in: regexCommodity }, { depth: null });
+//         query.push({ 'product.name': { $in: regexCommodity } });
+//       } else {
+//         console.log(
+//           'Skipping commodity filter, input empty after cleaning.'
+//         );
+//       }
+//     }
+
+//     if (scheme) {
+//       const schemeArray = scheme
+//         .split(',')
+//         .filter(Boolean)
+//         .map(id => new mongoose.Types.ObjectId(id));
+//       if (schemeArray.length) {
+//         query.push({ 'product.schemeId': { $in: schemeArray } });
+//       }
+//     }
+
+//     if (season) {
+//       const seasonArray = season.split(',').filter(Boolean);
+//       if (seasonArray.length) {
+//         const regexSeason = seasonArray.map(
+//           name => new RegExp(`^${name}$`, 'i')
+//         );
+//         query.push({ 'product.season': { $in: regexSeason } });
+//       }
+//     }
+
+//     const filter = { $and: query };
+//     //console.dir( filter, { depth: null});
+
+//     const requests = await RequestModel.find(filter, { _id: 1 }).lean();
+//     const requestIds = requests.map(r => r._id);
+
+//     const paymentQuery = { bo_id: portalId };
+//     const payments = await Payment.find(paymentQuery).lean();
+//     const batchIdSet = [
+//       ...new Set(payments.map(p => String(p.batch_id)).filter(Boolean)),
+//     ];
+
+//     const pipeline = [
+//       {
+//         $match: {
+//           _id: { $in: batchIdSet.map(id => new mongoose.Types.ObjectId(id)) },
+//           ...(requestIds.length > 0 && { req_id: { $in: requestIds } }),
+//         },
+//       },
+//       {
+//         $lookup: {
+//           from: 'users',
+//           localField: 'seller_id',
+//           foreignField: '_id',
+//           as: 'seller',
+//         },
+//       },
+//       { $unwind: '$seller' },
+//       {
+//         $lookup: {
+//           from: 'procurementcenters',
+//           localField: 'procurementCenter_id',
+//           foreignField: '_id',
+//           as: 'center',
+//         },
+//       },
+//       { $unwind: '$center' },
+//       {
+//         $lookup: {
+//           from: 'associateoffers',
+//           localField: 'seller_id',
+//           foreignField: 'seller_id',
+//           as: 'associateOffer',
+//         },
+//       },
+//       {
+//         $unwind: {
+//           path: '$associateOffer',
+//           preserveNullAndEmptyArrays: true,
+//         },
+//       },
+//       {
+//         $lookup: {
+//           from: 'requests',
+//           localField: 'req_id',
+//           foreignField: '_id',
+//           as: 'relatedRequest',
+//         },
+//       },
+//       {
+//         $unwind: {
+//           path: '$relatedRequest',
+//           preserveNullAndEmptyArrays: true,
+//         },
+//       },
+//       {
+//         $addFields: {
+//           liftedDataDays: {
+//             $cond: [
+//               { $and: ['$createdAt', '$relatedRequest.createdAt'] },
+//               {
+//                 $dateDiff: {
+//                   startDate: '$relatedRequest.createdAt',
+//                   endDate: '$createdAt',
+//                   unit: 'day',
+//                 },
+//               },
+//               null,
+//             ],
+//           },
+//           purchaseDays: {
+//             $cond: [
+//               { $and: ['$updatedAt', '$relatedRequest.createdAt'] },
+//               {
+//                 $dateDiff: {
+//                   startDate: '$relatedRequest.createdAt',
+//                   endDate: '$updatedAt',
+//                   unit: 'day',
+//                 },
+//               },
+//               null,
+//             ],
+//           },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: '$procurementCenter_id',
+//           centerName: { $first: '$center.center_name' },
+//           Status: { $first: '$center.active' },
+//           centerId: { $first: '$center._id' },
+//           district: { $first: '$seller.address.registered.district' },
+//           associate_name: {
+//             $first: '$seller.basic_details.associate_details.associate_name',
+//           },
+//           liftedQty: { $sum: '$qty' },
+//           offeredQty: {
+//             $first: { $ifNull: ['$associateOffer.offeredQty', 0] },
+//           },
+//           liftedDataDays: { $first: '$liftedDataDays' },
+//           purchaseDays: { $first: '$purchaseDays' },
+//           productName: { $first: '$relatedRequest.product.name' },
+//         },
+//       },
+//       {
+//         $addFields: {
+//           balanceMandi: { $subtract: ['$offeredQty', '$liftedQty'] },
+//           liftingPercentage: {
+//             $cond: {
+//               if: { $gt: ['$offeredQty', 0] },
+//               then: {
+//                 $round: [
+//                   {
+//                     $multiply: [
+//                       { $divide: ['$liftedQty', '$offeredQty'] },
+//                       100,
+//                     ],
+//                   },
+//                   2,
+//                 ],
+//               },
+//               else: 0,
+//             },
+//           },
+//         },
+//       },
+//     ];
+//     const filterApplied = commodity || scheme || season;
+//     if (filterApplied && requestIds.length === 0) {
+//       return res.status(200).json(
+//         new serviceResponse({
+//           status: 200,
+//           message: _response_message.notFound('No records found'),
+//           data: {
+//             page,
+//             limit,
+//             totalPages: 0,
+//             totalRecords: 0,
+//             data: [],
+//           },
+//         })
+//       );
+//     }
+
+//     if (searchDistrict) {
+//       pipeline.push({
+//         $match: {
+//           district: { $in: searchDistrict },
+//         },
+//       });
+//       //   page = 1;
+//       //   skip = 0;
+//     }
+
+//     if (centerNames?.length) {
+//       pipeline.push({
+//         $match: {
+//           centerName: { $regex: centerNames, $options: 'i' },
+//         },
+//       });
+//       page = 1;
+//       skip = 0;
+//     }
+
+//     pipeline.push({ $sort: { centerName: 1 } });
+
+//     const aggregated = await Batch.aggregate(pipeline);
+
+//     if (isExport) {
+//       const exportRows = aggregated.map(item => ({
+//         'Center Name': item?.centerName || 'NA',
+//         District: item?.district || 'NA',
+//         'Associate Name': item?.associate_name || 'NA',
+//         'Product Name': item?.productName || 'NA',
+//         'Offered Qty': item?.offeredQty || 0,
+//         'Lifted Qty': item?.liftedQty || 0,
+//         'Balance Qty': item?.balanceMandi || 0,
+//         'Lifting %': item?.liftingPercentage + '%' || '0%',
+//         'Lifted Days': item?.liftedDataDays ?? 'NA',
+//         'Purchase Days': item?.purchaseDays ?? 'NA',
+//         Status: item?.Status ? 'Active' : 'Inactive',
+//       }));
+
+//       if (exportRows.length > 0) {
+//         return dumpJSONToExcel(req, res, {
+//           data: exportRows,
+//           fileName: `MandiWiseProcurementData.xlsx`,
+//           worksheetName: `Mandi Data`,
+//         });
+//       } else {
+//         return res.status(404).json(
+//           new serviceResponse({
+//             status: 404,
+//             message: _response_message.notFound('Mandi Procurement Not Found'),
+//           })
+//         );
+//       }
+//     }
+//     const totalRecords = aggregated.length;
+//     const totalPages = Math.ceil(totalRecords / limit);
+//     const paginatedData = aggregated.slice(skip, skip + limit);
+
+//     return res.status(200).json(
+//       new serviceResponse({
+//         status: 200,
+//         data: {
+//           page,
+//           limit,
+//           totalPages,
+//           totalRecords,
+//           data: paginatedData,
+//           message: _response_message.found('Mandi Procurement Data Fetched'),
+//         },
+//       })
+//     );
+//     //     return res.status(200).json(new serviceResponse({
+//     //   status: 200,
+//     //   message: _response_message.found("Mandi Procurement Data Fetched"),
+//     //   data: {
+//     //     records: paginatedData,
+//     //     page,
+//     //     limit,
+//     //     totalPages,
+//     //     totalRecords
+//     //   }
+//     // }));
+//   } catch (error) {
+//     _handleCatchErrors(error, res);
+//   }
+// };
+
+
+module.exports.mandiWiseProcurementdata = async (req, res) => {
+  try {
+    const { portalId } = req;
+    let {
+      commodity,
+      scheme,
+      season,
+      districts,
+      search,
+      page = 1,
+      limit = 10,
+      isExport = 0
+    } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+    const skip = (page - 1) * limit;
+    const isExportFlag = parseInt(isExport) === 1;
+
+    // Parse helper
+    const parseArray = (param) => {
+      if (!param) return [];
+      if (Array.isArray(param)) return param;
+      try {
+        const parsed = JSON.parse(param);
+        return Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        return param.split(',').map(item => item.trim()).filter(Boolean);
+      }
+    };
+
+    const commodityArray = parseArray(commodity);
+    const schemeArray = parseArray(scheme);
+    const seasonArray = parseArray(season);
+    const districtArray = parseArray(districts);
+    const query = [];
+
+    if (commodityArray.length > 0) {
+      const regexCommodity = commodityArray.map(
+        name => new RegExp(name, 'i')
+      );
+      // query.push({ 'product.name': { $in: regexCommodity } });
+      query.push({ 'product.commodity_id': { $in: regexCommodity } });
+    }
+
+    if (schemeArray.length > 0) {
+      const objectIdArray = schemeArray
+        .filter(mongoose.Types.ObjectId.isValid)
+        .map(id => new mongoose.Types.ObjectId(id));
+      if (objectIdArray.length) {
+        query.push({ 'product.schemeId': { $in: objectIdArray } });
+      }
+    }
+
+    if (seasonArray.length > 0) {
+      const regexSeason = seasonArray.map(
+        name => new RegExp(name, 'i')
+      );
+      query.push({ 'product.season': { $in: regexSeason } });
+    }
+
+
+    const payments = await Payment.find({ bo_id: portalId }).lean();
+    const batchIds = [
+      ...new Set(
+        payments.map(p => String(p.batch_id)).filter(Boolean)
+      ),
+    ];
+
+    const pipeline = [
+      {
+        $match: {
+          _id: { $in: batchIds.map(id => new mongoose.Types.ObjectId(id)) },
+          // ...(requestIds.length ? { req_id: { $in: requestIds } } : {}),
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'seller_id',
+          foreignField: '_id',
+          as: 'seller'
+        }
+      },
+      { $unwind: '$seller' },
+      {
+        $lookup: {
+          from: 'procurementcenters',
+          localField: 'procurementCenter_id',
+          foreignField: '_id',
+          as: 'center'
+        }
+      },
+      { $unwind: '$center' },
+      {
+        $lookup: {
+          from: 'associateoffers',
+          localField: 'seller_id',
+          foreignField: 'seller_id',
+          as: 'associateOffer'
+        }
+      },
+      {
+        $unwind: {
+          path: '$associateOffer',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $lookup: {
+          from: 'requests',
+          localField: 'req_id',
+          foreignField: '_id',
+          as: 'relatedRequest'
+        }
+      },
+      {
+        $unwind: {
+          path: '$relatedRequest',
+          preserveNullAndEmptyArrays: false
+        }
+      },
+      // add filter for season, schemeId here
+      {
+        $match: {
+          ...(seasonArray.length > 0 && {
+            "relatedRequest.product.season": {
+              $in: seasonArray.map(name => new RegExp(name, 'i'))
+            }
+          }),
+          ...(schemeArray.length > 0 && {
+            "relatedRequest.product.schemeId": {
+              $in: schemeArray
+                .filter(mongoose.Types.ObjectId.isValid)
+                .map(id => new mongoose.Types.ObjectId(id))
+            }
+          }),
+          ...(commodityArray.length > 0 && {
+            "relatedRequest.product.commodity_id": {
+              $in: commodityArray
+                .filter(mongoose.Types.ObjectId.isValid)
+                .map(id => new mongoose.Types.ObjectId(id))
+            }
+          }),
+          ...(districtArray.length > 0 && {
+            "center.address.district_id": {
+              $in: districtArray
+                .filter(mongoose.Types.ObjectId.isValid)
+                .map(id => new mongoose.Types.ObjectId(id))
+            }
+          }),
+        }
+      },
+
+      {
+        $addFields: {
+          // liftedDataDays: {
+          //   $cond: [
+          //     { $and: ['$createdAt', '$relatedRequest.createdAt'] },
+          //     {
+          //       $dateDiff: {
+          //         startDate: '$relatedRequest.createdAt',
+          //         endDate: '$createdAt',
+          //         unit: 'day'
+          //       }
+          //     },
+          //     null
+          //   ]
+          // },
+
+          liftedDataDays: {
+            $cond: [
+              { $and: ['$createdAt', '$relatedRequest.createdAt'] },
+              {
+                $cond: [
+                  {
+                    $lt: [
+                      {
+                        $dateDiff: {
+                          startDate: '$relatedRequest.createdAt',
+                          endDate: '$createdAt',
+                          unit: 'day'
+                        }
+                      },
+                      0
+                    ]
+                  },
+                  0,
+                  {
+                    $dateDiff: {
+                      startDate: '$relatedRequest.createdAt',
+                      endDate: '$createdAt',
+                      unit: 'day'
+                    }
+                  }
+                ]
+              },
+              null
+            ]
+          },
+
+          purchaseDays: {
+            $cond: [
+              { $and: ['$updatedAt', '$relatedRequest.createdAt'] },
+              {
+                $dateDiff: {
+                  startDate: '$relatedRequest.createdAt',
+                  endDate: '$updatedAt',
+                  unit: 'day'
+                }
+              },
+              null
+            ]
+          }
+        }
+      },
+      {
+
+
+        $group: {
+          _id: {
+            procurementCenter_id: '$procurementCenter_id',
+            req_id: '$req_id'
+          },
+          req_No: { $first: '$relatedRequest.reqNo' },
+          centerName: { $first: '$center.center_name' },
+          Status: { $first: '$center.active' },
+          centerId: { $first: '$center._id' },
+          state: { $first: "$center.address.state" },
+          state_id: { $first: "$center.address.state_id" },
+          district: { $first: '$center.address.district' },
+          district_id: { $first: '$center.address.district_id' },
+          associate_name: {
+            $first: '$seller.basic_details.associate_details.associate_name'
+          },
+          liftedQty: { $sum: '$qty' },
+          offeredQty: { $first: { $ifNull: ['$associateOffer.offeredQty', 0] } },
+          liftedDataDays: { $first: '$liftedDataDays' },
+          purchaseDays: { $first: '$purchaseDays' },
+          productName: { $first: '$relatedRequest.product.name' },
+          season: { $first: '$relatedRequest.product.season' },
+          schemeId: { $first: '$relatedRequest.product.schemeId' },
+          commodity_id: { $first: '$relatedRequest.product.commodity_id' }
+        }
+      },
+      {
+        $addFields: {
+          balanceMandi: { $subtract: ['$offeredQty', '$liftedQty'] },
+          liftingPercentage: {
+            $cond: {
+              if: { $gt: ['$offeredQty', 0] },
+              then: {
+                $round: [
+                  {
+                    $multiply: [
+                      { $divide: ['$liftedQty', '$offeredQty'] },
+                      100
+                    ]
+                  },
+                  2
+                ]
+              },
+              else: 0
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          req_No: 1,
+          centerName: 1,
+          Status: 1,
+          centerId: 1,
+          state: 1,
+          state_id: 1,
+          district: 1,
+          district_id: 1,
+          associate_name: 1,
+          liftedQty: 1,
+          offeredQty: 1,
+          liftedDataDays: 1,
+          purchaseDays: 1,
+          productName: 1,
+          season: 1,
+          schemeId: 1,
+          commodity_id: 1,
+          balanceMandi: 1,
+          liftingPercentage: 1,
+        }
+      }
+
+    ];
+
+    if (search?.trim()) {
+      const searchRegex = new RegExp(search, 'i');
+      pipeline.push({
+        $match: {
+          $or: [
+            { district: searchRegex },
+            { centerName: searchRegex }
+          ]
+        }
+      });
+    }
+
+
+    pipeline.push({ $sort: { centerName: 1 } });
+
+    const aggregated = await Batch.aggregate(pipeline);
+    // console.log(">>>>>>>>>>", aggregated)
+
+    //Handle export
+    if (isExportFlag) {
+      const exportRows = aggregated.map(item => ({
+        'Center Name': item?.centerName || 'NA',
+        District: item?.district || 'NA',
+        'Associate Name': item?.associate_name || 'NA',
+        'Product Name': item?.productName || 'NA',
+        'Offered Qty': item?.offeredQty || 0,
+        'Lifted Qty': item?.liftedQty || 0,
+        'Balance Qty': item?.balanceMandi || 0,
+        'Lifting %': item?.liftingPercentage + '%' || '0%',
+        'Lifted Days': item?.liftedDataDays ?? 'NA',
+        'Purchase Days': item?.purchaseDays ?? 'NA',
+        Status: item?.Status ? 'Active' : 'Inactive'
+      }));
+
+      if (exportRows.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: exportRows,
+          fileName: `MandiWiseProcurementData.xlsx`,
+          worksheetName: `Mandi Data`
+        });
+      } else {
+        return res.status(404).json(
+          new serviceResponse({
+            status: 404,
+            message: _response_message.notFound('Mandi Procurement Not Found')
+          })
+        );
+      }
+    }
+
+    // Pagination
+    const totalRecords = aggregated.length;
+    const totalPages = Math.ceil(totalRecords / limit);
+    const paginatedData = aggregated.slice(skip, skip + limit);
+
+    return res.status(200).json(
+      new serviceResponse({
+        status: 200,
+        data: {
+          page,
+          limit,
+          totalPages,
+          totalRecords,
+          data: paginatedData,
+          message: _response_message.found('Mandi Procurement Data Fetched')
+        }
+      })
+    );
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+
+
+module.exports.newMandiWiseProcurementdata = async (req, res) => {
+  try {
+    const { portalId } = req;
+    let { commodity, scheme, season, districts, search, page = 1, limit = 10, isExport = 0 } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+    const skip = (page - 1) * limit;
+    const isExportFlag = parseInt(isExport) === 1;
+
+    // ✅ Parse helper
+    const parseArray = (param) => {
+      if (!param) return [];
+      if (Array.isArray(param)) return param;
+      return param.split(',').map(item => item.trim()).filter(Boolean);
+    };
+
+    const commodityArray = parseArray(commodity);
+    const schemeArray = parseArray(scheme);
+    const seasonArray = parseArray(season);
+    const districtArray = parseArray(districts);
+
+    // ✅ Build request filters
+    const requestFilters = [{ branch_id: new mongoose.Types.ObjectId(portalId) }];
+    if (commodityArray.length) {
+      const commodityIds = commodityArray.filter(mongoose.Types.ObjectId.isValid).map(id => new mongoose.Types.ObjectId(id));
+      if (commodityIds.length) requestFilters.push({ "product.commodity_id": { $in: commodityIds } });
+    }
+    if (schemeArray.length) {
+      const schemeIds = schemeArray.filter(mongoose.Types.ObjectId.isValid).map(id => new mongoose.Types.ObjectId(id));
+      if (schemeIds.length) requestFilters.push({ "product.schemeId": { $in: schemeIds } });
+    }
+    if (seasonArray.length) {
+      const regexSeason = seasonArray.map(name => new RegExp(name, 'i'));
+      requestFilters.push({ "product.season": { $in: regexSeason } });
+    }
+
+    // ✅ Get all matching request IDs
+    const requestIds = await RequestModel.distinct("_id", { $and: requestFilters });
+
+    if (!requestIds.length) {
+      return res.status(200).json(new serviceResponse({
+        status: 200,
+        data: { page, limit, totalPages: 0, totalRecords: 0, data: [], totalOfferedQty: 0, totalLiftedQty: 0 },
+        message: _response_message.notFound('No Data Found')
+      }));
+    }
+
+    // ✅ Aggregation Pipeline
+    const pipeline = [
+      { $match: { req_id: { $in: requestIds } } },
+
+      // Join Procurement Center
+      {
+        $lookup: {
+          from: 'procurementcenters',
+          localField: 'procurementCenter_id',
+          foreignField: '_id',
+          as: 'center'
+        }
+      },
+      { $unwind: "$center" },
+
+      // Join AssociateOffers by req_id
+      {
+        $lookup: {
+          from: 'associateoffers',
+          localField: 'req_id',
+          foreignField: 'req_id',
+          as: 'offers'
+        }
+      },
+
+      // Join Requests for product details
+      {
+        $lookup: {
+          from: 'requests',
+          localField: 'req_id',
+          foreignField: '_id',
+          as: 'relatedRequest'
+        }
+      },
+      { $unwind: "$relatedRequest" },
+
+      {
+        $match: {
+          ...(districtArray.length > 0 && {
+            "center.address.district_id": { $in: districtArray.map(id => new mongoose.Types.ObjectId(id)) }
+          })
+        }
+      },
+
+      // ✅ First group by center + request to avoid duplication of offeredQty
+      {
+        $group: {
+          _id: { center: "$procurementCenter_id", req: "$req_id" },
+          centerName: { $first: "$center.center_name" },
+          Status: { $first: "$center.active" },
+          state: { $first: "$center.address.state" },
+          district: { $first: "$center.address.district" },
+          liftedQty: { $sum: "$qty" },
+          offeredQty: { $first: { $ifNull: [{ $arrayElemAt: ["$offers.offeredQty", 0] }, 0] } },
+          productName: { $first: "$relatedRequest.product.name" },
+          season: { $first: "$relatedRequest.product.season" }
+        }
+      },
+
+      // ✅ Final group by center to sum all offeredQty & liftedQty
+      {
+        $group: {
+          _id: "$_id.center",
+          centerName: { $first: "$centerName" },
+          Status: { $first: "$Status" },
+          state: { $first: "$state" },
+          district: { $first: "$district" },
+          liftedQty: { $sum: "$liftedQty" },
+          offeredQty: { $sum: "$offeredQty" }, // ✅ Sum from associate offers per request
+          productName: { $first: "$productName" },
+          season: { $first: "$season" }
+        }
+      },
+
+      // ✅ Add calculated fields
+      {
+        $addFields: {
+          balanceMandi: { $subtract: ["$offeredQty", "$liftedQty"] },
+          liftingPercentage: {
+            $cond: [
+              { $gt: ["$offeredQty", 0] },
+              { $round: [{ $multiply: [{ $divide: ["$liftedQty", "$offeredQty"] }, 100] }, 2] },
+              0
+            ]
+          }
+        }
+      }
+    ];
+
+    if (search?.trim()) {
+      const searchRegex = new RegExp(search, "i");
+      pipeline.push({ $match: { $or: [{ district: searchRegex }, { centerName: searchRegex }] } });
+    }
+
+    pipeline.push({ $sort: { centerName: 1 } });
+
+    const aggregated = await Batch.aggregate(pipeline);
+
+    // ✅ Calculate totals
+    const totalOfferedQty = aggregated.reduce((sum, item) => sum + (item.offeredQty || 0), 0);
+    const totalLiftedQty = aggregated.reduce((sum, item) => sum + (item.liftedQty || 0), 0);
+
+    // ✅ Export Handling
+    if (isExportFlag) {
+      const exportRows = aggregated.map(item => ({
+        'Center Name': item.centerName || 'NA',
+        District: item.district || 'NA',
+        'Offered Qty': item.offeredQty || 0,
+        'Lifted Qty': item.liftedQty || 0,
+        'Balance Qty': item.balanceMandi || 0,
+        'Lifting %': (item.liftingPercentage || 0) + '%',
+        Status: item.Status ? 'Active' : 'Inactive'
+      }));
+
+      return exportRows.length
+        ? dumpJSONToExcel(req, res, {
+            data: exportRows,
+            fileName: `MandiWiseProcurementData.xlsx`,
+            worksheetName: `Mandi Data`
+          })
+        : res.status(404).json(new serviceResponse({ status: 404, message: _response_message.notFound('No Data Found') }));
+    }
+
+    // ✅ Pagination
+    const totalRecords = aggregated.length;
+    const totalPages = Math.ceil(totalRecords / limit);
+    const paginatedData = aggregated.slice(skip, skip + limit);
+
+    return res.status(200).json(new serviceResponse({
+      status: 200,
+      data: {
+        page,
+        limit,
+        totalPages,
+        totalRecords,
+        totalOfferedQty: Number(totalOfferedQty.toFixed(3)),
+        totalLiftedQty: Number(totalLiftedQty.toFixed(3)),
+        data: paginatedData
+      },
+      message: _response_message.found('Mandi Procurement Data Fetched')
+    }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+

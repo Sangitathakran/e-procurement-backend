@@ -17,7 +17,7 @@ paymentRoutes.get("/batch-list", Auth, batchList);
 paymentRoutes.get("/lot-list", Auth, lot_list);
 
 
-paymentRoutes.get("/agent-req", agentPayments);
+paymentRoutes.get("/agent-req",Auth, agentPayments);
 
 paymentRoutes.get("/associate-req", Auth, AssociateTabPaymentRequests);
 paymentRoutes.get("/associate-req/associate-orders", Auth, AssociateTabassociateOrders);
