@@ -28,7 +28,7 @@ agentRoutes.use("/bo",authenticateUser,authorizeRoles(_userType.agent ,_userType
 agentRoutes.use("/warehouse",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), warehouseRoutes);
 agentRoutes.use("/procurement", authenticateUser,authorizeRoles(_userType.agent ,_userType.admin),procurementCenterRoutes);
 agentRoutes.use("/track-orders",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), trackDeliveryRoutes);
-agentRoutes.use('/payment',authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), paymentRoutes);
+agentRoutes.use('/payment',authenticateUser,authorizeRoles(_userType.agent ,_userType.admin,_userType.associate), paymentRoutes);
 agentRoutes.use("/dashboard",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), dashboardRoutes);
 agentRoutes.use("/proc-track",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), procTrackingRoutes);
 agentRoutes.use("/agency",authenticateUser,authorizeRoles(_userType.agent ,_userType.admin), agencyMngmntRoutes);

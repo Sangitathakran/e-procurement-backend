@@ -6,6 +6,7 @@ dotenv.config({
     path: path.resolve(__dirname, `../.env`)
 });
 
+
 const procurement_partners = {
     Radiant: "Radiant",
     Youkta: "Youkta",
@@ -83,7 +84,7 @@ module.exports = {
     AADHAR_VERIFICATION_API_KEY:process.env.AADHAR_VERIFICATION_API_KEY,
     VERFICATION:process.env.VERFICATION,
 
-    // AWS SES
+     // AWS SES
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     region: process.env.AWS_REGION,
@@ -92,16 +93,15 @@ module.exports = {
 
     // FRONTEND URLS
     FRONTEND_URLS: {
-  'head-office': HEADOFFICE,
-  'branch-office': BRANCHOFFICE,
-  admin: ADMIN,
-  distiller: DISTILLER,
-  Nccfadmin: NCCF_DISTILLER,
-  warehouse: WAREHOUSE,
-  farmer: FARMER,
-  agent: SLA,
-  associate: ASSOCIATE,
+  'head-office': process.env.HEADOFFICE,
+  'branch-office': process.env.BRANCHOFFICE,
+  admin: process.env.ADMIN,
+  distiller: process.env.DISTILLER,
+  Nccfadmin: process.env.NCCF_DISTILLER,
+  warehouse: process.env.WAREHOUSE,
+  farmer: process.env.FARMER,
+  agent: process.env.SLA,
+  associate: process.env.ASSOCIATE,
 }
-
 
 }

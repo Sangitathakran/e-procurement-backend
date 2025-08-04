@@ -7,6 +7,7 @@ const { Bank } = require("@src/v1/models/app/farmerDetails/Bank");
 const { findOne } = require("@src/v1/models/master/UserRole");
 const { object } = require("joi");
 const {  _center_type } = require('@src/v1/utils/constants');
+const { Commodity } = require("@src/v1/models/master/Commodity");
 
 
 
@@ -281,6 +282,7 @@ exports.insertNewRelatedRecords = async (farmer_id, data, res) => {
         crop_growth_stage:data.crop_growth_stage,
         crop_disease: data.crop_disease,
         crop_rotation: data.crop_rotation,
+        commodity_id: data.commodityId,
         previous_crop_details:{
           crop_season: data.previous_crop_session,
           crop_name: data.previous_crop_name,
@@ -313,6 +315,22 @@ exports.excelDateToDDMMYYYY = function (serial) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();
   return `${day}-${month}-${year}`;
+};
+exports.getCommodityIdByName = async (commodityName) => {
+  try {
+    const commodity = await Commodity.findOne({
+      name: { $regex: `^${commodityName}\\b`, $options: "i" }, // Case-insensitive match starting with word
+    });
+
+    if (commodity) {
+      return commodity._id;
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.error("Error fetching commodityId by name:", error.message);
+    throw error;
+  }
 };
 
 

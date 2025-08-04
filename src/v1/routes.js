@@ -26,12 +26,14 @@ const {commonAuth} = require("@middlewares/jwt")
 const { slaRoutes } = require("./modules/sla/Routes");
 // const { agristackchRoutes } = require("./modules/agristack/Routes");
 const { bulkImport } = require("./modules/importServices/Routes");
+const { nafedRoutes } = require("@modules/nafed-apis/routes");
+
 /* Define Your Routes */
 router.use(handlePagination)
 //router.use(handleRateLimit)    //unnecessarily throws too many requests
 router.use(multer().any())
 
-router.use('/aws',commonAuth, S3Router) 
+router.use('/aws', S3Router) 
 router.use("/master", masterRoutes); 
 router.use("/modules", FeatureRoutes)
 router.use("/agent", agentRoutes);
@@ -51,7 +53,7 @@ router.use("/bank",commonAuth, bankIntegrationRoutes)
 router.use("/dropdown", dropDownRoutes);
 router.use("/ekhrid",commonAuth, ekhridRoutes);
 router.use("/upag", upagRoutes);
-//router.use("/agristack", agristackchRoutes);
+router.use("/distiler_visit", nafedRoutes);
 
 router.use('/', bulkImport)
 

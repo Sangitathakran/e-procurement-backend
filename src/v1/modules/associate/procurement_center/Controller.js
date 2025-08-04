@@ -247,6 +247,109 @@ module.exports.updateProcurementCenter = asyncErrorHandler(async (req, res) => {
       }));
   }
 });
+// module.exports.getProcurementCenter = async (req, res) => {
+//   try {
+//     const {
+//       page,
+//       limit,
+//       skip,
+//       paginate = 1,
+//       sortBy,
+//       search = "",
+//       isExport = 0,
+//     } = req.query;
+//     const { user_id } = req;
+//     let query = {
+//       user_id: new mongoose.Types.ObjectId(user_id),
+//       deletedAt: null,
+//       ...(search && {
+//         $or: [
+//          { center_name: { $regex: search, $options: "i" } },
+//          { center_code: { $regex: search, $options: "i" } }
+//         ]
+//         })
+//       };
+//     const records = { count: 0 };
+//     records.rows =
+//       paginate == 1
+//         ? await ProcurementCenter.find(query)
+//             .populate({
+//               path: "user_id",
+//               select:
+//                 "basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code basic_details.associate_details.organization_name",
+//             })
+//             .sort(sortBy)
+//             .skip(skip)
+//             .limit(parseInt(limit))
+//         : await ProcurementCenter.find(query)
+//             .populate({
+//               path: "user_id",
+//               select:
+//                 "basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code basic_details.associate_details.organization_name",
+//             })
+//             .sort(sortBy);
+
+//     records.count = await ProcurementCenter.countDocuments(query);
+
+//     if (paginate == 1) {
+//       records.page = page;
+//       records.limit = limit;
+//       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+//     }
+
+//     if (isExport == 1) {
+//       const record = records.rows.map((item) => {
+//         return {
+//           "Address Line 1": item?.address?.line1 || "NA",
+//           "Address Line 2": item?.address?.line2 || "NA",
+//           Country: item?.address?.country || "NA",
+//           State: item?.address?.country || "NA",
+//           District: item?.address?.district || "NA",
+//           City: item?.address?.city || "NA",
+//           "PIN Code": item?.address?.postalCode || "NA",
+//           Name: item?.point_of_contact?.name || "NA",
+//           Email: item?.point_of_contact?.email || "NA",
+//           Mobile: item?.point_of_contact?.mobile || "NA",
+//           Designation: item?.point_of_contact?.designation || "NA",
+//           "Aadhar Number": item?.point_of_contact?.aadhar_number || "NA",
+//         };
+//       });
+//       if (record.length > 0) {
+//         dumpJSONToExcel(req, res, {
+//           data: record,
+//           fileName: `collection-center.xlsx`,
+//           worksheetName: `collection-center}`,
+//         });
+//       } else {
+//         return res.status(400).send(
+//           new serviceResponse({
+//             status: 400,
+//             data: records,
+//             message: _query.notFound(),
+//           })
+//         );
+//       }
+//     } else {
+//       return res.status(200).send(
+//         new serviceResponse({
+//           status: 200,
+//           data: records,
+//           message: _response_message.found("collection center"),
+//         })
+//       );
+//     }
+//     return res.send(
+//       new serviceResponse({
+//         status: 200,
+//         data: records,
+//         message: _response_message.found("collection center"),
+//       })
+//     );
+//   } catch (error) {
+//     _handleCatchErrors(error, res);
+//   }
+// };
+
 module.exports.getProcurementCenter = async (req, res) => {
   try {
     const {
@@ -349,94 +452,108 @@ module.exports.getProcurementCenter = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
-module.exports.getHoProcurementCenter = async (req, res) => {
-    try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', associateName, state, city, isExport = 0 } = req.query;
-       let query = { deletedAt: null };
+// module.exports.getProcurementCenter = async (req, res) => {
+//   try {
+//     const {
+//       page,
+//       limit,
+//       skip,
+//       paginate = 1,
+//       sortBy,
+//       search = "",
+//       isExport = 0,
+//     } = req.query;
+//     const { user_id } = req;
+//     let query = {
+//       user_id: user_id,
+//       deletedAt: null,
+//       ...(search && {
+//         $or: [
+//          { center_name: { $regex: search, $options: "i" } },
+//          { center_code: { $regex: search, $options: "i" } }
+//         ]
+//         })
+//       };
+//     const records = { count: 0 };
+//     records.rows =
+//       paginate == 1
+//         ? await ProcurementCenter.find(query)
+//             .populate({
+//               path: "user_id",
+//               select:
+//                 "basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code basic_details.associate_details.organization_name",
+//             })
+//             .sort(sortBy)
+//             .skip(skip)
+//             .limit(parseInt(limit))
+//         : await ProcurementCenter.find(query)
+//             .populate({
+//               path: "user_id",
+//               select:
+//                 "basic_details.associate_details.associate_name basic_details.associate_details.associate_type user_code basic_details.associate_details.organization_name",
+//             })
+//             .sort(sortBy);
 
-        if (search) {
-        const orFilters = [
-            { center_name: { $regex: search, $options: "i" } },
-            {center_code: { $regex: search, $options: "i"} }
-        ];
+//     records.count = await ProcurementCenter.countDocuments(query);
 
-        if (mongoose.Types.ObjectId.isValid(search)) {
-            orFilters.push({ _id: new mongoose.Types.ObjectId(search) });
-        }
+//     if (paginate == 1) {
+//       records.page = page;
+//       records.limit = limit;
+//       records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+//     }
 
-        query.$or = orFilters;
-        }
-
-        if (associateName) query["point_of_contact.name"] = { $regex: associateName, $options: "i" };
-        if (state) query["address.state"] = { $regex: state, $options: "i" };
-        if (city) query["address.city"] = { $regex: city, $options: "i" };
-
-        const records = { count: 0 };
-        // Populates user_id with only bank_details
-        const baseQuery = ProcurementCenter.find(query)
-            .populate('user_id', 'bank_details')
-            .sort(sortBy);
-
-    records.count = await ProcurementCenter.countDocuments(query);
-
-    if (paginate == 1) {
-      records.page = page;
-      records.limit = limit;
-      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-    }
-
-    if (isExport == 1) {
-      const record = records.rows.map((item) => {
-        return {
-          "Address Line 1": item?.address?.line1 || "NA",
-          "Address Line 2": item?.address?.line2 || "NA",
-          Country: item?.address?.country || "NA",
-          State: item?.address?.country || "NA",
-          District: item?.address?.district || "NA",
-          City: item?.address?.city || "NA",
-          "PIN Code": item?.address?.postalCode || "NA",
-          Name: item?.point_of_contact?.name || "NA",
-          Email: item?.point_of_contact?.email || "NA",
-          Mobile: item?.point_of_contact?.mobile || "NA",
-          Designation: item?.point_of_contact?.designation || "NA",
-          "Aadhar Number": item?.point_of_contact?.aadhar_number || "NA",
-        };
-      });
-      if (record.length > 0) {
-        dumpJSONToExcel(req, res, {
-          data: record,
-          fileName: `collection-center.xlsx`,
-          worksheetName: `collection-center}`,
-        });
-      } else {
-        return res.status(400).send(
-          new serviceResponse({
-            status: 400,
-            data: records,
-            message: _query.notFound(),
-          })
-        );
-      }
-    } else {
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: records,
-          message: _response_message.found("collection center"),
-        })
-      );
-    }
-    return res.send(
-      new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.found("collection center"),
-      })
-    );
-  } catch (error) {
-    _handleCatchErrors(error, res);
-  }
-};
+//     if (isExport == 1) {
+//       const record = records.rows.map((item) => {
+//         return {
+//           "Address Line 1": item?.address?.line1 || "NA",
+//           "Address Line 2": item?.address?.line2 || "NA",
+//           Country: item?.address?.country || "NA",
+//           State: item?.address?.country || "NA",
+//           District: item?.address?.district || "NA",
+//           City: item?.address?.city || "NA",
+//           "PIN Code": item?.address?.postalCode || "NA",
+//           Name: item?.point_of_contact?.name || "NA",
+//           Email: item?.point_of_contact?.email || "NA",
+//           Mobile: item?.point_of_contact?.mobile || "NA",
+//           Designation: item?.point_of_contact?.designation || "NA",
+//           "Aadhar Number": item?.point_of_contact?.aadhar_number || "NA",
+//         };
+//       });
+//       if (record.length > 0) {
+//         dumpJSONToExcel(req, res, {
+//           data: record,
+//           fileName: `collection-center.xlsx`,
+//           worksheetName: `collection-center}`,
+//         });
+//       } else {
+//         return res.status(400).send(
+//           new serviceResponse({
+//             status: 400,
+//             data: records,
+//             message: _query.notFound(),
+//           })
+//         );
+//       }
+//     } else {
+//       return res.status(200).send(
+//         new serviceResponse({
+//           status: 200,
+//           data: records,
+//           message: _response_message.found("collection center"),
+//         })
+//       );
+//     }
+//     return res.send(
+//       new serviceResponse({
+//         status: 200,
+//         data: records,
+//         message: _response_message.found("collection center"),
+//       })
+//     );
+//   } catch (error) {
+//     _handleCatchErrors(error, res);
+//   }
+// };
 
 module.exports.getProcurementById = asyncErrorHandler(async (req, res) => {
   try {

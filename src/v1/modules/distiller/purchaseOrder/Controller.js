@@ -75,7 +75,6 @@ module.exports.amountCalculation = asyncErrorHandler(async (req, res) => {
     );
   }
 });
-
 /*
 module.exports.createPurchaseOrder = asyncErrorHandler(async (req, res) => {
   const { organization_id, user_id, user_type } = req

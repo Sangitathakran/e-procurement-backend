@@ -1,7 +1,7 @@
-// utils/mailer/mailtrapMailer.js
 const nodemailer = require('nodemailer');
 const { MailtrapTransport } = require('mailtrap');
 const { mailer } = require('@config/index');
+const logger = require('@src/common/logger/logger');
 
 /**
  * Send email using Mailtrap
@@ -28,9 +28,11 @@ const sendWithMailtrap = async ({ to, cc, subject, html, text, attachments }) =>
   try {
     const info = await transporter.sendMail(mailOptions);
     console.log('Mailtrap email sent:', info.message_ids);
+    logger.info('Mailtrap email sent:', info.message_ids);
     return info;
   } catch (err) {
     console.error('Mailtrap email error:', err);
+    logger.error('Mailtrap email error:', err);
     throw new Error(err.message);
   }
 };
