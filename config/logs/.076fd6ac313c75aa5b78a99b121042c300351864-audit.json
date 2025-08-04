@@ -6,11 +6,6 @@
     "auditLog": "C:\\xampp\\htdocs\\procurement_backend\\procurement_admin_apis\\config\\logs\\.076fd6ac313c75aa5b78a99b121042c300351864-audit.json",
     "files": [
         {
-            "date": 1752860773133,
-            "name": "C:\\xampp\\htdocs\\procurement_backend\\procurement_admin_apis\\config\\logs\\app-2025-07-18.log",
-            "hash": "5a9137af9b7397081f3c195a688712f4d088f894519b8e567ad6ff9c15b37868"
-        },
-        {
             "date": 1753162052278,
             "name": "C:\\xampp\\htdocs\\procurement_backend\\procurement_admin_apis\\config\\logs\\app-2025-07-22.log",
             "hash": "9ed716b642400c10c22feb4374071fcb955bcfc3fa28272c70ce38369c8c9eaf"
@@ -44,6 +39,11 @@
             "date": 1754041741650,
             "name": "C:\\xampp\\htdocs\\procurement_backend\\procurement_admin_apis\\config\\logs\\app-2025-08-01.log",
             "hash": "f009557fa673cfc6332706c3378582f40b0a153337560397f958c1752a7ce837"
+        },
+        {
+            "date": 1754286546885,
+            "name": "C:\\xampp\\htdocs\\procurement_backend\\procurement_admin_apis\\config\\logs\\app-2025-08-04.log",
+            "hash": "005b9c9d716c36084ce3a63559ee4a78cae44c66cc4b8cd537abf9add1bc9a9c"
         }
     ],
     "hashType": "sha256"
