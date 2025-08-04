@@ -281,7 +281,7 @@ module.exports.getProcurementCenter = async (req, res) => {
         ]
         })
       };
-      logger.info(`Built procurement center query: ${JSON.stringify(query)}`);
+    logger.info(`Built procurement center query: ${JSON.stringify(query)}`);
     const records = { count: 0 };
     records.rows =
       paginate == 1
@@ -302,7 +302,7 @@ module.exports.getProcurementCenter = async (req, res) => {
             })
             .sort(sortBy);
 
-    records.count = await ProcurementCenter.countDocuments(query);
+   records.count = await ProcurementCenter.countDocuments(query);
    const returned = Array.isArray(records.rows) ? records.rows.length : 0;
     logger.info(
       `Fetched procurement center data totalCount=${records.count} returned=${returned} paginate=${paginate}`
