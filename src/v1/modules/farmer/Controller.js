@@ -68,6 +68,7 @@ const parseExcelOrCsvFile = require('@src/common/services/parseExcelOrCsvFile');
 const { verfiyfarmer } = require('@src/v1/models/app/farmerDetails/verfiyFarmer');
 const logger = require('@common/logger/logger');
 const { VerificationType } = require('@common/enum');
+const { Batch } = require("@src/v1/models/app/procurement/Batch");
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -5254,7 +5255,8 @@ module.exports.getAssamMaizeProcurementSummary = async (req, res) => {
       // Step 4: Filter for state = Assam
       {
         $match: {
-          'seller.address.registered.state': { $regex: '^Assam$', $options: 'i' }
+          // 'seller.address.registered.state': { $regex: '^Assam$', $options: 'i' }
+          'seller.address.registered.state': { $regex: '^Madhya Pradesh$', $options: 'i' }
         }
       },
       // Step 5: Group once by batch to get unique qty
