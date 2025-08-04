@@ -244,11 +244,11 @@ module.exports.verifyAadharOTP = async (req, res) => {
   try {
     const { otp, code, transaction_id, uidai_aadharNo, farmer_id  } = req.body;
 
-    if (!otp || !transaction_id || !farmer_id) {
+    if (!otp || !transaction_id || !farmer_id || !uidai_aadharNo) {
       return res.status(400).send(
         new serviceResponse({
           status: 400,
-          errors: [{ message: _middleware.require("OTP,transaction_id,farmer_id") }],
+          errors: [{ message: _middleware.require("OTP,transaction_id,farmer_id,uidai_aadharNo") }],
         })
       );
     }
@@ -319,7 +319,8 @@ module.exports.verifyAadharOTP = async (req, res) => {
       })
     );
   } catch (error) {
-    let responseMessage = "Something went wrong";
+    console.log('Error', error);
+    let responseMessage = error.toString()  || "Something went wrong";
     let serviceStatus = 500;
     let fields = null;
 
@@ -332,12 +333,12 @@ module.exports.verifyAadharOTP = async (req, res) => {
       console.log(`Failed to parse error response: ${parseErr?.message}`);
     }
 
-    return res.status(404).send(
+    return res.status(serviceStatus).send(
       new serviceResponse({
         status: serviceStatus,
         message: responseMessage || _response_message.invalid("response from service provider"),
         errors: fields || {
-          message: "Something went wrong, please try again later",
+          message: error?.toString() || "Something went wrong, please try again later",
         },
       })
     );

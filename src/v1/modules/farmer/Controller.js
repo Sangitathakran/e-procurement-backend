@@ -24,6 +24,7 @@ const {
   insertNewRelatedRecords,
   insertNewHaryanaFarmerRecord,
   insertNewHaryanaRelatedRecords,
+  getCommodityIdByName,
 } = require("@src/v1/utils/helpers/farmer_module");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
@@ -2334,6 +2335,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         const land_district_id = districtIdResult.districtId;
         const sowing_date = parseMonthyear(sowingdate);
         const harvesting_date = parseMonthyear(harvestingdate);
+        const commodityId  = await getCommodityIdByName(crop_name);
         // const processedDateOfBirth = parseDateOfBirth(date_of_birth);
 
         let associateId = user_id;
@@ -2452,6 +2454,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
             insurance_start_date,
             insurance_end_date,
             crop_variety,
+            commodityId,
           });
         }
       } catch (error) {
