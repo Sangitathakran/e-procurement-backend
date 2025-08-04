@@ -1,8 +1,10 @@
 
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
+const {_collectionName} = require("@src/v1/utils/constants");
+const { _commonKeys } = require("@src/v1/utils/helpers/collection");
                                                                                                                                                                                                                                                                                                                           
-const distilleryStatsHistorySchema = new Schema(
+const distillerStatsHistorySchema = new Schema(
   {
     distilleryStatsId: {
       type: Schema.Types.ObjectId,
@@ -21,10 +23,11 @@ const distilleryStatsHistorySchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "masterUser", // track who made the update
     },
+    ..._commonKeys,
   },
   { timestamps: true }
 );
-const distilleryStatsSchema = new Schema(
+const distillerStatsSchema = new Schema(
   {
     totalDistilleriesRegistered: {
       type: Number,
@@ -45,12 +48,13 @@ const distilleryStatsSchema = new Schema(
     totalPaymentByDistilleries: {
       type: Number,
       default: 0,
-    }
+    },
+    ..._commonKeys,
   },
   { timestamps: true }
 );
 
 module.exports = {
-  DistilleryStats: mongoose.model("distilleryStats", distilleryStatsSchema),
-  DistilleryStatsHistory: mongoose.model("distilleryStatsHistory", distilleryStatsHistorySchema),
+  NafedStats: mongoose.model(_collectionName.nafedstats, distillerStatsSchema),
+  NafedStatsHistory: mongoose.model(_collectionName.nafedstatshistory, distillerStatsHistorySchema),
 };
