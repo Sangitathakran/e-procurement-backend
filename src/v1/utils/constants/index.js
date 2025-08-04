@@ -83,6 +83,8 @@ const _collectionName = {
     verfiyFarmer: "verfiyfarmer",
     associateMandiName: "associateMandiName",
     eKharidHaryana: "ekhridnewprocs",
+    nafedstatshistory: "nafedstatshistory",
+    nafedstats: "nafedstats",
 }
 
 const _userType_Feature_Collection = {
