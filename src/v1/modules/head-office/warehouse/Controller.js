@@ -146,8 +146,27 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                     as: "warehouseOwner"
                 }
             },
+            {
+                $lookup: {
+                    from: "batches",
+                    localField: "_id",
+                    foreignField: "warehousedetails_id",
+                    as: "batches",
+                    pipeline: [{
+                        $project: {
+                            qty: 1,
+                            available_qty: 1,
+                        },
+                    }]
+                }
+            },
             { $unwind: { path: "$warehouseOwner", preserveNullAndEmptyArrays: true } },
             { $match: {...query,active:true} },
+            {
+            $addFields: {
+                totalAvailableQty: { $sum: "$batches.available_qty" }
+                        }
+            },
             {
                 $project: {
                     wareHouse_code: 1,
@@ -155,6 +174,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                     addressDetails: 1,
                     active: 1,
                     "warehouseOwner.ownerDetails.name": 1,
+                    totalAvailableQty: 1,
                     createdAt: 1
                 }
             },
@@ -197,7 +217,6 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-
         return sendResponse({
             res,
             status: 200,
@@ -283,6 +302,8 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
                     "request.product": 1,
                     "user.basic_details.associate_details.associate_name": 1,
                     "procurementcenter.center_name": 1,
+                    available_qty: 1,
+                    qty: 1,
                 }
             },
             { $sort: sortBy },
