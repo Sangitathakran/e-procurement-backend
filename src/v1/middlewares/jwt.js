@@ -211,6 +211,7 @@ const commonAuth = async function (req, res, next) {
         return sendResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
       }
       req.usersDeatils = decoded.user_type
+      req.user_id = decoded.user_id
       next();
     });
   }
