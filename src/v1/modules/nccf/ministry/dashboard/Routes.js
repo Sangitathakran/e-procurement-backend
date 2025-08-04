@@ -7,7 +7,7 @@ const { getDashboardStats, monthlyLiftedTrends, getMonthlyPayments, stateWiseQua
 } = require("./Controller");
 
 
-ministrydashboardRoutes.get("/",  getDashboardStats);
+ministrydashboardRoutes.get("/", Auth, getDashboardStats);
 ministrydashboardRoutes.get("/monthlyLiftedTrends", Auth, monthlyLiftedTrends);
 ministrydashboardRoutes.get("/stateWiseAnalysis", Auth, stateWiseAnalysis);
 ministrydashboardRoutes.get("/monthlyPaymentRecieved", Auth, getMonthlyPayments);
