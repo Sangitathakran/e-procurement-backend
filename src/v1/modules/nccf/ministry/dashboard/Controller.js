@@ -12,7 +12,6 @@ const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 const { mongoose } = require("mongoose");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
-const { NafedStats, NafedStatsHistory } = require("@src/v1/models/app/auth/NafedStats");
 
 /*
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
