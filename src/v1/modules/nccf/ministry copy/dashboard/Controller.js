@@ -51,14 +51,12 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
           previousEnd = new Date(currentStart);
           previousEnd.setDate(currentStart.getDate() - 1);
           break;
-
         case 'year':
           currentStart = new Date(now.getFullYear(), 0, 1);
           currentEnd = now;
           previousStart = new Date(now.getFullYear() - 1, 0, 1);
           previousEnd = new Date(now.getFullYear() - 1, 11, 31);
           break;
-
         case 'range':
           if (!startDate || !endDate) throw new Error("Start date and end date are required for custom range");
           currentStart = new Date(startDate);
@@ -1281,6 +1279,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 });
 
 
+
 module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
   try {
     const { state = '', district = '', commodity = '', cna = '', filterType = '' } = req.query;
@@ -1689,7 +1688,7 @@ module.exports.stateWiseProcurementQuantity = asyncErrorHandler(async (req, res)
       {
         $match: {
           source_by: { $in: finalCNA },
-          deletedAt:null
+          deletedAt: null
         }
       },
       {
@@ -1750,7 +1749,7 @@ module.exports.stateWiseLiftingQuantity = asyncErrorHandler(async (req, res) => 
       {
         $match: {
           source_by: { $in: finalCNA },
-          deletedAt:null
+          deletedAt: null
         }
       },
       {
