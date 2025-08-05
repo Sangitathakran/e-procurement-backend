@@ -19,7 +19,8 @@ const { getPermission } = require("../../user-management/permission");
 const getIpAddress = require('@src/v1/utils/helpers/getIPAddress');
 const { _frontendLoginRoutes, _userTypeFrontendRouteMapping } = require('@src/v1/utils/constants');
 const logger = require('@src/common/logger/logger');
-
+const { LoginHistory } = require("@src/v1/models/master/loginHistery");
+const { LoginAttempt, ResetLinkHistory } = require("@src/v1/models/master/loginAttempt");
 
 module.exports.getNccf = async (req, res) => {
 
@@ -66,7 +67,7 @@ module.exports.createNccf = async (req, res) => {
         // checking the existing user in Master User collection
         const isUserAlreadyExist = await MasterUser.findOne(
             { $or: [{ mobile: { $exists: true, $eq: phone.trim() } }, { email: { $exists: true, $eq: email.trim() } }] });
-       
+
         if (isUserAlreadyExist) {
             return sendResponse({ res, status: 400, message: "user already existed with this mobile number or email in Master" })
         }
@@ -228,6 +229,18 @@ module.exports.login = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('Password') }] }));
         }
 
+        const blockCheck = await LoginAttempt.findOne({ email: email.trim() });
+        if (blockCheck?.lockUntil && blockCheck.lockUntil > new Date()) {
+            const remainingTime = Math.ceil((blockCheck.lockUntil - new Date()) / (1000 * 60));
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    data: { remainingTime },
+                    errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minutes.` }]
+                })
+            );
+        }
+
         const user = await MasterUser.findOne({ email: email.trim() })
             .populate([
                 { path: "userRole", select: "" },
@@ -240,9 +253,59 @@ module.exports.login = async (req, res) => {
         }
 
         const validPassword = await bcrypt.compare(password, user.password);
+        // if (!validPassword) {
+        //     logger.warn(`Login failed - Invalid password for email: ${email}`);
+        //     return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('Credentials') }] }));
+        // }
+
         if (!validPassword) {
-            logger.warn(`Login failed - Invalid password for email: ${email}`);
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('Credentials') }] }));
+            const loginAttempt = await LoginAttempt.findOne({ master_id: user._id, userType: user.user_type });
+
+            if (loginAttempt) {
+                loginAttempt.failedAttempts += 1;
+                loginAttempt.lastFailedAt = new Date();
+
+                if (loginAttempt.failedAttempts >= 5) {
+                    loginAttempt.lockUntil = new Date(Date.now() + 30 * 60 * 1000);
+                }
+
+                await loginAttempt.save();
+
+                const remainingAttempts = 5 - loginAttempt.failedAttempts;
+
+                if (remainingAttempts <= 0) {
+                    return res.status(400).send(
+                        new serviceResponse({
+                            status: 400,
+                            data: { remainingTime: 30 },
+                            errors: [{ message: `Your account is locked due to multiple failed attempts. Try again after 30 minutes.` }]
+                        })
+                    );
+                }
+
+                return res.status(400).send(
+                    new serviceResponse({
+                        status: 400,
+                        errors: [{ message: _commonMessages.invaildCredentials }]
+                    })
+                );
+            } else {
+                await LoginAttempt.create({
+                    master_id: user._id,
+                    userType: user.user_type,
+                    email: email,
+                    failedAttempts: 1,
+                    lastFailedAt: new Date()
+                });
+
+                return res.status(400).send(
+                    new serviceResponse({
+                        status: 400,
+                        // data: { remainingAttempts: 4 },
+                        errors: [{ message: _commonMessages.invaildCredentials }]
+                    })
+                );
+            }
         }
 
         const portalTypeMapping = Object.fromEntries(
@@ -266,6 +329,16 @@ module.exports.login = async (req, res) => {
         };
         const expiresIn = 24 * 60 * 60;
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+
+        await LoginHistory.deleteMany({ master_id: user._id, user_type: user.user_type });
+        await LoginHistory.create({
+            token,
+            user_type: user.user_type,
+            master_id: user._id,
+            ipAddress: getIpAddress(req)
+        });
+
+        await LoginAttempt.deleteMany({ master_id: user._id, userType: user.user_type });
 
         const typeData = await TypesModel.find();
         const userData = await getPermission(user);
