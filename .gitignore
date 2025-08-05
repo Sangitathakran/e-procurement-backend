@@ -53,3 +53,4 @@ Thumbs.db
 
 # oracle client for 11g for windows
 instantclient_11_2/
+config/logs
