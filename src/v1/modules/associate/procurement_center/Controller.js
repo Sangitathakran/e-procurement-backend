@@ -764,10 +764,9 @@ module.exports.statusUpdate = async (req, res) => {
 
     try {
         const { id, status } = req.body;
-        if (!id) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notProvided("id") }] }))
+        if (!id || !status) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: !id ? _response_message.notProvided("id") : _response_message.notProvided("status")},] }))
         }
-
         const existingUser = await ProcurementCenter.findOne({ _id: id });
         if (!existingUser) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }))
