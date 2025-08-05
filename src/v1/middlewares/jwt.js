@@ -6,7 +6,7 @@ const { _userType } = require('@src/v1/utils/constants/index');
 const { MasterUser } = require('@src/v1/models/master/MasterUser');
 const { User } = require('../models/app/auth/User');
 const { LoginHistory } = require('@src/v1/models/master/loginHistery');
-
+const { State } = require("../models/master/states")
 
 
 // const { redisClient } = require('@config/redis');
@@ -90,7 +90,6 @@ const Auth = async function (req, res, next) {
           const route = req.baseUrl.split("/")[2]
 
           const user_type = decoded.user_type
-          
           const routeCheck = checkUser(route, user_type)
           if (!routeCheck) {
             return sendResponse({ res, status: 403, message: "error while routecheck decode", errors: _auth_module.unAuth });
@@ -106,6 +105,7 @@ const Auth = async function (req, res, next) {
             const user = await MasterUser.findOne({ mobile: decoded?.userInput?.trim() }).populate("portalId")
             req.user = user
           }
+
           next();
         } else {
           return sendResponse({ res, status: 403, message: "error while decode not found", errors: _auth_module.tokenExpired });

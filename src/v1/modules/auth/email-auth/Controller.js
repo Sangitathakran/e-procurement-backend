@@ -14,11 +14,12 @@ const { LoginHistory } = require("@src/v1/models/master/loginHistery");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const { LoginAttempt, ResetLinkHistory } = require("@src/v1/models/master/loginAttempt");
+const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 
 module.exports.login = async (req, res) => {
   try {
     const { email, password, portal_type } = req.body;
-
+    console.log("email, password, ", email, password,)
     if (!email) {
       return res.status(400).send(
         new serviceResponse({
@@ -61,6 +62,9 @@ module.exports.login = async (req, res) => {
           select: "organization_name _id "
         }
       ]);
+    const slaResult = await SLAManagement.findOne({ _id: user.portalId._id })
+      .select("address")
+      .lean();
     if (!user) {
       return res.status(400).send(
         new serviceResponse({
@@ -142,7 +146,8 @@ module.exports.login = async (req, res) => {
       email: email,
       user_id: user._id,
       portalId: user?.portalId?._id,
-      user_type: user.user_type
+      user_type: user.user_type,
+      state_id: slaResult.address.state_id
     };
     const expiresIn = 24 * 60 * 60;
     const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
@@ -193,13 +198,13 @@ module.exports.forgetPassword = async (req, res) => {
         })
       );
     }
-    if(!Object.keys(FRONTEND_URLS).includes(portal_type)){
-       return res.status(400).send(
+    if (!Object.keys(FRONTEND_URLS).includes(portal_type)) {
+      return res.status(400).send(
         new serviceResponse({
           status: 400,
           errors: [{ message: _query.invalid('portal_type') }]
         })
-      ); 
+      );
     }
 
     const user = await MasterUser.findOne({ email: email.trim() });
