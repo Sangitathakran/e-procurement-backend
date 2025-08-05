@@ -6,8 +6,6 @@ const { _userType } = require('@src/v1/utils/constants/index');
 const { MasterUser } = require('@src/v1/models/master/MasterUser');
 const { User } = require('../models/app/auth/User');
 const { LoginHistory } = require('@src/v1/models/master/loginHistery');
-const { State } = require("../models/master/states")
-
 
 // const { redisClient } = require('@config/redis');
 

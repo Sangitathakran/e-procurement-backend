@@ -19,7 +19,6 @@ const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 module.exports.login = async (req, res) => {
   try {
     const { email, password, portal_type } = req.body;
-    console.log("email, password, ", email, password,)
     if (!email) {
       return res.status(400).send(
         new serviceResponse({
