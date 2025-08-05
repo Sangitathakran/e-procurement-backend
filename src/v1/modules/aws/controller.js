@@ -144,7 +144,50 @@ const deleteFromS3 = async (req, res) => {
   }
 };
 
+const getS3BufferFile = async (req, res) => {
+  try {
+    const key = req.query.key ? req.query.key.replace(/^\/+/, '') : null;
+
+    if (!key) {
+      return sendResponse({
+        res,
+        status: 400,
+        errors: [{ message: `File key is required` }]
+      });
+    }
+
+    const params = {
+      Bucket: config.s3Config.bucketName,
+      Key: key
+    };
+
+    const fileData = await S3.getObject(params).promise();
+
+    if (!fileData || !fileData.Body) {
+      return sendResponse({
+        res,
+        status: 404,
+        errors: [{ message: `File not found in S3` }]
+      });
+    }
+
+    res.setHeader('Content-Type', fileData.ContentType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${key.split('/').pop()}"`);
+
+    return res.send(fileData.Body);
+
+  } catch (error) {
+    return sendResponse({
+      res,
+      status: 400,
+      errors: [{ message: error.message }]
+    });
+  }
+};
+
+
 module.exports = {
   uploadToS3,
-  deleteFromS3
+  deleteFromS3,
+  getS3BufferFile
 };
