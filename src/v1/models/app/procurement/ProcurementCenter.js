@@ -7,7 +7,7 @@ const ProcurementCenterSchema = new mongoose.Schema(
   {
     center_name: { type: String, required: true, trim: true },
     center_mobile: { type: String, required: true, trim: true },
-    center_email: { type: String, required: true, lowercase: true, trim: true },
+    center_email: { type: String, required: true, lowercase: true, trim: true, unique: true},
     center_code: { type: String, unique: true },
     user_id: {
       type: mongoose.Schema.Types.ObjectId,
@@ -44,7 +44,7 @@ const ProcurementCenterSchema = new mongoose.Schema(
       email: {
         type: String,
         required: true,
-        unique: false,
+        unique: true,
         lowercase: true,
         trim: true,
       },
