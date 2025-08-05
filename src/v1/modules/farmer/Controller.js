@@ -69,6 +69,7 @@ const parseExcelOrCsvFile = require('@src/common/services/parseExcelOrCsvFile');
 const { verfiyfarmer } = require('@src/v1/models/app/farmerDetails/verfiyFarmer');
 const logger = require('@common/logger/logger');
 const { VerificationType } = require('@common/enum');
+const { Batch } = require("@src/v1/models/app/procurement/Batch");
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -1107,6 +1108,7 @@ module.exports.createLand = async (req, res) => {
       opt_for_soil_testing,
       soil_testing_agencies,
       upload_geotag,
+      land_address
     } = req.body;
     // console.log(farmer_id,
     //   area,
@@ -1142,13 +1144,13 @@ module.exports.createLand = async (req, res) => {
     const state_id = new mongoose.Types.ObjectId(state) //await getStateId(state);
     const district_id = new mongoose.Types.ObjectId(district)// getDistrictId(district);
 
-    let land_address = {
-      state_id,
-      block,
-      pin_code,
-      district_id,
-      village,
-    };
+    // let land_address = {
+    //   state_id,
+    //   block,
+    //   pin_code,
+    //   district_id,
+    //   village,
+    // };
     const newLand = new Land({
       farmer_id,
       area,
@@ -1227,6 +1229,7 @@ module.exports.getLand = async (req, res) => {
         const districts = state?.states[0]?.districts?.find(
           (item) => item?._id == land?.land_address?.district_id?.toString()
         );
+       
         let land_address = {
           ...land?.land_address,
           state: state?.states[0]?.state_title,
@@ -1284,17 +1287,18 @@ module.exports.updateLand = async (req, res) => {
       opt_for_soil_testing,
       soil_testing_agencies,
       upload_geotag,
+      land_address
     } = req.body;
 
     const state_id = await getStateId(state);
     const district_id = await getDistrictId(district);
-    let land_address = {
-      state_id,
-      block,
-      pin_code,
-      district_id,
-      village,
-    };
+    // let land_address = {
+    //   state_id,
+    //   block,
+    //   pin_code,
+    //   district_id,
+    //   village,
+    // };
     const updatedLand = await Land.findByIdAndUpdate(
       land_id,
       {
@@ -5258,7 +5262,8 @@ module.exports.getAssamMaizeProcurementSummary = async (req, res) => {
       // Step 4: Filter for state = Assam
       {
         $match: {
-          'seller.address.registered.state': { $regex: '^Assam$', $options: 'i' }
+          // 'seller.address.registered.state': { $regex: '^Assam$', $options: 'i' }
+          'seller.address.registered.state': { $regex: '^Madhya Pradesh$', $options: 'i' }
         }
       },
       // Step 5: Group once by batch to get unique qty
