@@ -2956,6 +2956,7 @@ module.exports.makeAssociateFarmer = async (req, res) => {
           ...localFarmer.parents,
           father_name: fathers_name,
         };
+        localFarmer.farmer_type = "Associate";
         localFarmer.associate_id = user_id;
         const updatedFarmer = await localFarmer.save();
         updatedFarmers.push(updatedFarmer);

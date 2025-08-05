@@ -44,7 +44,7 @@ const ProcurementCenterSchema = new mongoose.Schema(
       email: {
         type: String,
         required: true,
-        unique: true,
+        unique: false,
         lowercase: true,
         trim: true,
       },

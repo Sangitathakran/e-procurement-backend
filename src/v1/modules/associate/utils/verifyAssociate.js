@@ -1,12 +1,13 @@
 const { JWT_SECRET_KEY } = require('@config/index');
 const { User } = require('@src/v1/models/app/auth/User');
-const { _userType, _userStatus,_auth_module } = require('@src/v1/utils/constants');
+const { _userType, _userStatus } = require('@src/v1/utils/constants');
 const { _response_message } = require('@src/v1/utils/constants/messages');
 const { serviceResponse } = require('@src/v1/utils/helpers/api_response');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
 const jwt = require('jsonwebtoken');
 const { LoginHistory } = require('@src/v1/models/master/loginHistery');
 const { sendResponse } = require('@src/v1/utils/helpers/api_response');
+const {_auth_module} = require('@src/v1/utils/constants/messages')
 const tokenBlacklist = [];
 
 
