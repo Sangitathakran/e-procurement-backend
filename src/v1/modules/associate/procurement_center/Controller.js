@@ -764,8 +764,21 @@ module.exports.statusUpdate = async (req, res) => {
 
     try {
         const { id, status } = req.body;
-        if (!id || !status) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: !id ? _response_message.notProvided("id") : _response_message.notProvided("status")},] }))
+       if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    errors: [{ message: _response_message.invalid("id") }]
+                })
+            );
+        }
+        if (typeof status !== 'boolean') {
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    errors: [{ message: _response_message.invalid("status") }]
+                })
+            );
         }
         const existingUser = await ProcurementCenter.findOne({ _id: id });
         if (!existingUser) {
