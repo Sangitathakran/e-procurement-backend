@@ -653,6 +653,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
 */
 
 
+
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   try {
     const {
@@ -1278,6 +1279,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
     _handleCatchErrors(error, res);
   }
 });
+
 
 
 module.exports.monthlyLiftedTrends = asyncErrorHandler(async (req, res) => {
