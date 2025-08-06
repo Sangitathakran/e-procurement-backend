@@ -89,7 +89,7 @@ module.exports = {
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     region: process.env.AWS_REGION,
     sourceEmail: process.env.AWS_SOURCE_EMAIL,
-    mailProvider: process.env.PROVIDER,
+    mailProvider: process.env.PROVIDER || 'mailtrap', 
 
     // FRONTEND URLS
     FRONTEND_URLS: {
