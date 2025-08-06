@@ -252,6 +252,22 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
             { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) },
         ];
+        // Clone the initial part of the pipeline (up to your $project)
+        const sumPipeline = [
+        // ...identical up to and including $project
+        // Do NOT include $sort, $skip, $limit here!
+        ...pipeline.slice(0, -3),
+        {
+            $group: {
+            _id: null,
+            totalAvailableQty: { $sum: "$availableQty" },
+            totalCapacity: {$sum: "$basicDetails.warehouseCapacity"}
+            },
+           
+        }
+        ];
+
+
         if (isExport == 1) {
             const data = await wareHouseDetails.aggregate([...pipeline.slice(0, -2)]);
     
@@ -281,8 +297,11 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         }
         const records = { count: 0, totalAvailableQty:0, totalCapacity: 0, rows: [] };
         records.rows = await wareHouseDetails.aggregate(pipeline);
-        records.totalAvailableQty = records.rows.reduce( (acc, curr) => acc+ Number(curr.availableQty) , 0).toFixed(3);
-        records.totalCapacity = records.rows.reduce( (acc, curr) => acc + Number(curr?.basicDetails?.warehouseCapacity) , 0).toFixed(3);
+
+        const grandTotals = await wareHouseDetails.aggregate(sumPipeline);
+        records.totalAvailableQty = (grandTotals[0]?.totalAvailableQty ?? 0).toFixed(3);
+        records.totalCapacity = (grandTotals[0]?.totalCapacity ?? 0).toFixed(3);
+
 
         const countResult = await wareHouseDetails.aggregate([...pipeline.slice(0, -3), { $count: "count" }]);
         records.count = countResult?.[0]?.count ?? 0;
@@ -394,6 +413,19 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
             { $limit: parseInt(limit) },
         ]
 
+        const sumPipeline = [
+        
+        ...pipeline.slice(0, -3),
+        {
+            $group: {
+            _id: null,
+            totalAvailableQty: { $sum: "$available_qty" },
+            totalQty: { $sum: "$qty" }
+            }
+        }
+        ];
+
+
         if (isExport == 1) {
             const data = await Batch.aggregate([...pipeline.slice(0, -2)]);
     
@@ -425,10 +457,12 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
         }
         const records = { count: 0, totalQty:0, totalAvailableQty: 0, rows: [] };
         records.rows = await Batch.aggregate(pipeline)
+        const grandTotals = await Batch.aggregate(sumPipeline);
+        records.totalAvailableQty = (grandTotals[0]?.totalAvailableQty ?? 0).toFixed(3);
+        records.totalQty = (grandTotals[0]?.totalQty ?? 0).toFixed(3);
+
         const countResult = await Batch.aggregate([...pipeline.slice(0, -3), { $count: "count" }]);
 
-        records.totalQty = records.rows.reduce( (acc, curr) => acc + Number(curr.qty) ,0).toFixed(3);
-        records.totalAvailableQty = records.rows.reduce( (acc, curr) => acc + Number(curr.available_qty), 0).toFixed(3);
         records.count = countResult?.[0]?.count ?? 0;
         records.page = page;
         records.limit = limit;

@@ -223,6 +223,20 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
             { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) },
             ];
+
+        const sumPipeline = [
+            // ...all previous stages up to (and including) your last $project...
+            ...pipeline.slice(0, -3), // Exclude $sort, $skip, $limit 
+            // Sum totalAvailableQty and totalCapacity
+            {
+                $group: {
+                _id: null,
+                totalAvailableQty: { $sum: "$availableQty" },
+                totalCapacity: { $sum: "$basicDetails.warehouseCapacity" }
+                }
+            }
+        ];
+
         if (isExport == 1) {
             const data = await wareHouseDetails.aggregate([...pipeline.slice(0, -2)]);
     
@@ -252,9 +266,10 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         }
         const records = { count: 0, totalAvailableQty:0, totalCapacity: 0, rows: [] };
         records.rows = await wareHouseDetails.aggregate(pipeline);
+        const grandTotalResult = await wareHouseDetails.aggregate(sumPipeline);
+        records.totalAvailableQty = (grandTotalResult[0]?.totalAvailableQty ?? 0).toFixed(3);
+        records.totalCapacity = (grandTotalResult[0]?.totalCapacity ?? 0).toFixed(3);
 
-        records.totalAvailableQty = records.rows.reduce( (acc, curr) => acc+ Number(curr.availableQty) , 0).toFixed(3);
-        records.totalCapacity = records.rows.reduce( (acc, curr) => acc + Number(curr?.basicDetails?.warehouseCapacity) , 0).toFixed(3);
 
         const countResult = await wareHouseDetails.aggregate([...pipeline.slice(0, -3), { $count: "count" }]);
         records.count = countResult?.[0]?.count ?? 0;
@@ -371,6 +386,19 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
             { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) },
         ]
+        const sumPipeline = [
+            // ...all previous stages up to (and including) your last $project...
+            ...pipeline.slice(0, -3), // Exclude $sort, $skip, $limit if needed
+            // Sum totalAvailableQty and totalCapacity
+            {
+                $group: {
+                _id: null,
+                totalAvailableQty: { $sum: "$available_qty" },
+                totalQty: { $sum: "$qty" }
+                }
+            }
+        ];
+
 
         if (isExport == 1) {
             const data = await Batch.aggregate([...pipeline.slice(0, -2)]);
@@ -403,10 +431,12 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
         }
         const records = { count: 0, totalQty:0, totalAvailableQty: 0, rows: [] };
         records.rows = await Batch.aggregate(pipeline)
+        const totalSums = await Batch.aggregate(sumPipeline);
+        records.totalAvailableQty = (totalSums[0]?.totalAvailableQty ?? 0).toFixed(3);
+        records.totalQty = (totalSums[0]?.totalQty ?? 0).toFixed(3);
+
         const countResult = await Batch.aggregate([...pipeline.slice(0, -3), { $count: "count" }]);
         records.count = countResult?.[0]?.count ?? 0;
-        records.totalQty = records.rows.reduce( (acc, curr) => acc + Number(curr.qty) ,0).toFixed(3);
-        records.totalAvailableQty = records.rows.reduce( (acc, curr) => acc + Number(curr.available_qty), 0).toFixed(3);
         records.page = page;
         records.limit = limit;
         records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
