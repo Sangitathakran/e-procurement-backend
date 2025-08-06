@@ -78,7 +78,6 @@ module.exports.sendOtp = async (req, res) => {
 module.exports.loginOrRegister = async (req, res) => {
     try {
         const { userInput, inputOTP } = req.body;
-
         if (!userInput || !inputOTP) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('otp_required') }] }));
         }
@@ -177,13 +176,13 @@ module.exports.loginOrRegister = async (req, res) => {
         await LoginHistory.deleteMany({ master_id: userExist._id, user_type: _userType.associate });
         await LoginHistory.create({ token: token, user_type: _userType.associate, master_id: userExist._id, ipAddress: getIpAddress(req) });
 
-        await LoginHistory.deleteMany({  master_id:userExist._id,user_type: userExist.user_type });
-            await LoginHistory.create({
-              token :token,
-              master_id:userExist._id,
-              user_type: userExist.user_type,
-              ipAddress: getIpAddress(req)
-            });
+        await LoginHistory.deleteMany({ master_id: userExist._id, user_type: userExist.user_type });
+        await LoginHistory.create({
+            token: token,
+            master_id: userExist._id,
+            user_type: userExist.user_type,
+            ipAddress: getIpAddress(req)
+        });
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
@@ -220,7 +219,7 @@ module.exports.saveAssociateDetails = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         }
 
-        if (formData.organization_name&&formData.organization_name != user.basic_details.associate_details.organization_name) {
+        if (formData.organization_name && formData.organization_name != user.basic_details.associate_details.organization_name) {
             const isOrganizationName = await User.findOne({ 'basic_details.associate_details.organization_name': formData.organization_name });
             if (isOrganizationName) {
                 return res.status(400).send(new serviceResponse({ status: 400, message: "You are already registered with this organization name." }));
