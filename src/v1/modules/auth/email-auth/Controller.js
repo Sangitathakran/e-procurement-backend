@@ -146,7 +146,7 @@ module.exports.login = async (req, res) => {
       user_id: user._id,
       portalId: user?.portalId?._id,
       user_type: user.user_type,
-      state_id: slaResult.address.state_id
+      // state_id: slaResult.address.state_id
     };
     const expiresIn = 24 * 60 * 60;
     const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
