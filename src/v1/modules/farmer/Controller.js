@@ -3008,7 +3008,7 @@ module.exports.getAllFarmers = async (req, res) => {
     let associatedQuery = { associate_id: { $ne: null } };
     let localQuery = { associate_id: null };
 
-    const { user_id, user_type, state_id } = req;
+    const { user_type, state_id } = req;
 
     if (user_type === _userType.agent) {
       associatedQuery["address.state_id"] = new mongoose.Types.ObjectId(state_id);
@@ -3034,14 +3034,14 @@ module.exports.getAllFarmers = async (req, res) => {
     if (paginate) {
       records.associatedFarmers = await farmer
         .find(associatedQuery)
-        .populate("associate_id", "_id user_code")
+        .populate("associate_id", "_id user_code basic_details.associate_details.organization_name bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
         .sort(sortCriteria)
         .skip(skip)
         .limit(parsedLimit);
 
       records.localFarmers = await farmer
         .find(localQuery)
-        .populate("associate_id", "_id user_code")
+        .populate("associate_id", "_id user_code bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
         .sort(sortCriteria)
         .skip(skip)
         .limit(parsedLimit);
