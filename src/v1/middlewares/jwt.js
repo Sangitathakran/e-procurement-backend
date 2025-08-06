@@ -22,7 +22,7 @@ const { LoginHistory } = require('@src/v1/models/master/loginHistery');
 const authorizeRoles = (...allowedRoles) => {
   return (req, res, next) => {
     const user = req.user;
-    console.log("User in authorizeRoles middleware:", user);
+   // console.log("User in authorizeRoles middleware:", user);
     if (!user || !allowedRoles.includes(user?.user_type)) {
       return sendResponse({
         res,
