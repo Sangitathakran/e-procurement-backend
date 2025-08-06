@@ -12,7 +12,6 @@ const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const { BatchOrderProcess } = require("@src/v1/models/app/distiller/batchOrderProcess");
 const { mongoose } = require("mongoose");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
-const { NafedStats, NafedStatsHistory } = require("@src/v1/models/app/auth/NafedStats");
 
 /*
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
@@ -51,12 +50,14 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
           previousEnd = new Date(currentStart);
           previousEnd.setDate(currentStart.getDate() - 1);
           break;
+
         case 'year':
           currentStart = new Date(now.getFullYear(), 0, 1);
           currentEnd = now;
           previousStart = new Date(now.getFullYear() - 1, 0, 1);
           previousEnd = new Date(now.getFullYear() - 1, 11, 31);
           break;
+
         case 'range':
           if (!startDate || !endDate) throw new Error("Start date and end date are required for custom range");
           currentStart = new Date(startDate);
@@ -650,6 +651,7 @@ module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
   }
 });
 */
+
 
 
 module.exports.getDashboardStats = asyncErrorHandler(async (req, res) => {
@@ -1688,7 +1690,7 @@ module.exports.stateWiseProcurementQuantity = asyncErrorHandler(async (req, res)
       {
         $match: {
           source_by: { $in: finalCNA },
-          deletedAt: null
+          deletedAt:null
         }
       },
       {
@@ -1749,7 +1751,7 @@ module.exports.stateWiseLiftingQuantity = asyncErrorHandler(async (req, res) => 
       {
         $match: {
           source_by: { $in: finalCNA },
-          deletedAt: null
+          deletedAt:null
         }
       },
       {
