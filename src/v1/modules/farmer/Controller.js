@@ -3048,12 +3048,12 @@ module.exports.getAllFarmers = async (req, res) => {
     } else {
       records.associatedFarmers = await farmer
         .find(associatedQuery)
-        .populate("associate_id", "_id user_code")
+        .populate("associate_id", "_id user_code basic_details.associate_details.organization_name bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
         .sort(sortCriteria);
 
       records.localFarmers = await farmer
         .find(localQuery)
-        .populate("associate_id", "_id user_code")
+        .populate("associate_id", "_id user_code bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
         .sort(sortCriteria);
     }
     records.count = await farmer.countDocuments(associatedQuery);
