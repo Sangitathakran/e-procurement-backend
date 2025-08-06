@@ -19,6 +19,7 @@ const xlsx = require("xlsx");
 const csv = require("csv-parser");
 const { _userType, _center_type } = require("@src/v1/utils/constants");
 const Readable = require('stream').Readable;
+const logger = require('@src/common/logger/logger');
 
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 
@@ -259,8 +260,19 @@ module.exports.getProcurementCenter = async (req, res) => {
       isExport = 0,
     } = req.query;
     const { user_id } = req;
+    logger.info(
+      `getProcurementCenter called user_id=${user_id} query=${JSON.stringify({
+        page,
+        limit,
+        skip,
+        paginate,
+        sortBy,
+        search,
+        isExport,
+      })}`
+    );
     let query = {
-      user_id: new mongoose.Types.ObjectId(user_id),
+      user_id: user_id,
       deletedAt: null,
       ...(search && {
         $or: [
@@ -269,6 +281,7 @@ module.exports.getProcurementCenter = async (req, res) => {
         ]
         })
       };
+    logger.info(`Built procurement center query: ${JSON.stringify(query)}`);
     const records = { count: 0 };
     records.rows =
       paginate == 1
@@ -289,8 +302,11 @@ module.exports.getProcurementCenter = async (req, res) => {
             })
             .sort(sortBy);
 
-    records.count = await ProcurementCenter.countDocuments(query);
-
+   records.count = await ProcurementCenter.countDocuments(query);
+   const returned = Array.isArray(records.rows) ? records.rows.length : 0;
+    logger.info(
+      `Fetched procurement center data totalCount=${records.count} returned=${returned} paginate=${paginate}`
+    );
     if (paginate == 1) {
       records.page = page;
       records.limit = limit;
@@ -298,6 +314,9 @@ module.exports.getProcurementCenter = async (req, res) => {
     }
 
     if (isExport == 1) {
+      logger.info(
+        `Export requested for procurement centers exportCount=${returned}`
+      );
       const record = records.rows.map((item) => {
         return {
           "Address Line 1": item?.address?.line1 || "NA",
@@ -315,12 +334,20 @@ module.exports.getProcurementCenter = async (req, res) => {
         };
       });
       if (record.length > 0) {
+        logger.info(
+          `Dumping procurement center export to Excel fileName=collection-center.xlsx rows=${record.length}`
+        );
         dumpJSONToExcel(req, res, {
           data: record,
           fileName: `collection-center.xlsx`,
           worksheetName: `collection-center}`,
         });
       } else {
+        logger.warn(
+          `No records found to export for procurement centers query=${JSON.stringify(
+            query
+          )}`
+        );
         return res.status(400).send(
           new serviceResponse({
             status: 400,
@@ -330,6 +357,9 @@ module.exports.getProcurementCenter = async (req, res) => {
         );
       }
     } else {
+      logger.info(
+        `Sending normal response for procurement centers page=${records.page} limit=${records.limit}`
+      );
       return res.status(200).send(
         new serviceResponse({
           status: 200,
@@ -346,100 +376,14 @@ module.exports.getProcurementCenter = async (req, res) => {
       })
     );
   } catch (error) {
-    _handleCatchErrors(error, res);
-  }
-};
-
-//start of prachi code
-module.exports.getHoProcurementCenter = async (req, res) => {
-    try {
-        const { page, limit, skip, paginate = 1, sortBy, search = '', associateName, state, city, isExport = 0 } = req.query;
-       let query = { deletedAt: null };
-
-        if (search) {
-        const orFilters = [
-            { center_name: { $regex: search, $options: "i" } },
-            {center_code: { $regex: search, $options: "i"} }
-        ];
-
-        if (mongoose.Types.ObjectId.isValid(search)) {
-            orFilters.push({ _id: new mongoose.Types.ObjectId(search) });
-        }
-
-        query.$or = orFilters;
-        }
-
-        if (associateName) query["point_of_contact.name"] = { $regex: associateName, $options: "i" };
-        if (state) query["address.state"] = { $regex: state, $options: "i" };
-        if (city) query["address.city"] = { $regex: city, $options: "i" };
-
-        const records = { count: 0 };
-        // Populates user_id with only bank_details
-        const baseQuery = ProcurementCenter.find(query)
-            .populate('user_id', 'bank_details')
-            .sort(sortBy);
-
-    records.count = await ProcurementCenter.countDocuments(query);
-
-    if (paginate == 1) {
-      records.page = page;
-      records.limit = limit;
-      records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-    }
-
-    if (isExport == 1) {
-      const record = records.rows.map((item) => {
-        return {
-          "Address Line 1": item?.address?.line1 || "NA",
-          "Address Line 2": item?.address?.line2 || "NA",
-          Country: item?.address?.country || "NA",
-          State: item?.address?.country || "NA",
-          District: item?.address?.district || "NA",
-          City: item?.address?.city || "NA",
-          "PIN Code": item?.address?.postalCode || "NA",
-          Name: item?.point_of_contact?.name || "NA",
-          Email: item?.point_of_contact?.email || "NA",
-          Mobile: item?.point_of_contact?.mobile || "NA",
-          Designation: item?.point_of_contact?.designation || "NA",
-          "Aadhar Number": item?.point_of_contact?.aadhar_number || "NA",
-        };
-      });
-      if (record.length > 0) {
-        dumpJSONToExcel(req, res, {
-          data: record,
-          fileName: `collection-center.xlsx`,
-          worksheetName: `collection-center}`,
-        });
-      } else {
-        return res.status(400).send(
-          new serviceResponse({
-            status: 400,
-            data: records,
-            message: _query.notFound(),
-          })
-        );
-      }
-    } else {
-      return res.status(200).send(
-        new serviceResponse({
-          status: 200,
-          data: records,
-          message: _response_message.found("collection center"),
-        })
-      );
-    }
-    return res.send(
-      new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.found("collection center"),
-      })
+    logger.error(
+      `Error in getProcurementCenter message=${error.message} stack=${error.stack} query=${JSON.stringify(
+        req.query
+      )} user_id=${req.user_id}`
     );
-  } catch (error) {
     _handleCatchErrors(error, res);
   }
 };
-
 module.exports.getProcurementById = asyncErrorHandler(async (req, res) => {
   try {
     const { id } = req.params; // Get SLA ID from URL params
@@ -814,4 +758,39 @@ module.exports.generateCenterCode = async (req, res) => {
   } catch (error) {
     _handleCatchErrors(error, res);
   }
+}
+
+module.exports.statusUpdate = async (req, res) => {
+
+    try {
+        const { id, status } = req.body;
+       if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    errors: [{ message: _response_message.invalid("id") }]
+                })
+            );
+        }
+        if (typeof status !== 'boolean') {
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    errors: [{ message: _response_message.invalid("status") }]
+                })
+            );
+        }
+        const existingUser = await ProcurementCenter.findOne({ _id: id });
+        if (!existingUser) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }))
+        }
+
+        existingUser.active = status;
+
+        await existingUser.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: existingUser, message: _response_message.updated("status") }))
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
 }
