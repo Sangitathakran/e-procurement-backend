@@ -19,6 +19,8 @@ const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 module.exports.login = async (req, res) => {
   try {
     const { email, password, portal_type } = req.body;
+    const isSlaPortal = portal_type === "agent" ? true : false
+    let slaResult;
     if (!email) {
       return res.status(400).send(
         new serviceResponse({
@@ -61,9 +63,11 @@ module.exports.login = async (req, res) => {
           select: "organization_name _id "
         }
       ]);
-    const slaResult = await SLAManagement.findOne({ _id: user.portalId._id })
-      .select("address")
-      .lean();
+    if (isSlaPortal) {
+      slaResult = await SLAManagement.findOne({ _id: user.portalId._id })
+        .select("address")
+        .lean();
+    }
     if (!user) {
       return res.status(400).send(
         new serviceResponse({
@@ -146,8 +150,10 @@ module.exports.login = async (req, res) => {
       user_id: user._id,
       portalId: user?.portalId?._id,
       user_type: user.user_type,
-      state_id: slaResult.address.state_id
     };
+    if (isSlaPortal) {
+      payload["state_id"] = slaResult.address.state_id
+    }
     const expiresIn = 24 * 60 * 60;
     const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
