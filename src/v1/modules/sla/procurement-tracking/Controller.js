@@ -32,8 +32,6 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
     query._id = { $in: requestIds };
     query.sla_id = new mongoose.Types.ObjectId(req.user_id);
 
-    console.log("sla_id", query.sla_id);
-
     if (schemeName) {
         const schemeIds = await Scheme.find({ schemeName: { $regex: schemeName, $options: 'i' } }).distinct('_id');
         if (schemeIds.length > 0) {
