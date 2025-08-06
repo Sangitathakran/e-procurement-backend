@@ -1,9 +1,9 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
-const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode, getHoProcurementCenter, updateProcurementCenter, getProcurementById } = require("./Controller");
+const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode, getHoProcurementCenter, updateProcurementCenter, getProcurementById, statusUpdate } = require("./Controller");
 const express = require("express");
-const { verifyAssociate } = require("../utils/verifyAssociate");
+const { verifyAssociate } = require("@src/v1/modules/associate/utils/verifyAssociate");
 const procurementCenterRoutes = express.Router();
 const { verifyJwtToken } = require("@src/v1/utils/helpers/jwt");
 const {commonAuth} = require("@src/v1/middlewares/jwt");
@@ -76,5 +76,6 @@ procurementCenterRoutes.put("/:id", validateErrors, verifyAssociate, updateProcu
     body("proof").optional().trim(),
     body("isPrimary").optional().isBoolean()
 ]);
+procurementCenterRoutes.patch("/status", statusUpdate);
 
 module.exports = { procurementCenterRoutes }; 
