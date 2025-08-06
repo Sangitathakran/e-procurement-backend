@@ -759,3 +759,38 @@ module.exports.generateCenterCode = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 }
+
+module.exports.statusUpdate = async (req, res) => {
+
+    try {
+        const { id, status } = req.body;
+       if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    errors: [{ message: _response_message.invalid("id") }]
+                })
+            );
+        }
+        if (typeof status !== 'boolean') {
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    errors: [{ message: _response_message.invalid("status") }]
+                })
+            );
+        }
+        const existingUser = await ProcurementCenter.findOne({ _id: id });
+        if (!existingUser) {
+            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("user") }] }))
+        }
+
+        existingUser.active = status;
+
+        await existingUser.save();
+
+        return res.status(200).send(new serviceResponse({ status: 200, data: existingUser, message: _response_message.updated("status") }))
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
