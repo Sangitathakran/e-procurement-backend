@@ -225,7 +225,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
           //  { $match: {...query,active:true} },
             {
                 $match: {
-                ...(commodity ? { commodity: { $regex: new RegExp(commodity, "i") } } : {}),
+                ...(commodity ? { commodity_id: new mongoose.Types.ObjectId(commodity) } : {}),
                 active: true,
                 ...query
                 }
@@ -252,10 +252,8 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
             { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) },
         ];
-        // Clone the initial part of the pipeline (up to your $project)
         const sumPipeline = [
-        // ...identical up to and including $project
-        // Do NOT include $sort, $skip, $limit here!
+        
         ...pipeline.slice(0, -3),
         {
             $group: {
@@ -390,7 +388,7 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
             { $unwind: { path: "$procurementcenter", preserveNullAndEmptyArrays: true } },
             {
                 $match: {
-                    ...(commodity ? { "request.product.name": { $regex: commodity, $options: "i" } } : {}),
+                    ...(commodity ? { "request.product.commodity_id": new mongoose.Types.ObjectId(commodity) } : {}),
                     ...(associateName ? { "user.basic_details.associate_details.associate_name": { $regex: associateName, $options: "i" } } : {}),
                     ...(qcStatus ? { "final_quality_check.status": { $regex: qcStatus, $options: "i" } } : {})
                 }

@@ -138,96 +138,101 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         if (city) {
             query['addressDetails.city'] = { $regex: city, $options: 'i' };
         }
-
+//console.log({ commodity});
        
 
        const pipeline = [
-            {
-                $lookup: {
-                from: 'warehousev2',
-                localField: 'warehouseOwnerId',
-                foreignField: '_id',
-                as: 'warehouseOwner',
-                },
-            },
-            {
-                $lookup: {
-                from: 'batches',
-                localField: '_id',
-                foreignField: 'warehousedetails_id',
-                as: 'batches',
-                pipeline: [
-                    {
-                    $project: {
-                        qty: 1,
-                        available_qty: 1,
-                        req_id: 1,
-                    },
-                    },
-                    {
-                    $lookup: {
-                        from: 'requests',
-                        localField: 'req_id',
-                        foreignField: '_id',
-                        as: 'request',
-                        pipeline: [
-                        {
-                            $project: {
-                            commodity: '$product.name', // Rename product.name to commodity
-                            _id: 0,
-                            },
-                        },
-                        ],
-                    },
-                    },
-                    {
-                    $addFields: {
-                        commodity: { $arrayElemAt: ['$request.commodity', 0] }, // Flatten the array to a single field
-                    },
-                    },
-                    {
-                    $project: { request: 0 }, // Optionally, remove the now-unneeded request array
-                    },
-                ],
-                },
-            },
-            { $unwind: { path: '$warehouseOwner', preserveNullAndEmptyArrays: true } },
-            { $match: { ...query, active: true } },
-            {
-                $addFields: {
-                availableQty: {
-                    $round: [
-                    { $sum: '$batches.available_qty' },
-                    3, // number of digits after decimal
-                    ],
-                },
-                commodity: { $arrayElemAt: ['$batches.commodity', 0] }
-                },
-            },
-            {
-              $match: commodity ? { commodity: { $regex: commodity, $options: "i" } } : {}
-            },
-            {
+  {
+    $lookup: {
+      from: 'warehousev2',
+      localField: 'warehouseOwnerId',
+      foreignField: '_id',
+      as: 'warehouseOwner',
+    },
+  },
+  {
+    $unwind: { path: '$warehouseOwner', preserveNullAndEmptyArrays: true },
+  },
+  {
+    $lookup: {
+      from: 'batches',
+      localField: '_id',
+      foreignField: 'warehousedetails_id',
+      as: 'batches',
+      pipeline: [
+        {
+          $lookup: {
+            from: 'requests',
+            localField: 'req_id',
+            foreignField: '_id',
+            as: 'request',
+            pipeline: [
+              {
                 $project: {
-                wareHouse_code: 1,
-                basicDetails: 1,
-                addressDetails: 1,
-                active: 1,
-                'warehouseOwner.ownerDetails.name': 1,
-                availableQty: 1,
-                createdAt: 1,
-                commodity: 1,
+                  commodity: '$product.name',
+                  commodity_id: '$product.commodity_id',
                 },
-            },
-            { $sort: sortBy },
-            { $skip: (page - 1) * limit },
-            { $limit: parseInt(limit) },
-            ];
+              },
+            ],
+          },
+        },
+        {
+          $addFields: {
+            commodity: { $arrayElemAt: ['$request.commodity', 0] },
+            commodity_id: { $arrayElemAt: ['$request.commodity_id', 0] },
+          },
+        },
+        {
+          $project: {
+           // request: 0,
+            qty: 1,
+            available_qty: 1,
+            commodity: 1,
+            commodity_id: 1,
+          },
+        },
+      ],
+    },
+  },
+  {
+    $addFields: {
+      availableQty: {
+        $round: [{ $sum: '$batches.available_qty' }, 3],
+      },
+      commodity: { $arrayElemAt: ['$batches.commodity', 0] },
+      commodity_id: { $arrayElemAt: ['$batches.commodity_id', 0] },
+    },
+  },
+  {
+    $match: {
+      ...query,
+      active: true,
+      ...(commodity
+        ? { commodity_id: new mongoose.Types.ObjectId(commodity) }
+        : {}),
+    },
+  },
+  {
+    $project: {
+      wareHouse_code: 1,
+      basicDetails: 1,
+      addressDetails: 1,
+      active: 1,
+      createdAt: 1,
+      availableQty: 1,
+      'warehouseOwner.ownerDetails.name': 1,
+      commodity: 1,
+      commodity_id: 1,
+    },
+  },
+  { $sort: sortBy },
+  { $skip: (page - 1) * limit },
+  { $limit: parseInt(limit) },
+];
+
 
         const sumPipeline = [
-            // ...all previous stages up to (and including) your last $project...
             ...pipeline.slice(0, -3), // Exclude $sort, $skip, $limit 
-            // Sum totalAvailableQty and totalCapacity
             {
                 $group: {
                 _id: null,
@@ -315,7 +320,7 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
         }
         const filter = {};
         if(commodity){
-            filter['request.product.name'] = { $regex: commodity, $options: 'i'}
+            filter['request.product.commodity_id'] = new mongoose.Types.ObjectId(commodity);
         }
         if(associate_name){
             filter['user.basic_details.associate_details.associate_name'] = { $regex: associate_name, $options: 'i'}
@@ -387,9 +392,7 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
             { $limit: parseInt(limit) },
         ]
         const sumPipeline = [
-            // ...all previous stages up to (and including) your last $project...
-            ...pipeline.slice(0, -3), // Exclude $sort, $skip, $limit if needed
-            // Sum totalAvailableQty and totalCapacity
+            ...pipeline.slice(0, -3), // Exclude $sort, $skip, $limit
             {
                 $group: {
                 _id: null,
