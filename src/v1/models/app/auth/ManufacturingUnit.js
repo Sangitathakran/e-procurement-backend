@@ -14,6 +14,7 @@ const manufacturingUnitSchema = new mongoose.Schema({
     },
     product_produced: { type: String,  trim: true }, 
     supply_chain_capabilities: { type: String, trim: true }, 
+    source_by: { type: String, default: "NCCF" },
     ..._commonKeys
 }, { timestamps: true });
 

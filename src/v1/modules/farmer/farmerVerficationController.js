@@ -10,6 +10,7 @@ const { VerificationType } = require('@common/enum');
 const { paginate } = require('@src/v1/utils/helpers');
 const { ObjectId } = require("mongodb");
 const mongoose = require("mongoose");
+const { NODE_ENV } = require('@config/index');
 
 function generateCacheKey(prefix, params) {
   return `${prefix}:${Object.entries(params)
@@ -171,126 +172,154 @@ module.exports.requestforVerification = async (req, res) => {
         message: `Farmer not found with ID: ${farmerId}`,
       });
     }
+    let is_verify_aadhaar = false;
+    let is_verify_bank = false;
+    if (NODE_ENV === 'production') {
+      // Aadhaar Verification
+      if (request_for_verfication == VerificationType.AADHAAR) {
 
-    // Aadhaar Verification
-    if (request_for_verfication == VerificationType.AADHAAR) {
+        if (findFarmer?.proof?.aadhar_no && findFarmer?.proof?.is_verified === false) {
+          const aadhaarNo = findFarmer?.proof?.aadhar_no;
+          const aadherRes = await aadherVerfiycation(aadhaarNo);
 
-      if (findFarmer?.proof?.aadhar_no && findFarmer?.proof?.is_verified === false) {
-        const aadhaarNo = findFarmer?.proof?.aadhar_no;
-        const aadherRes = await aadherVerfiycation(aadhaarNo);
+          logger.info(`Aadhaar API response for ${findFarmer.farmer_id}: ${JSON.stringify(aadherRes)}`);
 
-        logger.info(`Aadhaar API response for ${findFarmer.farmer_id}: ${JSON.stringify(aadherRes)}`);
+          const timestamp = new Date(aadherRes?.timestamp || Date.now());
+          const aadherData = aadherRes?.data?.aadhaar_data;
 
-        const timestamp = new Date(aadherRes?.timestamp || Date.now());
-        const aadherData = aadherRes?.data?.aadhaar_data;
+          const aadhaarVerified = aadherRes?.data?.code === "1018";
 
-        const aadhaarVerified = aadherRes?.data?.code === "1018";
-        console.log({
-              aadhaar_details: {
-                code: aadherRes?.data?.code,
-                ...aadherData,
-                request_id: aadherRes?.request_id,
-                transaction_id: aadherRes?.transaction_id,
+          await verfiyfarmer.updateOne(
+            { farmer_id: findFarmer._id },
+            {
+              $set: {
+                aadhaar_details: {
+                  code: aadherRes?.data?.code,
+                  ...aadherData,
+                  request_id: aadherRes?.request_id,
+                  transaction_id: aadherRes?.transaction_id,
+                },
+                is_verify_aadhaar: aadhaarVerified,
+                is_verify_aadhaar_date: timestamp,
+                request_for_aadhaar: false,
               },
-              is_verify_aadhaar: aadhaarVerified,
-              is_verify_aadhaar_date: timestamp,
-              request_for_aadhaar: false,
-            })
-        await verfiyfarmer.updateOne(
-          { farmer_id: findFarmer._id },
-          {
-            $set: {
-              aadhaar_details: {
-                code: aadherRes?.data?.code,
-                ...aadherData,
-                request_id: aadherRes?.request_id,
-                transaction_id: aadherRes?.transaction_id,
-              },
-              is_verify_aadhaar: aadhaarVerified,
-              is_verify_aadhaar_date: timestamp,
-              request_for_aadhaar: false,
             },
-          },
-          { upsert: true }
-        );
+            { upsert: true }
+          );
 
-        await farmer.findByIdAndUpdate({_id:findFarmer._id}, {
-          $set: {
-            "proof.is_verified": aadhaarVerified,
-            "proof.is_verify_aadhaar_date": timestamp,
-          },
-        });
-
-        logger.info(`Aadhaar verification ${aadhaarVerified ? ' success' : ' failed'} for ${findFarmer.farmer_id}`);
-      }else{
-        logger.warn(`Aadhaar number missing or already verified for farmer ${findFarmer?.proof?.aadhar_no},${findFarmer?.proof?.is_verified}`);
-        logger.warn(`Aadhaar number missing or already verified for farmer ${findFarmer.farmer_id}`);
-        // If aadhaar number is missing or already verified, return an error response
-        return sendResponse({
-          res,
-          status: 400,
-          message: "Aadhaar number missing or already verified",
-        });
-      }
-    }
-
-    // Bank Verification
-    if (request_for_verfication === VerificationType.BANK) {
-      if (findFarmer?.bank_details?.account_no && findFarmer?.bank_details?.ifsc_code && findFarmer?.bank_details?.is_verified === false) {
-        const { account_no, ifsc_code } = findFarmer.bank_details;
-        const bankRes = await bankVerfiycation(account_no, ifsc_code);
-
-        logger.info(`Bank API response for ${findFarmer.farmer_id}: ${JSON.stringify(bankRes)}`);
-
-        const timestamp = new Date(bankRes?.timestamp || Date.now());
-        const isVerified = bankRes?.data?.code === "1000";
-        const bankData = bankRes?.data?.bank_account_data || {};
-
-        await verfiyfarmer.updateOne(
-          { farmer_id: findFarmer._id },
-          {
+          await farmer.findByIdAndUpdate({ _id: findFarmer._id }, {
             $set: {
-              bank_details: {
-                name: bankData?.name,
-                code: bankRes?.data?.code,
-                bank_name: bankData?.bank_name,
-                branch: bankData?.branch,
-                account_number: bankData?.account_number,
-                ifsc: ifsc_code,
-                verified_at: timestamp,
-                request_id: bankRes?.request_id,
-                transaction_id: bankRes?.transaction_id,
-              },
-              is_verify_bank: isVerified,
-              is_verify_bank_date: timestamp,
-              request_for_bank: false,
+              "proof.is_verified": aadhaarVerified,
+              "proof.is_verify_aadhaar_date": timestamp,
             },
-          },
-          { upsert: true }
-        );
+          });
 
-        await farmer.findByIdAndUpdate(findFarmer._id, {
-          $set: {
-            "bank_details.is_verified": isVerified,
-            "bank_details.is_verify_bank_date": timestamp,
-          },
-        });
-
-        logger.info(`Bank verification ${isVerified ? ' success' : ' failed'} for ${findFarmer.farmer_id}`);
-      } else {
-        logger.warn(`Bank details missing for farmer ${findFarmer.farmer_id}`);
-        return sendResponse({
-          res,
-          status: 400,
-          message: "Bank details missing or already verified",
-        });
+          logger.info(`Aadhaar verification ${aadhaarVerified ? ' success' : ' failed'} for ${findFarmer.farmer_id}`);
+        } else {
+          logger.warn(`Aadhaar number missing or already verified for farmer ${findFarmer?.proof?.aadhar_no},${findFarmer?.proof?.is_verified}`);
+          logger.warn(`Aadhaar number missing or already verified for farmer ${findFarmer.farmer_id}`);
+          // If aadhaar number is missing or already verified, return an error response
+          return sendResponse({
+            res,
+            status: 400,
+            message: "Aadhaar number missing or already verified",
+          });
+        }
       }
+
+      // Bank Verification
+      if (request_for_verfication === VerificationType.BANK) {
+        if (findFarmer?.bank_details?.account_no && findFarmer?.bank_details?.ifsc_code && findFarmer?.bank_details?.is_verified === false) {
+          const { account_no, ifsc_code } = findFarmer.bank_details;
+          const bankRes = await bankVerfiycation(account_no, ifsc_code);
+
+          logger.info(`Bank API response for ${findFarmer.farmer_id}: ${JSON.stringify(bankRes)}`);
+
+          const timestamp = new Date(bankRes?.timestamp || Date.now());
+          const isVerified = bankRes?.data?.code === "1000";
+          const bankData = bankRes?.data?.bank_account_data || {};
+
+          await verfiyfarmer.updateOne(
+            { farmer_id: findFarmer._id },
+            {
+              $set: {
+                bank_details: {
+                  name: bankData?.name,
+                  code: bankRes?.data?.code,
+                  bank_name: bankData?.bank_name,
+                  branch: bankData?.branch,
+                  account_number: bankData?.account_number,
+                  ifsc: ifsc_code,
+                  verified_at: timestamp,
+                  request_id: bankRes?.request_id,
+                  transaction_id: bankRes?.transaction_id,
+                },
+                is_verify_bank: isVerified,
+                is_verify_bank_date: timestamp,
+                request_for_bank: false,
+              },
+            },
+            { upsert: true }
+          );
+
+          await farmer.findByIdAndUpdate(findFarmer._id, {
+            $set: {
+              "bank_details.is_verified": isVerified,
+              "bank_details.is_verify_bank_date": timestamp,
+            },
+          });
+
+          logger.info(`Bank verification ${isVerified ? ' success' : ' failed'} for ${findFarmer.farmer_id}`);
+        } else {
+          logger.warn(`Bank details missing for farmer ${findFarmer.farmer_id}`);
+          return sendResponse({
+            res,
+            status: 400,
+            message: "Bank details missing or already verified",
+          });
+        }
+      }
+    } else {
+      const timestamp = new Date(Date.now());
+      if (request_for_verfication === VerificationType.AADHAAR) {
+        is_verify_aadhaar = true
+      } else if (request_for_verfication === VerificationType.BANK) {
+        is_verify_bank = false
+      } else if (request_for_verfication === VerificationType.BOTH) {
+        is_verify_aadhaar = true
+        is_verify_bank = true
+      }
+      await verfiyfarmer.updateOne(
+        { farmer_id: findFarmer._id },
+        {
+          is_verify_aadhaar: is_verify_aadhaar,
+          is_verify_bank: is_verify_bank,
+          is_verify_bank_date: new Date(),
+          is_verify_aadhaar_date: new Date(),
+          request_for_aadhaar: false,
+        },
+        { upsert: true }
+      );
+
+      await farmer.findByIdAndUpdate(findFarmer._id, {
+        $set: {
+          "proof.is_verified": is_verify_aadhaar,
+          "proof.is_verify_aadhaar_date": new Date(),
+          "bank_details.is_verified": is_verify_bank,
+          "bank_details.is_verify_bank_date": new Date(),
+        },
+      });
     }
+    let data = {
+      farmerId: farmerId,
+      is_verify_aadhaar: is_verify_aadhaar,
+      is_verify_bank: is_verify_bank,
+    };
 
     return sendResponse({
       res,
       status: 200,
-      data: { farmerId },
+      data: { ...data },
       message: "Verification process completed",
     });
 
@@ -561,7 +590,7 @@ module.exports.farmerVerfiedData = async (req, res) => {
           branch_name: "$farmer_details.bank_details.branch_name",
           ifsc_code: "$farmer_details.bank_details.ifsc_code",
           organization_name: "$associate_details.basic_details.associate_details.organization_name",
-          createdAt:1
+          createdAt: 1
         }
       },
       {

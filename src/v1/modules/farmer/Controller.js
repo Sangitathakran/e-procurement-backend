@@ -216,7 +216,7 @@ module.exports.verifyOTP = async (req, res) => {
 
     // Prepare the response data
     const resp = {
-      token: generateJwtToken({ mobile_no: mobileNumber }),
+      token: await generateJwtToken({ mobile_no: mobileNumber ,user_type: _userType.farmer}),
       ...JSON.parse(JSON.stringify(individualFormerData)), // Use individualFormerData (existing or newly saved)
     };
 
@@ -4024,7 +4024,6 @@ module.exports.getStatesByPincode = async (req, res) => {
         })
       );
     }
-
     if (pincode.length !== 6) {
       return res.send(
         new serviceResponse({
@@ -4640,7 +4639,7 @@ module.exports.farmerCount = async (req, res) => {
       verifiedFarmerAgg
     ]);
 
-    logger.info("âœ… Farmer statistics fetched successfully");
+    logger.info(" Farmer statistics fetched successfully");
 
     return sendResponse({
       res,
@@ -4660,7 +4659,7 @@ module.exports.farmerCount = async (req, res) => {
     });
 
   } catch (error) {
-    logger.error("âŒ Error while fetching farmer count", error);
+    logger.error(" Error while fetching farmer count", error);
     return sendResponse({
       res,
       status: 500,
@@ -4679,7 +4678,7 @@ module.exports.verfiyedFarmer = async (req, res) => {
     const farmerTypeAgg = await verfiyfarmer.find({})
 
 
-    logger.info("âœ… Farmer statistics fetched successfully");
+    logger.info("Farmer statistics fetched successfully");
 
     return sendResponse({
       res,
@@ -4699,7 +4698,7 @@ module.exports.verfiyedFarmer = async (req, res) => {
     });
 
   } catch (error) {
-    logger.error("âŒ Error while fetching farmer count", error);
+    logger.error(" Error while fetching farmer count", error);
     return sendResponse({
       res,
       status: 500,

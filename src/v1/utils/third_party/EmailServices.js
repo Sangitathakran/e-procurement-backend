@@ -44,11 +44,20 @@ class EmailService {
 
     async sendForgotPasswordEmail(emailPaylod) {
         try {
-             // console.log(emailPaylod);
        
-        FRONTEND_URL = FRONTEND_URLS[emailPaylod.portal_type];
+            FRONTEND_URL = FRONTEND_URLS[emailPaylod.portal_type];
             const template = await this.loadTemplate("forgotPassword");
-            const resetPasswordLink = `${FRONTEND_URL}/${emailPaylod.portal_type}/reset-password/${emailPaylod.resetToken}`;
+            let portalName 
+            if(emailPaylod.portal_type == "admin") {
+                portalName = "agent"
+            }else if(emailPaylod.portal_type == "Nccfadmin") {
+                portalName = "nccf-distiller"
+            }else{
+                portalName = emailPaylod.portal_type
+            }
+
+
+            const resetPasswordLink = `${FRONTEND_URL}/${portalName}/reset-password/${emailPaylod.resetToken}`;
             console.log("Reset Password Link:", resetPasswordLink);
             const html = template
                 .replace("{{resetPasswordLink}}", resetPasswordLink)

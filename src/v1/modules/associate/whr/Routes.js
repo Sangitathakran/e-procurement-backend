@@ -8,8 +8,8 @@ whrRoutes.post("/create-whr", [verifyAssociate,validateForm], createWhr);
 whrRoutes.put("/update-whr/:id",[verifyAssociate,validateForm],updateWhrById);
 whrRoutes.get("/get-whr-details",verifyAssociate,getWhrById);
 whrRoutes.get("/batch-list",verifyAssociate, batchList);
-whrRoutes.get("/lot-list",lotList);
-whrRoutes.post("/whr-lot-detail", lotLevelDetailsUpdate);
+whrRoutes.get("/lot-list",verifyAssociate,lotList);
+whrRoutes.post("/whr-lot-detail",verifyAssociate, lotLevelDetailsUpdate);
 
 
 module.exports = { whrRoutes }; 

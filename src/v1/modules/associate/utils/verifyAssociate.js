@@ -6,7 +6,7 @@ const { serviceResponse } = require('@src/v1/utils/helpers/api_response');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
 const jwt = require('jsonwebtoken');
 const { LoginHistory } = require('@src/v1/models/master/loginHistery');
-
+const { sendResponse } = require('@src/v1/utils/helpers/api_response');
 const tokenBlacklist = [];
 
 
@@ -23,7 +23,7 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
 
     let loginHistory = await LoginHistory.findOne({ token: token, logged_out_at: null }).sort({ createdAt: -1 });
     if (!loginHistory) {
-        return sendResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
+        return sendResponse({ res, status: 401, message: "error while decode not found", errors: "Token Expired, Please login again." });
     }
 
     jwt.verify(token, JWT_SECRET_KEY, async function (err, decodedToken) {

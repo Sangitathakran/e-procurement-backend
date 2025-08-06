@@ -412,7 +412,7 @@ exports.checkSecretKey = async (req, res) => {
       return res.status(400).send(
         new serviceResponse({
           status: 400,
-          errors: [{ message: "Invalid or expired reset link. Please request a new one." }]
+          errors: [{ message: "Reset link has already been used. Please request a new one." }]
         })
       );
     }
@@ -430,7 +430,7 @@ exports.checkSecretKey = async (req, res) => {
       return res.status(400).send(
         new serviceResponse({
           status: 400,
-          errors: [{ message: "This reset link has already been used or expired." }]
+          errors: [{ message: "Reset link has already been used. Please request a new one." }]
         })
       );
     }
