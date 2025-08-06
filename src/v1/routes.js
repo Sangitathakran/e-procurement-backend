@@ -28,7 +28,7 @@ const { slaRoutes } = require("./modules/sla/Routes");
 
 /* Define Your Routes */
 router.use(handlePagination)
-//router.use(handleRateLimit)
+router.use(handleRateLimit)
 router.use(multer().any())
 
 router.use('/aws',commonAuth, S3Router) 
