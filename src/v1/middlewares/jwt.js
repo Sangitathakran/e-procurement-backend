@@ -4,7 +4,6 @@ const { _auth_module } = require('@src/v1/utils/constants/messages');
 const { JWT_SECRET_KEY } = require('@config/index');
 const { _userType } = require('@src/v1/utils/constants/index');
 const { MasterUser } = require('@src/v1/models/master/MasterUser');
-const { User } = require('../models/app/auth/User');
 const { LoginHistory } = require('@src/v1/models/master/loginHistery');
 
 // const { redisClient } = require('@config/redis');
@@ -22,7 +21,7 @@ const { LoginHistory } = require('@src/v1/models/master/loginHistery');
 const authorizeRoles = (...allowedRoles) => {
   return (req, res, next) => {
     const user = req.user;
-    console.log("User in authorizeRoles middleware:", user);
+   // console.log("User in authorizeRoles middleware:", user);
     if (!user || !allowedRoles.includes(user?.user_type)) {
       return sendResponse({
         res,
