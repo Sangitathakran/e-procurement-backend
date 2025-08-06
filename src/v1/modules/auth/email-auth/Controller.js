@@ -52,7 +52,7 @@ module.exports.login = async (req, res) => {
     }
 
     const user = await MasterUser.findOne({ email: email.trim() })
-      .select("-createdBy -history -passwordChangedAt -email -mobile")
+      .select("-createdBy -history -passwordChangedAt ")
       .populate([
         {
           path: "userRole",
