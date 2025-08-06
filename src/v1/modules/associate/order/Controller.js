@@ -468,13 +468,14 @@ module.exports.trackDeliveryByBatchId = async (req, res) => {
 
     try {
         const { id } = req.params;
-        console.log('check trandsitt', id)
         const record = await Batch.findOne({ _id: id })
             .select({ dispatched: 1, intransit: 1, status: 1, delivered: 1 })
             .populate({
+                path: 'warehousedetails_id', select: 'basicDetails warehouseName'
+            })
+            .populate({
                 path: 'req_id', select: 'product address'
             }).lean();
-
         if (!record) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Track order") }] }))
         }
