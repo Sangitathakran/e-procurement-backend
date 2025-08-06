@@ -110,368 +110,438 @@ module.exports.warehouseList = async (req, res) => {
 
 
 module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
-    const {
-        page = 1,
-        limit = 10,
-        search = '',
-        sortBy,
-        isExport = 0,
-        commodityName,
-        associateName,
-        qcStatus
-    } = req.query;
+  const {
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy,
+    ownerName = '',
+    state = '',
+    city = '',
+    commodity,
+    isExport = 0,
+  } = req.query;
 
-    try {
-        const searchFields = ['wareHouse_code', 'basicDetails.warehouseName', 'warehouseOwner.ownerDetails.name'];
+  try {
+    const searchFields = [
+      'wareHouse_code',
+      'basicDetails.warehouseName',
+      'warehouseOwner.ownerDetails.name',
+    ];
 
-        const makeSearchQuery = (searchFields) => ({
-            $or: searchFields.map(item => ({
-                [item]: { $regex: search, $options: 'i' }
-            }))
-        });
-
-        const query = search ? makeSearchQuery(searchFields) : {};
-        const batchFilters = [];
-        query.active = true;
-
-        if (commodityName) {
-            batchFilters.push({
-                "batches.requests.product.name": { $regex: commodityName, $options: 'i' }
-            });
-        }
-
-        if (associateName) {
-            batchFilters.push({
-                "batches.users.basic_details.associate_details.associate_name": { $regex: associateName, $options: 'i' }
-            });
-        }
-
-        if (qcStatus) {
-            batchFilters.push({
-                "batches.dispatched.qc_report.received_qc_status": qcStatus
-            });
-        }
-        // const pipeline = [
-        //     {
-        //         $lookup: {
-        //             from: "warehousev2",
-        //             localField: "warehouseOwnerId",
-        //             foreignField: "_id",
-        //             as: "warehouseOwner"
-        //         }
-        //     },
-        //     {
-        //         $lookup: {
-        //             from: "batches",
-        //             localField: "_id",
-        //             foreignField: "warehousedetails_id",
-        //             as: "batches",
-        //             pipeline: [
-        //                 {
-        //                     $lookup: {
-        //                         from: "requests",
-        //                         localField: "req_id",
-        //                         foreignField: "_id",
-        //                         as: "requests"
-        //                     }
-        //                 },
-        //                 {$unwind:{path:"$requests", preserveNullAndEmptyArrays:true}},
-        //                 {
-        //                     $lookup: {
-        //                         from: "users",
-        //                         localField: "seller_id",
-        //                         foreignField: "_id",
-        //                         as: "users"
-        //                     }
-        //                 },
-        //                 {$unwind:{path:"$users", preserveNullAndEmptyArrays:true}},
-        //             ]
-        //         }
-        //     },
-        //     { $unwind: { path: "$warehouseOwner", preserveNullAndEmptyArrays: true } },
-        //     // { $unwind: { path: "$batches", preserveNullAndEmptyArrays: true } },
-        //     { $match: {...query,active:true} },
-        //     {
-        //         $project: {
-        //             wareHouse_code: 1,
-        //             basicDetails: 1,
-        //             addressDetails: 1,
-        //             active: 1,
-        //             "warehouseOwner.ownerDetails.name": 1,
-        //             "batches.dispatched.qc_report.received_qc_status":1,
-        //             'batches.requests.product':1,
-        //             'batches.users.basic_details.associate_details.associate_name':1,
-        //             createdAt: 1
-        //         }
-        //     },
-        //     { $sort: sortBy },
-        //     { $skip: (page - 1) * limit },
-        //     { $limit: parseInt(limit) },
-        // ];
-        const pipeline = [
-            {
-                $lookup: {
-                    from: "warehousev2",
-                    localField: "warehouseOwnerId",
-                    foreignField: "_id",
-                    as: "warehouseOwner"
-                }
-            },
-            {
-                $lookup: {
-                    from: "batches",
-                    localField: "_id",
-                    foreignField: "warehousedetails_id",
-                    as: "batches",
-                    pipeline: [
-                        {
-                            $lookup: {
-                                from: "requests",
-                                localField: "req_id",
-                                foreignField: "_id",
-                                as: "requests"
-                            }
-                        },
-                        { $unwind: { path: "$requests", preserveNullAndEmptyArrays: true } },
-                        {
-                            $lookup: {
-                                from: "users",
-                                localField: "seller_id",
-                                foreignField: "_id",
-                                as: "users"
-                            }
-                        },
-                        { $unwind: { path: "$users", preserveNullAndEmptyArrays: true } }
-                    ]
-                }
-            },
-            { $unwind: { path: "$warehouseOwner", preserveNullAndEmptyArrays: true } },
-            { $match: query },  
-        ];
-
-        // Batch Filters Handling (If any filter present, push to pipeline)
-        if (batchFilters.length > 0) {
-            pipeline.push({ $match: { $and: batchFilters } });
-        }
-
-        pipeline.push(
-            {
-                $project: {
-                    wareHouse_code: 1,
-                    basicDetails: 1,
-                    addressDetails: 1,
-                    active: 1,
-                    "warehouseOwner.ownerDetails.name": 1,
-                    "batches.dispatched.qc_report.received_qc_status": 1,
-                    'batches.requests.product': 1,
-                    'batches.users.basic_details.associate_details.associate_name': 1,
-                    createdAt: 1
-                }
-            },
-            { $sort: sortBy },
-            { $skip: (page - 1) * limit },
-            { $limit: parseInt(limit) }
-        );
-        if (isExport == 1) {
-            const data = await wareHouseDetails.aggregate([...pipeline.slice(0, -2)]);
-    
-            const record = data?.map((item) => {
-                const { addressDetails } = item
-                const address = `${addressDetails?.addressLine1 || ""} ${addressDetails?.city || ""} ${addressDetails?.district?.district_name || ""} ${addressDetails?.pincode || ""} ${addressDetails?.state?.state_name || ""}`
-                return {
-                    "Warehouse ID": item?.wareHouse_code || "NA",
-                    "WHR Name": item?.basicDetails?.warehouseName || "NA",
-                    "Owner": item?.warehouseOwner?.ownerDetails?.name || "NA",
-                    "Capacity": item?.basicDetails?.warehouseCapacity || "NA",
-                    "Address": address || "NA",
-                    "Status": item?.active ? "Active" : "InActive" ,
-                }
-            })
-            if (record.length > 0) {
-              return dumpJSONToExcel(req, res, {
-                    data: record,
-                    fileName: `Warehouse-list.xlsx`,
-                    worksheetName: `Warehouse-record`
-                });
-            } else {
-                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("warehouse") }))
-
-            }
-
-        }
-        const records = { count: 0, rows: [] };
-        records.rows = await wareHouseDetails.aggregate(pipeline);
-
-        const countResult = await wareHouseDetails.aggregate([...pipeline.slice(0, -3), { $count: "count" }]);
-        records.count = countResult?.[0]?.count ?? 0;
-        records.page = page;
-        records.limit = limit;
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-
-        return sendResponse({
-            res,
-            status: 200,
-            data: records,
-            message: _response_message.found("warehouse")
-        });
-    } catch (error) {
-        _handleCatchErrors(error, res);
+    const makeSearchQuery = searchFields => ({
+      $or: searchFields.map(item => ({
+        [item]: { $regex: search, $options: 'i' },
+      })),
+    });
+    const query = search ? makeSearchQuery(searchFields) : {};
+    if (ownerName) {
+      query['warehouseOwner.ownerDetails.name'] = {
+        $regex: ownerName,
+        $options: 'i',
+      };
     }
+    if (state) {
+      query['addressDetails.state.state_name'] = {
+        $regex: state,
+        $options: 'i',
+      };
+    }
+
+    if (city) {
+      query['addressDetails.city'] = { $regex: city, $options: 'i' };
+    }
+    const pipeline = [
+      {
+        $lookup: {
+          from: 'warehousev2',
+          localField: 'warehouseOwnerId',
+          foreignField: '_id',
+          as: 'warehouseOwner',
+        },
+      },
+      {
+        $lookup: {
+          from: 'batches',
+          localField: '_id',
+          foreignField: 'warehousedetails_id',
+          as: 'batches',
+          pipeline: [
+            {
+              $lookup: {
+                from: 'requests',
+                localField: 'req_id',
+                foreignField: '_id',
+                as: 'requests',
+              },
+            },
+            {
+              $unwind: { path: '$requests', preserveNullAndEmptyArrays: true },
+            },
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'seller_id',
+                foreignField: '_id',
+                as: 'users',
+              },
+            },
+            { $unwind: { path: '$users', preserveNullAndEmptyArrays: true } },
+          ],
+        },
+      },
+      {
+        $addFields: {
+          commodity: {
+            $arrayElemAt: [
+              {
+                $map: {
+                  input: '$batches',
+                  as: 'batch',
+                  in: '$$batch.requests.product.name',
+                },
+              },
+              0,
+            ],
+          },
+          commodity_id: {
+            $arrayElemAt: [
+              {
+                $map: {
+                  input: '$batches',
+                  as: 'batch',
+                  in: '$$batch.requests.product.commodity_id',
+                },
+              },
+              0,
+            ],
+          },
+          availableQty: {
+            $round: [{ $sum: '$batches.available_qty' }, 3],
+          },
+          qty: {
+            $round: [{ $sum: '$batches.qty' }, 3],
+          },
+        },
+      },
+      {
+        $unwind: { path: '$warehouseOwner', preserveNullAndEmptyArrays: true },
+      },
+     
+      {
+        $match: {
+          ...(commodity
+            ? { commodity_id: new mongoose.Types.ObjectId(commodity) }
+            : {}),
+          active: true,
+          ...query,
+        },
+      },
+      {
+        $project: {
+          wareHouse_code: 1,
+          basicDetails: 1,
+          addressDetails: 1,
+          active: 1,
+          'warehouseOwner.ownerDetails.name': 1,
+          'batches.dispatched.qc_report.received_qc_status': 1,
+          'batches.requests.product': 1,
+          'batches.users.basic_details.associate_details.associate_name': 1,
+          availableQty: {
+            $round: [{ $sum: '$batches.available_qty' }, 3],
+          },
+          commodity: 1,
+          commodity_id: 1,
+          createdAt: 1,
+        },
+      },
+      { $sort: sortBy },
+      { $skip: (page - 1) * limit },
+      { $limit: parseInt(limit) },
+    ];
+    const sumPipeline = [
+      ...pipeline.slice(0, -3),
+      {
+        $group: {
+          _id: null,
+          totalAvailableQty: { $sum: '$availableQty' },
+          totalCapacity: { $sum: '$basicDetails.warehouseCapacity' },
+        },
+      },
+    ];
+
+    if (isExport == 1) {
+      const data = await wareHouseDetails.aggregate([...pipeline.slice(0, -2)]);
+
+      const record = data?.map(item => {
+        const { addressDetails } = item;
+        const address = `${addressDetails?.addressLine1 || ''} ${
+          addressDetails?.city || ''
+        } ${addressDetails?.district?.district_name || ''} ${
+          addressDetails?.pincode || ''
+        } ${addressDetails?.state?.state_name || ''}`;
+        return {
+          'Warehouse ID': item?.wareHouse_code || 'NA',
+          'WHR Name': item?.basicDetails?.warehouseName || 'NA',
+          Owner: item?.warehouseOwner?.ownerDetails?.name || 'NA',
+          Capacity: item?.basicDetails?.warehouseCapacity || 'NA',
+          Address: address || 'NA',
+          Status: item?.active ? 'Active' : 'InActive',
+        };
+      });
+      if (record.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `Warehouse-list.xlsx`,
+          worksheetName: `Warehouse-record`,
+        });
+      } else {
+        return res
+          .status(200)
+          .send(
+            new serviceResponse({
+              status: 200,
+              data: records,
+              message: _response_message.notFound('warehouse'),
+            })
+          );
+      }
+    }
+    const records = {
+      count: 0,
+      totalAvailableQty: 0,
+      totalCapacity: 0,
+      rows: [],
+    };
+    records.rows = await wareHouseDetails.aggregate(pipeline);
+
+    const grandTotals = await wareHouseDetails.aggregate(sumPipeline);
+    records.totalAvailableQty = (
+      grandTotals[0]?.totalAvailableQty ?? 0
+    ).toFixed(3);
+    records.totalCapacity = (grandTotals[0]?.totalCapacity ?? 0).toFixed(3);
+
+    const countResult = await wareHouseDetails.aggregate([
+      ...pipeline.slice(0, -3),
+      { $count: 'count' },
+    ]);
+    records.count = countResult?.[0]?.count ?? 0;
+    records.page = page;
+    records.limit = limit;
+    records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+    return sendResponse({
+      res,
+      status: 200,
+      data: records,
+      message: _response_message.found('warehouse'),
+    });
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
 });
 
 
+
 module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
-    const {
-        page = 1,
-        limit = 10,
-        search = '',
-        sortBy,
-        id,
-        commodity,
-        associateName,
-        qcStatus,
-        isExport=0
-    } = req.query;
+  const {
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy,
+    id,
+    isExport = 0,
+    commodity,
+    associateName,
+    qcStatus,
+  } = req.query;
 
-    try {
-        if (!id) {
-            return sendResponse({
-                res,
-                status: 400,
-                message: _response_message.notFound("warehouse Id")
-            })
-        }
-        const query = {
-            warehousedetails_id: new mongoose.Types.ObjectId(id),
-            wareHouse_approve_status: 'Received'
-        }
-        const searchField=['user.basic_details.associate_details.associate_name', 'batchId', 'warehouse.wareHouse_code']
-
-        const pipeline = [
-            { $match: query },
-            {
-                $lookup: {
-                    from: "warehousedetails",
-                    localField: "warehousedetails_id",
-                    foreignField: "_id",
-                    as: "warehouse"
-                },
-            },
-            { $unwind: { path: "$warehouse", preserveNullAndEmptyArrays: true } },
-
-            {
-                $lookup: {
-                    from: "requests",
-                    localField: "req_id",
-                    foreignField: "_id",
-                    as: "request"
-                },
-            },
-
-            { $unwind: { path: "$request", preserveNullAndEmptyArrays: true } },
-            {
-                $lookup: {
-                    from: "users",
-                    localField: "seller_id",
-                    foreignField: "_id",
-                    as: "user"
-                },
-            },
-            { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
-            { $match: search ? makeSearchQuery(searchField, search) : {} },
-            {
-                $lookup: {
-                    from: "procurementcenters",
-                    localField: "procurementCenter_id",
-                    foreignField: "_id",
-                    as: "procurementcenter"
-                },
-            },
-            { $unwind: { path: "$procurementcenter", preserveNullAndEmptyArrays: true } },
-            {
-                $project: {
-                    batchId: 1,
-                    receiving_details: 1,
-                    final_quality_check: 1,
-                    "warehouse.wareHouse_code": 1,
-                    "request.product": 1,
-                    "user.basic_details.associate_details.associate_name": 1,
-                    "procurementcenter.center_name": 1,
-                }
-            }
-        ];
-        //     { $sort: sortBy },
-        //     { $skip: (page - 1) * limit },
-        //     { $limit: parseInt(limit) },
-        // ]
-        const filterConditions = {};
-
-        if (commodity) {
-            filterConditions['request.product.name'] = { $regex: new RegExp(commodity, 'i') };
-        }
-
-        if (associateName) {
-            filterConditions['user.basic_details.associate_details.associate_name'] = { $regex: new RegExp(associateName, 'i') };
-        }
-
-        if (qcStatus) {
-            filterConditions['final_quality_check.status'] = { $regex: new RegExp(qcStatus, 'i') };
-        }
-
-        if (Object.keys(filterConditions).length > 0) {
-            pipeline.push({ $match: filterConditions });
-        }
-
-        pipeline.push({ $sort: sortBy });
-        pipeline.push({ $skip: (page - 1) * limit });
-        pipeline.push({ $limit: parseInt(limit) });
-        if (isExport == 1) {
-            const data = await Batch.aggregate([...pipeline.slice(0, -2)]);
-    
-            const record = data?.map((item) => {
-                return {
-                    "Batch ID": item?.batchId,
-                    "Warehouse Id": item?.warehouse?.wareHouse_code,
-                    "WHR Receipt": item?.final_quality_check?.whr_receipt,
-                    "Commodity": item?.request?.product?.name,
-                    "Associate Name": item?.user?.basic_details?.associate_details?.associate_name,
-                    "Procurement Center": item?.procurementcenter?.center_name,
-                    "Quantity": `${item?.request?.product?.quantity} MT`,
-                    "Received on": item?.receiving_details?.received_on,
-                    "QC Details": item?.final_quality_check?.qc_images?"Approve":"Pending",
-                    "QC Status": item?.final_quality_check?.status
-                  }
-            })
-            if (record.length > 0) {
-              return dumpJSONToExcel(req, res, {
-                    data: record,
-                    fileName: `Inword-list.xlsx`,
-                    worksheetName: `Warehouse-record`
-                });
-            } else {
-                return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.notFound("warehouse") }))
-
-            }
-
-        }
-        const records = { count: 0, rows: [] };
-        records.rows = await Batch.aggregate(pipeline)
-        const countResult = await Batch.aggregate([...pipeline.slice(0, -3), { $count: "count" }]);
-        records.count = countResult?.[0]?.count ?? 0;
-        records.page = page;
-        records.limit = limit;
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
-
-        return sendResponse({
-            res,
-            status: 200,
-            data: records,
-            message: _response_message.found("Inword")
-        });
-    } catch (error) {
-        _handleCatchErrors(error, res);
+  try {
+    if (!id) {
+      return sendResponse({
+        res,
+        status: 400,
+        message: _response_message.notFound('warehouse Id'),
+      });
     }
-})
+    const query = {
+      warehousedetails_id: new mongoose.Types.ObjectId(id),
+      wareHouse_approve_status: 'Received',
+    };
+    const searchField = [
+      'user.basic_details.associate_details.associate_name',
+      'batchId',
+      'warehouse.wareHouse_code',
+    ];
+    const pipeline = [
+      { $match: query },
+      {
+        $lookup: {
+          from: 'warehousedetails',
+          localField: 'warehousedetails_id',
+          foreignField: '_id',
+          as: 'warehouse',
+        },
+      },
+      { $unwind: { path: '$warehouse', preserveNullAndEmptyArrays: true } },
+
+      {
+        $lookup: {
+          from: 'requests',
+          localField: 'req_id',
+          foreignField: '_id',
+          as: 'request',
+        },
+      },
+
+      { $unwind: { path: '$request', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'seller_id',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+      { $match: search ? makeSearchQuery(searchField, search) : {} },
+      {
+        $lookup: {
+          from: 'procurementcenters',
+          localField: 'procurementCenter_id',
+          foreignField: '_id',
+          as: 'procurementcenter',
+        },
+      },
+      {
+        $unwind: {
+          path: '$procurementcenter',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $match: {
+          ...(commodity
+            ? {
+                'request.product.commodity_id': new mongoose.Types.ObjectId(
+                  commodity
+                ),
+              }
+            : {}),
+          ...(associateName
+            ? {
+                'user.basic_details.associate_details.associate_name': {
+                  $regex: associateName,
+                  $options: 'i',
+                },
+              }
+            : {}),
+          ...(qcStatus
+            ? {
+                'final_quality_check.status': {
+                  $regex: qcStatus,
+                  $options: 'i',
+                },
+              }
+            : {}),
+        },
+      },
+      {
+        $project: {
+          batchId: 1,
+          receiving_details: 1,
+          final_quality_check: 1,
+          'warehouse.wareHouse_code': 1,
+          'request.product': 1,
+          'user.basic_details.associate_details.associate_name': 1,
+          'procurementcenter.center_name': 1,
+          available_qty: 1,
+          qty: 1,
+        },
+      },
+      { $sort: sortBy },
+      { $skip: (page - 1) * limit },
+      { $limit: parseInt(limit) },
+    ];
+
+    const sumPipeline = [
+      ...pipeline.slice(0, -3),
+      {
+        $group: {
+          _id: null,
+          totalAvailableQty: { $sum: '$available_qty' },
+          totalQty: { $sum: '$qty' },
+        },
+      },
+    ];
+
+    if (isExport == 1) {
+      const data = await Batch.aggregate([...pipeline.slice(0, -2)]);
+
+      const record = data?.map(item => {
+        return {
+          'Batch ID': item?.batchId,
+          'Warehouse Id': item?.warehouse?.wareHouse_code,
+          'WHR Receipt': item?.final_quality_check?.whr_receipt,
+          Commodity: item?.request?.product?.name,
+          'Associate Name':
+            item?.user?.basic_details?.associate_details?.associate_name,
+          'Procurement Center': item?.procurementcenter?.center_name,
+          Quantity: `${item?.request?.product?.quantity} MT`,
+          'Received on': item?.receiving_details?.received_on,
+          'QC Details': item?.final_quality_check?.qc_images
+            ? 'Approve'
+            : 'Pending',
+          'QC Status': item?.final_quality_check?.status,
+        };
+      });
+      if (record.length > 0) {
+        return dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `Inword-list.xlsx`,
+          worksheetName: `Warehouse-record`,
+        });
+      } else {
+        return res
+          .status(200)
+          .send(
+            new serviceResponse({
+              status: 200,
+              data: records,
+              message: _response_message.notFound('warehouse'),
+            })
+          );
+      }
+    }
+    const records = { count: 0, totalQty: 0, totalAvailableQty: 0, rows: [] };
+    records.rows = await Batch.aggregate(pipeline);
+    const grandTotals = await Batch.aggregate(sumPipeline);
+    records.totalAvailableQty = (
+      grandTotals[0]?.totalAvailableQty ?? 0
+    ).toFixed(3);
+    records.totalQty = (grandTotals[0]?.totalQty ?? 0).toFixed(3);
+
+    const countResult = await Batch.aggregate([
+      ...pipeline.slice(0, -3),
+      { $count: 'count' },
+    ]);
+
+    records.count = countResult?.[0]?.count ?? 0;
+    records.page = page;
+    records.limit = limit;
+    records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+
+    return sendResponse({
+      res,
+      status: 200,
+      data: records,
+      message: _response_message.found('Inword'),
+    });
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+});
+
 
 module.exports.getInwordReceivingDetails = asyncErrorHandler(async (req, res) => {
     const { id } = req.query;
