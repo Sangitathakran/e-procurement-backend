@@ -61,9 +61,9 @@ module.exports.login = async (req, res) => {
           select: "organization_name _id "
         }
       ]);
-    const slaResult = await SLAManagement.findOne({ _id: user.portalId._id })
-      .select("address")
-      .lean();
+    // const slaResult = await SLAManagement.findOne({ _id: user?.portalId?._id })
+    //   .select("address")
+    //   .lean();
     if (!user) {
       return res.status(400).send(
         new serviceResponse({
