@@ -16,14 +16,16 @@ module.exports.getAssociates = async (req, res) => {
     try {
         const { page = 1, limit = 10, search = '', sortBy, isExport = 0 } = req.query;
         const skip = (page - 1) * limit;
+        const { state_id } = req;
 
         // Build the query for searching/filtering associates
         let matchQuery = {
             user_type: _userType.associate,
             is_approved: _userStatus.approved,
+            "address.registered.state_id": new mongoose.Types.ObjectId(state_id),
             // bank_details: { $ne: null }
         };
-
+console.log("matchQuery", matchQuery);
         // If there's a search term, add it to the match query
         if (search) {
             matchQuery['$or'] = [
@@ -32,15 +34,15 @@ module.exports.getAssociates = async (req, res) => {
                 { 'basic_details.associate_details.organization_name': { $regex: search, $options: 'i' } }
             ];
         }
-        
+
 
         // Aggregation pipeline to join farmers and procurement centers and get counts
         const records = await User.aggregate([
             { $match: matchQuery },
             { $sort: sortBy }, // Sort by the provided field
-          //  { $skip: skip }, 
-           // { $limit: parseInt(limit) }, 
-           ...(isExport == 1 ? [] : [{ $skip: skip }, { $limit: parseInt(limit) }]),
+            //  { $skip: skip }, 
+            // { $limit: parseInt(limit) }, 
+            ...(isExport == 1 ? [] : [{ $skip: skip }, { $limit: parseInt(limit) }]),
 
             // Lookup to count associated farmers
             {
@@ -275,6 +277,7 @@ module.exports.getAssociatesById = async (req, res) => {
 
 module.exports.bulkuplodAssociate = async (req, res) => {
     try {
+        const { user_id } = req;
         const { isxlsx = 1 } = req.body;
         const [file] = req.files;
 
@@ -488,7 +491,8 @@ module.exports.bulkuplodAssociate = async (req, res) => {
                         active: true,
                         is_welcome_email_send: "true",
                         is_sms_send: "true",
-                        term_condition: "true"
+                        term_condition: "true",
+                        sla_id : new mongoose.Types.ObjectId(user_id),
                     });
                     await newAssociate.save();
                 }
