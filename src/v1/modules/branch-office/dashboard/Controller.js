@@ -22,11 +22,13 @@ const { Scheme } = require("@src/v1/models/master/Scheme");
 
 module.exports.getDashboardStats = async (req, res) => {
     try {
-        const boId = new mongoose.Types.ObjectId(req.portalId);
+        const {portalId, user_id} = req;
+        const paymentReqIds = await Payment.find({ bo_id: { $in: [portalId, user_id] } }).distinct("req_id");
+        let baseMatch = { _id: { $in: paymentReqIds } };       
         const { commodity, season, scheme } = req.query;
 
         // Step 1: Build Request Filters
-        const filters = [{ branch_id: boId }];
+        const filters = [baseMatch];
 
         if (commodity) {
             const ids = commodity.split(',').filter(Boolean).map(id => new mongoose.Types.ObjectId(id));
