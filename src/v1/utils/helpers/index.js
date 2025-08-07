@@ -491,6 +491,14 @@ exports.handleDecimal = (value) => {
   return parseFloat(value) < 0 ? 0 : parseFloat(parseFloat(value).toFixed(3));
 }
 
+exports.handleAmountDecimal = (value) => {
+  return parseFloat(value) < 0 ? 0 : parseFloat(parseFloat(value).toFixed(2));
+}
+
+exports.handleQuantityDecimal = (value) => {
+  return parseFloat(value) < 0 ? 0 : parseFloat(parseFloat(value).toFixed(3));
+}
+
 exports._taxValue = () => {
   const tax = 0;
   return tax;
