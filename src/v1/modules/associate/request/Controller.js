@@ -446,7 +446,6 @@ module.exports.getProcurement = async (req, res) => {
     _handleCatchErrors(error, res);
   }
 };
-
 module.exports.getProcurementById = async (req, res) => {
   try {
     const { id } = req.params;
