@@ -21,6 +21,8 @@ const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const {wareHouseDetails} = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const {ProcurementCenter} = require("@src/v1/models/app/procurement/ProcurementCenter");
 const {User} = require("@src/v1/models/app/auth/User");
+const { default: mongoose } = require("mongoose");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 //widget list
 /*
@@ -357,8 +359,8 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
 
     if (state || district || search || commodity || schemeName || schemeYear) {
       query.$and = [
-        ...(state ? [{ "sellers.address.registered.state": { $regex: state, $options: "i" } }] : []),
-        ...(district ? [{ "sellers.address.registered.district": { $regex: district, $options: "i" } }] : []),
+        ...(state ? [{ "sellers.address.registered.state_id": convertToObjecId(state) }] : []),
+        ...(district ? [{ "sellers.address.registered.district_id": convertToObjecId(district) }] : []),
         ...(search
           ? [{
               $or: [
@@ -373,7 +375,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
       ];
     }
 
-    console.log("Filter Query:", JSON.stringify(query, null, 2));
+   // console.log("Filter Query:", JSON.stringify(query, null, 2));
 
     // Aggregate query to filter and populate details
     const aggregateQuery = [
@@ -462,9 +464,9 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
         },
       },
     ];
-     console.log("aggregateQuery",aggregateQuery);
+    // console.log("aggregateQuery",aggregateQuery);
     const records = await RequestModel.aggregate(aggregateQuery);
-    console.log("Records fetched:", records.length);
+   // console.log("Records fetched:", records.length);
 
     // Count query with state and search filters
     const countQuery = [
@@ -517,7 +519,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     const countResult = await RequestModel.aggregate(countQuery);
     const totalCount = countResult.length > 0 ? countResult[0].totalCount : 0;
 
-    console.log("Total Count:", totalCount);
+   // console.log("Total Count:", totalCount);
 
     // Handle export request
     if (isExport == 1) {
