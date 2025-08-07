@@ -207,7 +207,7 @@ module.exports.verifyOTP = async (req, res) => {
 
     // Prepare the response data
     const resp = {
-      token: generateJwtToken({ mobile_no: mobileNumber,user_type:_userType.farmer }),
+      token: generateJwtToken({ mobile_no: mobileNumber, user_type: _userType.farmer }),
       ...JSON.parse(JSON.stringify(individualFormerData)), // Use individualFormerData (existing or newly saved)
     };
 
@@ -764,33 +764,33 @@ module.exports.getFarmers = async (req, res) => {
         .sort(sortBy)
         .populate('associate_id', '_id user_code')
       : await farmer.find(query).sort(sortBy);
-        const updatedRows = [];
+    const updatedRows = [];
 
-        for (const f of records.rows) {
-          const farmer = f.toObject(); 
+    for (const f of records.rows) {
+      const farmer = f.toObject();
 
-          farmer.address = farmer.address || {};
+      farmer.address = farmer.address || {};
 
-          const stateId = farmer.address.state_id;
-          const districtId = farmer.address.district_id;
+      const stateId = farmer.address.state_id;
+      const districtId = farmer.address.district_id;
 
-          if (stateId && Types.ObjectId.isValid(stateId)) {
-            const stateName = await getState(stateId);
-            farmer.address.state_name = stateName || null;
-          }
+      if (stateId && Types.ObjectId.isValid(stateId)) {
+        const stateName = await getState(stateId);
+        farmer.address.state_name = stateName || null;
+      }
 
-          if (districtId && Types.ObjectId.isValid(districtId)) {
-            const districtName = await getDistrict(districtId);
-            farmer.address.district_name = districtName || null;
-          }
+      if (districtId && Types.ObjectId.isValid(districtId)) {
+        const districtName = await getDistrict(districtId);
+        farmer.address.district_name = districtName || null;
+      }
 
-          delete farmer.address.state_title;
-          delete farmer.address.district_title;
+      delete farmer.address.state_title;
+      delete farmer.address.district_title;
 
-          updatedRows.push(farmer);
-        }
+      updatedRows.push(farmer);
+    }
 
-        records.rows = updatedRows;
+    records.rows = updatedRows;
 
     // records.count = await farmer.countDocuments(query);
     if (is_associated == 1) {
@@ -839,7 +839,7 @@ module.exports.getBoFarmer = async (req, res) => {
     if (!user) {
       return res.status(404).send({ message: "User not found." });
     }
-   
+
     const { state } = user;
     if (!state) {
       return res
@@ -1229,7 +1229,7 @@ module.exports.getLand = async (req, res) => {
         const districts = state?.states[0]?.districts?.find(
           (item) => item?._id == land?.land_address?.district_id?.toString()
         );
-       
+
         let land_address = {
           ...land?.land_address,
           state: state?.states[0]?.state_title,
@@ -2338,7 +2338,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         const land_district_id = districtIdResult.districtId;
         const sowing_date = parseMonthyear(sowingdate);
         const harvesting_date = parseMonthyear(harvestingdate);
-        const commodityId  = await getCommodityIdByName(crop_name);
+        const commodityId = await getCommodityIdByName(crop_name);
         // const processedDateOfBirth = parseDateOfBirth(date_of_birth);
 
         let associateId = user_id;
@@ -3001,11 +3001,19 @@ module.exports.getAllFarmers = async (req, res) => {
       search = "",
       paginate = 1,
     } = req.query;
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const parsedLimit = parseInt(limit);
 
     let associatedQuery = { associate_id: { $ne: null } };
     let localQuery = { associate_id: null };
+
+    const { user_type, state_id } = req;
+
+    if (user_type === _userType.agent) {
+      associatedQuery["address.state_id"] = new mongoose.Types.ObjectId(state_id);
+      localQuery["address.state_id"] = new mongoose.Types.ObjectId(state_id);
+    }
 
     if (search) {
       const searchCondition = { name: { $regex: search, $options: "i" } };
@@ -3026,26 +3034,26 @@ module.exports.getAllFarmers = async (req, res) => {
     if (paginate) {
       records.associatedFarmers = await farmer
         .find(associatedQuery)
-        .populate("associate_id", "_id user_code")
+        .populate("associate_id", "_id user_code basic_details.associate_details.organization_name bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
         .sort(sortCriteria)
         .skip(skip)
         .limit(parsedLimit);
 
       records.localFarmers = await farmer
         .find(localQuery)
-        .populate("associate_id", "_id user_code")
+        .populate("associate_id", "_id user_code bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
         .sort(sortCriteria)
         .skip(skip)
         .limit(parsedLimit);
     } else {
       records.associatedFarmers = await farmer
         .find(associatedQuery)
-        .populate("associate_id", "_id user_code")
+        .populate("associate_id", "_id user_code basic_details.associate_details.organization_name bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
         .sort(sortCriteria);
 
       records.localFarmers = await farmer
         .find(localQuery)
-        .populate("associate_id", "_id user_code")
+        .populate("associate_id", "_id user_code bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
         .sort(sortCriteria);
     }
     records.count = await farmer.countDocuments(associatedQuery);
@@ -3109,10 +3117,9 @@ module.exports.getAllFarmersExport = async (req, res) => {
       _id: 1,
     };
     let query;
-    if(centertype === "associatedFarmers")
-    {
-        query = { associate_id: { $ne: null } };
-    }else if(centertype === "localFarmers") {
+    if (centertype === "associatedFarmers") {
+      query = { associate_id: { $ne: null } };
+    } else if (centertype === "localFarmers") {
       query = { associate_id: null };
     }
     const stateDistrictData = await StateDistrictCity.find(
@@ -3122,7 +3129,7 @@ module.exports.getAllFarmersExport = async (req, res) => {
     const stateMap = {};
     const reverseStateMap = {};
     stateDistrictData.forEach(({ states }) => {
-      states.forEach(({ _id, state_title}) => {
+      states.forEach(({ _id, state_title }) => {
         const stateIdStr = _id.toString();
         stateMap[stateIdStr] = state_title;
         reverseStateMap[state_title.toLowerCase()] = stateIdStr;
@@ -3188,7 +3195,7 @@ module.exports.getAllFarmersExport = async (req, res) => {
       farmers.map(async (item) => {
         //console.log("Item ->",item);
         const state = await getState(item?.address?.state_id);
-       
+
         const district = await getDistrict(item?.address?.district_id);
         const farmerIdStr = item._id.toString();
         const crops = cropsByFarmer[farmerIdStr] || [];
@@ -5178,7 +5185,7 @@ module.exports.getMaizeProcurementSummary = async (req, res) => {
         }
       }
     ]);
- 
+
     // Fetch total registered farmers for each state
     for (const item of summary) {
       const registeredCount = await farmer.countDocuments({
@@ -5186,7 +5193,7 @@ module.exports.getMaizeProcurementSummary = async (req, res) => {
       });
       item.totalFarmersRegistered = registeredCount;
     }
- 
+
     // Generate overall totals
     const totalSummary = {
       state: 'Total',
@@ -5196,21 +5203,21 @@ module.exports.getMaizeProcurementSummary = async (req, res) => {
       totalFarmersRegistered: 0,
       sellerIds: []
     };
- 
+
     const allSellerSet = new Set();
- 
+
     summary.forEach(item => {
       totalSummary.totalQty += item.totalQty;
       totalSummary.farmersBenefitedCount += item.farmersBenefitedCount;
       totalSummary.totalFarmersRegistered += item.totalFarmersRegistered;
       item.sellerIds.forEach(id => allSellerSet.add(id.toString()));
     });
- 
+
     totalSummary.sellerIds = Array.from(allSellerSet);
     totalSummary.totalSellers = totalSummary.sellerIds.length;
- 
+
     summary.push(totalSummary);
- 
+
     return res.status(200).json({
       success: true,
       data: summary
@@ -5224,7 +5231,7 @@ module.exports.getMaizeProcurementSummary = async (req, res) => {
     });
   }
 };
- 
+
 module.exports.getAssamMaizeProcurementSummary = async (req, res) => {
   try {
     const summary = await Batch.aggregate([

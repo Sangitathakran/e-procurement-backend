@@ -45,7 +45,7 @@ const sendMail = async (
   subject,
   body,
   mailAttachments = [],
-  provider = mailProvider // default to mailtrap
+  provider = mailProvider
 ) => {
   try {
     if (!Object.values(mailProviders).includes(provider)) {
@@ -72,12 +72,13 @@ const sendMail = async (
         attachments: mailAttachments,
       });
     } else {
-        logger.error(`Unsupported email provider ${provider}`);
+      logger.error(`Unsupported email provider ${provider}`);
       throw new Error(`Unsupported email provider: ${provider}`);
     }
   } catch (err) {
     logger.error(err.message);
-    throw new Error(err.message);
+    //  throw new Error(err.message);
+    return
   }
 };
 

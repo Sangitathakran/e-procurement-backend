@@ -9,7 +9,7 @@ const csv = require("csv-parser");
 const { _userType, _center_type } = require("@src/v1/utils/constants");
 const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const Readable = require('stream').Readable;
-
+const mongoose = require("mongoose");
 
 module.exports.createProcurementCenter = async (req, res) => {
     try {
@@ -64,7 +64,7 @@ module.exports.getProcurementCenter = async (req, res) => {
     try {
         const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, centerType = 'self', state, city, associate_name } = req.query
 
-        const { user_id } = req
+        const { user_id, state_id } = req
 
         let query = {
             ...(search ? {
@@ -74,6 +74,9 @@ module.exports.getProcurementCenter = async (req, res) => {
                 ], deletedAt: null
             } : { deletedAt: null })
         };
+
+        query["address.state_id"] = new mongoose.Types.ObjectId(state_id);
+
         if (centerType === 'self') {
             query.user_id = user_id;
         } else if (centerType === 'associate') {
@@ -83,6 +86,9 @@ module.exports.getProcurementCenter = async (req, res) => {
         if (city) query["address.city"] = city;
 
         const records = { count: 0 };
+        
+        console.log("query", query);
+        
         records.rows = (paginate == 1 && isExport != 1)
             ? await ProcurementCenter.find(query)
                 .populate({
@@ -104,7 +110,7 @@ module.exports.getProcurementCenter = async (req, res) => {
 
         records.count = await ProcurementCenter.countDocuments(query);
 
-        if (paginate == 1 && isExport != 1 ) {
+        if (paginate == 1 && isExport != 1) {
             records.page = page
             records.limit = limit
             records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0
@@ -113,15 +119,15 @@ module.exports.getProcurementCenter = async (req, res) => {
         if (isExport == 1) {
 
             const record = records.rows.map((item) => {
-                  const { line1, line2,country, state, district, city,postalCode } = item?.address || {};
+                const { line1, line2, country, state, district, city, postalCode } = item?.address || {};
                 return {
                     "Centre ID": item?.center_code || 'NA',
-                     "CENTRE NAME": item?.center_name || 'NA',
-                      "STATE": item?.address?.state || 'NA',
-                       "City": item?.address?.district || 'NA',
-                        "POINT OF CONTACT": item?.point_of_contact?.name || 'NA',
-                         "LOCATION": `${line1} , ${line2} , ${city}, ${district} , ${state} , ${country} , ${postalCode}` || "NA",
-                         "STATUS": item?.active,
+                    "CENTRE NAME": item?.center_name || 'NA',
+                    "STATE": item?.address?.state || 'NA',
+                    "City": item?.address?.district || 'NA',
+                    "POINT OF CONTACT": item?.point_of_contact?.name || 'NA',
+                    "LOCATION": `${line1} , ${line2} , ${city}, ${district} , ${state} , ${country} , ${postalCode}` || "NA",
+                    "STATUS": item?.active,
                 }
             })
             if (record.length > 0) {
@@ -145,7 +151,7 @@ module.exports.getProcurementCenter = async (req, res) => {
 // module.exports.getProcurementCenter = async (req, res) => {
 //     try {
 //         console.log("Fetching Procurement Centers...");
-        
+
 //         const { 
 //             page = 1, 
 //             limit = 10, 
