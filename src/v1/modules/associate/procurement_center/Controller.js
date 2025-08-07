@@ -786,7 +786,6 @@ module.exports.statusUpdate = async (req, res) => {
 
         existingUser.active = status;
         await existingUser.save({ validateBeforeSave: false });
-        // await existingUser.save();
 
         return res.status(200).send(new serviceResponse({ status: 200, data: existingUser, message: _response_message.updated("status") }))
     } catch (error) {
