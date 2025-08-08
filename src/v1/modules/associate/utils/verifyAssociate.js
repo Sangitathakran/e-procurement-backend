@@ -43,7 +43,6 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
         }
 
         const userExist = await User.findOne({ _id: decodedToken.user_id })
-console.log('userExist',userExist)
         if (!userExist) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("User") }] }));
         }
