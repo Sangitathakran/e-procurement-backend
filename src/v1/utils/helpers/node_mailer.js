@@ -45,7 +45,7 @@ const sendMail = async (
   subject,
   body,
   mailAttachments = [],
-  provider = mailProvider // default to mailtrap
+  provider = "mailtrap" // default to mailtrap
 ) => {
   try {
     if (!Object.values(mailProviders).includes(provider)) {
@@ -77,7 +77,7 @@ const sendMail = async (
     }
   } catch (err) {
     logger.error(err.message);
-    throw new Error(err.message);
+    // throw new Error(err.message);
   }
 };
 
