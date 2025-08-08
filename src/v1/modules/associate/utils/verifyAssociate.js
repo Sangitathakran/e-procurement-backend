@@ -21,10 +21,16 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
     if (tokenBlacklist.includes(token)) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "Token has been revoked" }] }))
     }
-
     let loginHistory = await LoginHistory.findOne({ token: token, logged_out_at: null }).sort({ createdAt: -1 });
-    if (!loginHistory) {
-        return serviceResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
+   if (!loginHistory) {
+      return res.status(401).send(
+        {
+          status: 401,
+          message: "error while decode not found",
+          errors: _auth_module.tokenExpired,
+        }
+      );
+      
     }
 
     jwt.verify(token, JWT_SECRET_KEY, async function (err, decodedToken) {
@@ -37,7 +43,6 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
         }
 
         const userExist = await User.findOne({ _id: decodedToken.user_id })
-
         if (!userExist) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("User") }] }));
         }

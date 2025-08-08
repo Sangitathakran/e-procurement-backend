@@ -1,7 +1,8 @@
 const { _middleware } = require("@src/v1/utils/constants/messages");
 const { body } = require("express-validator");
 const { validateErrors } = require("@src/v1/utils/helpers/express_validator");
-const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode, getHoProcurementCenter, updateProcurementCenter, getProcurementById, statusUpdate } = require("./Controller");
+const { getProcurementCenter, createProcurementCenter, ImportProcurementCenter, generateCenterCode, getHoProcurementCenter, updateProcurementCenter, getProcurementById, statusUpdate 
+} = require("@src/v1/modules/associate/procurement_center/Controller");
 const express = require("express");
 const { verifyAssociate } = require("@src/v1/modules/associate/utils/verifyAssociate");
 const procurementCenterRoutes = express.Router();
