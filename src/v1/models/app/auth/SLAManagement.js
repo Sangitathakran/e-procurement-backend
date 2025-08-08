@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { _collectionName, _status, _userType, _trader_type } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
+const { boolean } = require('joi');
 
 const SLASchema = new mongoose.Schema({
     basic_details: {
@@ -78,6 +79,10 @@ const SLASchema = new mongoose.Schema({
         ifsc_code: { type: String, trim: true, required: true },
         account_number: { type: String, trim: true, required: true },
         proof: { type: String, trim: true, required: true },
+    },
+    bank_payment_permission: {
+        type: boolean,
+        default: false
     },
     activity: {
         ..._commonKeys,

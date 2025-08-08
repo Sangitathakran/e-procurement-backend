@@ -1016,3 +1016,38 @@ module.exports.getUniqueHOBOScheme = async (req, res) => {
       .json({ status: 500, message: "Internal Server Error" });
   }
 };
+
+// Enable/Disable bank payment permission
+module.exports.updateBankPaymentPermission = asyncErrorHandler(async (req, res) => {
+  try {
+    const { slaId, bank_payment_permission } = req.body;
+
+    // Validation
+    if (!slaId) {
+      return res.status(400).json({ message: 'slaId is required' });
+    }
+    if (typeof bank_payment_permission !== 'boolean') {
+      return res.status(400).json({ message: 'bank_payment_permission must be boolean' });
+    }
+
+    // Update field
+    const updatedSLA = await SLAManagement.findOneAndUpdate(
+      { _id: slaId },
+      { $set: { bank_payment_permission } },
+      { new: true }
+    );
+
+    if (!updatedSLA) {
+      return res.status(404).json({ message: 'SLA not found' });
+    }
+
+    return res.status(200).json({
+      message: `Bank payment permission has been ${bank_payment_permission ? 'enabled' : 'disabled'} successfully`,
+      data: updatedSLA
+    });
+
+  } catch (error) {
+    console.error('Error updating bank_payment_permission:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+});
