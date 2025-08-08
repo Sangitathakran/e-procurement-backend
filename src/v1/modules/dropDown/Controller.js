@@ -323,6 +323,53 @@ module.exports.getDistrictsByState = async (req, res) => {
     });
   }
 };
+module.exports.getDistrictsByStateID = async (req, res) => {
+  try {
+    const state_id = req.query.state_id;
+
+
+    if (!state_id || !mongoose.Types.ObjectId.isValid(state_id)) {
+      return res.status(400).json({ message: "Invalid or missing state_id" });
+    }
+
+    const district_list = await StateDistrictCity.aggregate([
+      { $unwind: "$states" },
+      {
+        $match: {
+          "states._id": new mongoose.Types.ObjectId(state_id),
+          "states.status": "active",
+        },
+      },
+      { $unwind: "$states.districts" },
+      {
+        $match: {
+          "states.districts.status": "active",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          district_id: "$states.districts._id",
+          district_title: "$states.districts.district_title",
+        },
+      },
+    ]);
+
+    return sendResponse({
+      res,
+      message: "Districts fetched successfully",
+      data: district_list,
+    });
+  } catch (err) {
+    console.error("ERROR:", err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Internal server error",
+      error: err.message,
+    });
+  }
+};
 
 
 module.exports.getRoles = async (req, res) => {
@@ -504,7 +551,7 @@ module.exports.getStatesByPincode = async (req, res) => {
   }
 };
 
-module.exports.getDistrictsByState = async (req, res) => {
+module.exports.getDistrictsByStateAndPincode = async (req, res) => {
   try {
     const { stateId, pincode } = req.query;
     if (!stateId) {
