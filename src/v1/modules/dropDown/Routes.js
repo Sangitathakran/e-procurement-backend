@@ -1,5 +1,5 @@
 const express = require('express');
-const {getCitiesByDistrict, getDistrictsByState,getStatesByPincode, scheme, commodity, commodity_standard,commodityRequest,districtWisecenter, bo_list, cna_list, sla_list, getStates, getRoles, getCitiesByState, getAssociates,updateProcurementCenters, getWarehouses, getDistrictsByStateAndDistrict } = require('./Controller');
+const {getCitiesByDistrict, getDistrictsByState,getStatesByPincode, scheme, commodity, commodity_standard,commodityRequest,districtWisecenter, bo_list, cna_list, sla_list, getStates, getRoles, getCitiesByState, getAssociates,updateProcurementCenters, getWarehouses, getDistrictsByStateAndPincode, getDistrictsByStateID } = require('./Controller');
 const { commonAuth} = require("@src/v1/middlewares/jwt")
 const { _userType } = require("@src/v1/utils/constants/index")
 
@@ -15,11 +15,12 @@ dropDownRoutes.get('/cna', cna_list);
 dropDownRoutes.get('/sla',commonAuth, sla_list);
 dropDownRoutes.get('/state', getStates);
 dropDownRoutes.get('/districtsByState', getDistrictsByState);
+dropDownRoutes.get('/districtsByStateID', getDistrictsByStateID);
 dropDownRoutes.get('/roles',commonAuth, getRoles);
 dropDownRoutes.get('/cities', getCitiesByState);
 dropDownRoutes.get('/citiesByDistrict', getCitiesByDistrict);
 dropDownRoutes.get('/get-states-by-pincode', getStatesByPincode );
-dropDownRoutes.get('/get-districts-by-state_id', getDistrictsByStateAndDistrict);
+dropDownRoutes.get('/get-districts-by-state_id', getDistrictsByStateAndPincode); 
 
 
 // this is sseder api

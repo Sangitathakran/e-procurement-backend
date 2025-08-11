@@ -1024,8 +1024,8 @@ async function processRecord(record, rowNumber, user_id, session, successResults
                 purchaseId: randomVal,
                 quantityRequired: handleDecimal(quantityRequired),
                 'payment.amount': amountToBePaid,
-                'payment.status': batchPaymentStatus,
-                // createdBy: userId,
+                'payment.status': "Paid",
+                'payment.paymentId': record[EXCEL_COLUMNS.PAYMENT_ID] || null,
                 scheduledPickupDate: record[EXCEL_COLUMNS.SCHEDULED_PICKUP_DATE] ? new Date(record[EXCEL_COLUMNS.SCHEDULED_PICKUP_DATE]) : null,
                 actualPickupDate: record[EXCEL_COLUMNS.ACTUAL_PICKUP_DATE] ? new Date(record[EXCEL_COLUMNS.ACTUAL_PICKUP_DATE]) : null,
                 pickupStatus: record[EXCEL_COLUMNS.PICKUP_STATUS] || 'pending'

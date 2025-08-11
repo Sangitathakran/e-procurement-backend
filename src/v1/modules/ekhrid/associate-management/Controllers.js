@@ -627,19 +627,21 @@ module.exports.getProcurementCenterTesting = async (req, res) => {
 };
 
 module.exports.associateFarmerList = async (req, res) => {
-    let jfomIds = jformIds.slice(0, 110191);
+    // let jfomIds = jformIds.slice(0, 110191);
 
     const { associateName } = req.body;
     console.log("associateName",associateName)
+    let jfomIds = [ 1495364, 1497427, 1497415, 1495749, 1495748 ]
 
     try {
         // Match filter
         const query = {
             'procurementDetails.commisionAgentName': associateName,
+            "procurementDetails.commodityName": "Sunflower",
             "warehouseData.jformID": { $exists: true },
             "paymentDetails.jFormId": { $exists: true },
             "procurementDetails.jformID": { $exists: true },
-            "procurementDetails.jformID": { $in: jfomIds },
+            "procurementDetails.jformID": { $nin: jfomIds },
             // "procurementDetails.notIncludedJformId": { $ne: true },
             $or: [
                 { "procurementDetails.offerCreatedAt": null },
