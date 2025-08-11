@@ -346,7 +346,6 @@ module.exports.getDistrictsByStateID = async (req, res) => {
       data: district_list,
     });
   } catch (err) {
-    console.error("ERROR:", err);
     return sendResponse({
       res,
       status: 500,
