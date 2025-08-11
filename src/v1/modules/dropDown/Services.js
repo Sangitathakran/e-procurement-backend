@@ -35,7 +35,6 @@ async function getDistrictsByStateId(stateId) {
     if (!mongoose.Types.ObjectId.isValid(stateId)) {
       throw new Error("Invalid stateId");
     }
-
     const result = await StateDistrictCity.aggregate([
       { $unwind: "$states" },
       { $match: { "states._id": new mongoose.Types.ObjectId(stateId) } },

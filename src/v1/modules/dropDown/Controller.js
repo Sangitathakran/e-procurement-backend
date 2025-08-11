@@ -16,7 +16,13 @@ const UserRole = require("@src/v1/models/master/UserRole");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { default: mongoose } = require("mongoose");
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response")
+const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { getAllStates, getDistrictsByStateId, getAddressByPincode } = require("./Services");
+const redisService = require("@src/common/services/RedisService");
+const { redisKeys } = require("@src/v1/utils/constants");
+const { cacheStatesData, getDistrictsByState } = require("@src/v1/utils/helpers/redisCacheHelper");
+const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const { _query } = require("@src/v1/utils/constants/messages");
 
 module.exports.scheme = async (req, res) => {
   const query = { deletedAt: null, status: "active" };
@@ -471,14 +477,16 @@ module.exports.getStatesByPincode = async (req, res) => {
         new serviceResponse({ status: 400, message: _query.invalid("pincode") })
       );
     }
-
-    const states = await getAllStates();
+    let stateCacheData = await redisService.getJson(redisKeys.STATES_DATA);
+    if(!stateCacheData){
+      cacheStatesData();
+    }
+    const states = stateCacheData ||   await getAllStates();
     const filteredState = states.find(
       (obj) =>
         obj.state_title.toLowerCase() ===
         pincode_data?.PostOffice[0]?.State?.toLowerCase()
     );
-    //console.log(">>>>>>>>>>>>>>>>>>>>>>>>", pincode_data, states);
     return res.send(
       new serviceResponse({
         message: "OK",
@@ -490,7 +498,7 @@ module.exports.getStatesByPincode = async (req, res) => {
   }
 };
 
-module.exports.getDistrictsByState = async (req, res) => {
+module.exports.getDistrictsByStateAndDistrict = async (req, res) => {
   try {
     const { stateId, pincode } = req.query;
     if (!stateId) {
@@ -529,7 +537,7 @@ module.exports.getDistrictsByState = async (req, res) => {
     }
 
     let villages = pincode_data.PostOffice.map((obj) => obj.Name);
-    let districts = await getDistrictsByStateId(stateId);
+    let districts = await getDistrictsByState(stateId) || await getDistrictsByStateId(stateId);
     let filteredDistricts = districts.find(
       (obj) =>
         obj.district_title.toLowerCase() ===

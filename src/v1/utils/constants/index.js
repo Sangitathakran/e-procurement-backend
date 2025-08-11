@@ -698,10 +698,16 @@ const userTypeToURL = {
     [_userType.associate]: FRONTEND_URLS.associate,
 };
 
+const redisKeys = {
+    STATES_DATA: "statesData",
+    DISTRICTS_BY_STATE: "districtsByState"
+}
+
 
 const allowedEmailDomains = ['navankur', 'radiantinfonet'];
 
 module.exports = {
+    redisKeys,
     mailProviders,
     allowedEmailDomains,
     _userAction,

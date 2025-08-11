@@ -102,6 +102,13 @@ module.exports = {
   farmer: process.env.FARMER,
   agent: process.env.SLA,
   associate: process.env.ASSOCIATE,
-}
+},
+
+REDIS_CRED: {
+REDIS_HOST: process.env.REDIS_HOST,
+REDIS_PORT: process.env.REDIS_PORT,
+REDIS_DB: process.env.REDIS_DB,
+REDIS_URL: process.env.REDIS_URL,
+},
 
 }
