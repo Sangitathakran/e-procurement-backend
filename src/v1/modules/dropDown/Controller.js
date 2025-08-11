@@ -318,25 +318,24 @@ module.exports.getDistrictsByStateID = async (req, res) => {
       return res.status(400).json({ message: "Invalid or missing state_id" });
     }
 
-    const district_list = await StateDistrictCity.aggregate([
-      { $unwind: "$states" },
+    const district_list = await State.aggregate([
       {
         $match: {
-          "states._id": new mongoose.Types.ObjectId(state_id),
-          "states.status": "active",
+          _id: new mongoose.Types.ObjectId(state_id),
+          status: "active",
         },
       },
-      { $unwind: "$states.districts" },
+      { $unwind: "$districts" },
       {
         $match: {
-          "states.districts.status": "active",
+          "districts.status": "active"
         },
       },
       {
         $project: {
           _id: 0,
-          district_id: "$states.districts._id",
-          district_title: "$states.districts.district_title",
+          district_id: "$districts._id",
+          district_title: "$districts.district_title"
         },
       },
     ]);
