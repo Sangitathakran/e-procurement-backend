@@ -71,10 +71,10 @@ const userSchema = new mongoose.Schema({
         pan_card: { type: String, trim: true, },
         pan_image: { type: String, trim: true, },
         aadhar_number: { type: String, trim: true, },
-        aadhar_certificate: {
-            front: { type: String, trim: true },
-            back: { type: String, trim: true },
-        },
+        // aadhar_certificate: {
+        //     front: { type: String, trim: true },
+        //     back: { type: String, trim: true },
+        // },
         gst_no: { type: String, trim: true, },
         gst_no_certificate: {
             type: String, trim: true, 
