@@ -397,6 +397,7 @@ const _batchStatus = {
 const _paymentmethod = {
     bank_transfer: "Bank Transfer",
     cheque: "Cheque",
+    net_banking:"Net Banking",
 }
 
 const _paymentstatus = {
