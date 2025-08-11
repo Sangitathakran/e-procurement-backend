@@ -11,7 +11,7 @@ slaRoute.post("/", Auth, createSLA);
 slaRoute.get("/", Auth, getSLAList);
 slaRoute.get("/states", Auth, getUniqueStates);
 slaRoute.get("/filterOption", Auth, getUniqueHOBOScheme);
-
+slaRoute.put('/bank-permission', Auth, updateBankPaymentPermission);
 
 slaRoute.get("/:slaId", Auth, getSLAById);
 slaRoute.put("/:slaId", Auth, updateSLA);
@@ -19,5 +19,5 @@ slaRoute.patch("/:slaId", Auth, updateSLAStatus);
 slaRoute.post("/:slaId/add-scheme", Auth, addSchemeToSLA);
 slaRoute.delete("/:slaId", Auth, deleteSLA);
 slaRoute.patch("/:slaId", Auth, updateSLAStatus);
-slaRoute.put('/bank-permission', Auth, updateBankPaymentPermission);
+
 module.exports = { slaRoute };

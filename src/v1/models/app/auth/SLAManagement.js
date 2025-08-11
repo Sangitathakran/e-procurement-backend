@@ -80,10 +80,7 @@ const SLASchema = new mongoose.Schema({
         account_number: { type: String, trim: true, required: true },
         proof: { type: String, trim: true, required: true },
     },
-    bank_payment_permission: {
-        type: boolean,
-        default: false
-    },
+    bank_payment_permission: { type: Boolean, default: false },
     activity: {
         ..._commonKeys,
     },
