@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const { _collectionName, _status, _userType, _trader_type } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
-const { boolean } = require('joi');
+// const { boolean } = require('joi');
 
 const SLASchema = new mongoose.Schema({
     basic_details: {

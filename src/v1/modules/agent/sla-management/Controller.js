@@ -193,12 +193,6 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
 });
 
 
-
-
-
-
-
-
 module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
   const {
     page = 1,
@@ -572,6 +566,19 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
         new serviceResponse({
           status: 400,
           message: "SLA ID is required",
+        })
+      );
+    }
+
+    // Validate SLA ID format
+    const isValidObjectId = mongoose.Types.ObjectId.isValid(slaId);
+    const isValidSlaCode = /^SLA\d{5}$/.test(slaId);
+
+    if (!isValidObjectId && !isValidSlaCode) {
+      return res.status(400).json(
+        new serviceResponse({
+          status: 400,
+          message: "Invalid SLA ID format",
         })
       );
     }
@@ -1038,13 +1045,13 @@ module.exports.updateBankPaymentPermission = asyncErrorHandler(async (req, res) 
     );
 
     if (!updatedSLA) {
-       return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("SLA") }] }));
+      return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("SLA") }] }));
     }
 
     return res.status(200).send(new serviceResponse({ status: 200, message: `Bank payment permission has been ${bank_payment_permission ? 'enabled' : 'disabled'} successfully` }));
 
   } catch (error) {
-        _handleCatchErrors(error, res);
-    }
+    _handleCatchErrors(error, res);
+  }
 
 });
