@@ -16,7 +16,7 @@ const { MasterUser } = require("@src/v1/models/master/MasterUser");
 const { _frontendLoginRoutes } = require("@src/v1/utils/constants");
 const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const { ObjectId } = require("mongoose").Types;
-const {dumpJSONToExcel} = require("@src/v1/utils/helpers")
+const { dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const bcrypt = require('bcryptjs');
 // const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 
@@ -193,12 +193,6 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
 });
 
 
-
-
-
-
- 
-
 module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
   const {
     page = 1,
@@ -329,7 +323,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
   let matchQuery = search
     ? {
       $or: [
-        { "slaId": { $regex: search, $options: "i" } }, 
+        { "slaId": { $regex: search, $options: "i" } },
         { "basic_details.name": { $regex: search, $options: "i" } },
         { "basic_details.email": { $regex: search, $options: "i" } },
         { "basic_details.mobile": { $regex: search, $options: "i" } },
@@ -373,7 +367,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     },
   ];
   aggregationPipeline.push({ $sort: { [sortBy || "createdAt"]: -1, _id: -1 } });
-  if (paginate == 1 && isExport != 1 )
+  if (paginate == 1 && isExport != 1)
     aggregationPipeline.push(
       //{ $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
       { $skip: parseInt(skip) },
@@ -576,6 +570,19 @@ module.exports.updateSLAStatus = asyncErrorHandler(async (req, res) => {
       );
     }
 
+    // Validate SLA ID format
+    const isValidObjectId = mongoose.Types.ObjectId.isValid(slaId);
+    const isValidSlaCode = /^SLA\d{5}$/.test(slaId);
+
+    if (!isValidObjectId && !isValidSlaCode) {
+      return res.status(400).json(
+        new serviceResponse({
+          status: 400,
+          message: "Invalid SLA ID format",
+        })
+      );
+    }
+
     if (typeof status !== "boolean") {
       return res.status(400).json(
         new serviceResponse({
@@ -698,10 +705,10 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
 
     if (sla_id) {
       const schemeIds = schemeData.map(item => item._id);
-    
+
       // Fetch existing SLA document
       const sla = await SLAManagement.findById(sla_id);
-    
+
       if (!sla) {
         return res.status(404).send(
           new serviceResponse({
@@ -710,20 +717,20 @@ module.exports.schemeAssign = asyncErrorHandler(async (req, res) => {
           })
         );
       }
-    
+
       // Extract current saved values
       const existingSchemes = sla.schemes?.scheme?.map(id => id.toString()) || [];
       const incomingSchemes = schemeIds.map(id => id.toString());
-    
+
       const existingCna = sla.schemes?.cna?.toString();
       const existingBranch = sla.schemes?.branch?.toString();
-    
+
       // Check if any differences
       const hasSchemeChange = incomingSchemes.length !== existingSchemes.length ||
         !incomingSchemes.every(id => existingSchemes.includes(id));
       const hasCnaChange = cna_id.toString() !== existingCna;
       const hasBranchChange = bo_id.toString() !== existingBranch;
-    
+
       if (hasSchemeChange || hasCnaChange || hasBranchChange) {
         await SLAManagement.updateOne(
           { _id: sla_id },
@@ -791,10 +798,10 @@ module.exports.getAssignedScheme = async (req, res) => {
     { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
     {
       $lookup: {
-          from: 'commodities',
-          localField: 'schemeDetails.commodity_id',
-          foreignField: '_id',
-          as: 'commodityDetails',
+        from: 'commodities',
+        localField: 'schemeDetails.commodity_id',
+        foreignField: '_id',
+        as: 'commodityDetails',
       },
     },
     { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
@@ -809,7 +816,7 @@ module.exports.getAssignedScheme = async (req, res) => {
     {
       $unwind: { path: "$headOfficeDetails", preserveNullAndEmptyArrays: true },
     },
-    
+
     {
       $project: {
         _id: 1,
@@ -828,12 +835,12 @@ module.exports.getAssignedScheme = async (req, res) => {
         // },
         schemeName: {
           $concat: [
-              { $ifNull: [{ $getField: { field: "schemeName", input: "$schemeDetails" } }, ""] }, " ",
-              { $ifNull: [{ $getField: { field: "name", input: "$commodityDetails" } }, ""] }, " ",
-              { $ifNull: [{ $getField: { field: "season", input: "$schemeDetails" } }, ""] }, " ",
-              { $ifNull: [{ $getField: { field: "period", input: "$schemeDetails" } }, ""] }
+            { $ifNull: [{ $getField: { field: "schemeName", input: "$schemeDetails" } }, ""] }, " ",
+            { $ifNull: [{ $getField: { field: "name", input: "$commodityDetails" } }, ""] }, " ",
+            { $ifNull: [{ $getField: { field: "season", input: "$schemeDetails" } }, ""] }, " ",
+            { $ifNull: [{ $getField: { field: "period", input: "$schemeDetails" } }, ""] }
           ]
-      },
+        },
         branchName: "$branchDetails.branchName",
         headOfficeName: "$headOfficeDetails.company_details.name",
         createdOn: "$createdAt",
@@ -1016,3 +1023,35 @@ module.exports.getUniqueHOBOScheme = async (req, res) => {
       .json({ status: 500, message: "Internal Server Error" });
   }
 };
+
+// Enable/Disable bank payment permission
+module.exports.updateBankPaymentPermission = asyncErrorHandler(async (req, res) => {
+  try {
+    const { slaId, bank_payment_permission } = req.body;
+
+    // Validation
+    if (!slaId) {
+      return res.status(400).json({ message: 'slaId is required' });
+    }
+    if (typeof bank_payment_permission !== 'boolean') {
+      return res.status(400).json({ message: 'bank_payment_permission must be boolean' });
+    }
+
+    // Update field
+    const updatedSLA = await SLAManagement.findOneAndUpdate(
+      { _id: slaId },
+      { $set: { bank_payment_permission } },
+      { new: true }
+    );
+
+    if (!updatedSLA) {
+      return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("SLA") }] }));
+    }
+
+    return res.status(200).send(new serviceResponse({ status: 200, message: `Bank payment permission has been ${bank_payment_permission ? 'enabled' : 'disabled'} successfully` }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+
+});
