@@ -374,25 +374,59 @@ module.exports.getRoles = async (req, res) => {
 };
 
 module.exports.getAssociates = async (req, res) => {
-  const query = { active: true, deletedAt: null };
-
   try {
-    const associate_list = await User.aggregate([
-      { $match: query },
-      {
-        $project: {
-          name: "$basic_details.associate_details.associate_name",
-          organization_name: "$basic_details.associate_details.organization_name",
-        },
-      },
-    ]);
+    let { page , limit ,skip, search = "" } = req.query;
 
-    return sendResponse({ res, message: "", data: associate_list });
+    // Base query
+    const query = { active: true, deletedAt: null };
+
+    // Search condition
+    if (search.trim()) {
+      query.$or = [
+        { "basic_details.associate_details.associate_name": { $regex: search, $options: "i" } },
+        { "basic_details.associate_details.organization_name": { $regex: search, $options: "i" } }
+      ];
+    }
+
+    // Get total count
+    const totalCount = await User.countDocuments(query);
+
+    const associate_list = await User.find(query)
+      .select(
+        "basic_details.associate_details.associate_name basic_details.associate_details.organization_name"
+      )
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // Format response
+    const data = associate_list.map((item) => ({
+      name: item.basic_details?.associate_details?.associate_name || "",
+      organization_name:
+        item.basic_details?.associate_details?.organization_name || "",
+    }));
+
+    return sendResponse({
+      res,
+      message: "Associates fetched successfully",
+      data,
+      pagination: {
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    });
   } catch (err) {
-    console.log("ERROR: ", err);
-    return sendResponse({ status: 500, message: err.message });
+    console.error("Error in getAssociates:", err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: err.message,
+    });
   }
 };
+
 
 module.exports.getWarehouses = async (req, res) => {
   const query = { active: true };
@@ -409,10 +443,10 @@ module.exports.getWarehouses = async (req, res) => {
 
     return sendResponse({ res, message: "", data: warehouse_list });
   } catch (err) {
-    console.log("ERROR: ", err);
     return sendResponse({ status: 500, message: err.message });
   }
 };
+
 module.exports.districtWisecenter = async (req, res) => {
    try {
     const { district } = req.query;
