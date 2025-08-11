@@ -16,6 +16,7 @@ const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const { LoginAttempt, ResetLinkHistory } = require("@src/v1/models/master/loginAttempt");
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 
+
 module.exports.login = async (req, res) => {
   try {
     const { email, password, portal_type } = req.body;
@@ -63,11 +64,7 @@ module.exports.login = async (req, res) => {
           select: "organization_name _id "
         }
       ]);
-    if (isSlaPortal) {
-      slaResult = await SLAManagement.findOne({ _id: user.portalId._id })
-        .select("address")
-        .lean();
-    }
+
     if (!user) {
       return res.status(400).send(
         new serviceResponse({
@@ -151,9 +148,24 @@ module.exports.login = async (req, res) => {
       portalId: user?.portalId?._id,
       user_type: user.user_type,
     };
+
     if (isSlaPortal) {
-      payload["state_id"] = slaResult.address.state_id
+      slaResult = await SLAManagement.findOne({ _id: user.portalId._id })
+        .select("address")
+        .lean();
+
+      if (!slaResult || !slaResult.address || !slaResult.address.state_id) {
+        return res.status(400).send(
+          new serviceResponse({
+            status: 400,
+            errors: [{ message: "State not found. Please contact administrator." }]
+          })
+        );
+      }else{
+        payload["state_id"] = slaResult.address.state_id;
+      }
     }
+
     const expiresIn = 24 * 60 * 60;
     const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
 
