@@ -543,6 +543,7 @@ module.exports.batchstatusUpdate = asyncErrorHandler(async (req, res) => {
         record.status = status;
         record.quantityRequired = quantity;
         record.payment.amount = amountToBePaid;
+        record.payment.status = "Paid";
         record.comment = comment;
 
         await record.save();
