@@ -99,7 +99,6 @@ const uploadToS3 = async (req, res) => {
 
 const deleteFromS3 = async (req, res) => {
   try {
-    // #swagger.tags = ['aws']
     let keys = req.body.keys;
 
     if (!Array.isArray(keys) || keys.length === 0) {
@@ -110,39 +109,31 @@ const deleteFromS3 = async (req, res) => {
       });
     }
 
-    const deleteObjs = keys.map(item => ({ Key: item }));
+    // Remove leading slashes from keys
+    const deleteObjs = keys.map(item => ({ Key: item.replace(/^\/+/, '') }));
 
     const deleteParam = {
       Bucket: config.s3Config.bucketName,
       Delete: { Objects: deleteObjs }
     };
 
-    S3.deleteObjects(deleteParam, function (err, data) {
-      if (err) {
-        console.error(err.stack);
-        return sendResponse({
-          res,
-          status: 400,
-          errors: [{ message: `Error while delete from s3` }]
-        });
-      } else {
-        return sendResponse({
-          res,
-          status: 200,
-          data: data,
-          message: _response_message.deleted()
-        });
-      }
+    const data = await S3.deleteObjects(deleteParam).promise();
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: _response_message.deleted()
     });
   } catch (err) {
     console.error("Error while delete_from_s3, reason >> ", err.message);
     return sendResponse({
       res,
       status: 500,
-      errors: [{ message: `${err}` }]
+      errors: [{ message: `Error while delete from s3` }]
     });
   }
 };
+
 
 const getS3BufferFile = async (req, res) => {
   try {

@@ -25,8 +25,6 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     const { quotedPrice, deliveryDate, name, warehouse_id, commodityImage, grade, quantity, deliveryLocation, lat,
          long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate, commodity_id, 
          schemeId, standard, substandard, sla_id } = req.body;
-    console.log("Req Body ->",req.body)
-    console.log("user_type", user_type);
     if (user_type && user_type != _userType.admin) {
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
     }

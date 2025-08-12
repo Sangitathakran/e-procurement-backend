@@ -21,6 +21,7 @@ const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./src/v1/utils/swagger/swagger-output.json");
 require("@src/v1/utils/websocket/server");
 const crypto = require("crypto");
+const { handleRateLimit } = require("@src/v1/middlewares/express_app");
 
 const { PORT, apiVersion } = require("./config/index");
 // require('newrelic');
@@ -46,6 +47,7 @@ app.use(
   })
 );
 
+app.use(handleRateLimit); 
 
 app.use(helmet({
   contentSecurityPolicy: {
