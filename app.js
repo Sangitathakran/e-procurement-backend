@@ -22,25 +22,18 @@ const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./src/v1/utils/swagger/swagger-output.json");
 require("@src/v1/utils/websocket/server");
 const crypto = require("crypto");
-const { handleRateLimit } = require("@src/v1/middlewares/express_app");
-
 const { PORT, apiVersion } = require("./config/index");
 require('newrelic');
 require("./config/database");
 
 const {
   handleCatchError,
+  handleRateLimit,
   handleRouteNotFound,
   handleCors,
   handlePagination,
 } = require("@src/v1/middlewares/express_app");
-const { combinedLogger, combinedLogStream } = require("@config/logger");
-const {
-  asyncErrorHandler,
-} = require("@src/v1/utils/helpers/asyncErrorHandler");
-const { router } = require("./src/v1/routes");
-const { agristackchRoutes } = require("@src/v1/modules/agristack/Routes");
-// application level middlewares
+
 
 app.use(
   cors({
@@ -76,6 +69,16 @@ app.use(helmet({
   hidePoweredBy: true,
 }));
 
+
+const { combinedLogger, combinedLogStream } = require("@config/logger");
+const {
+  asyncErrorHandler,
+} = require("@src/v1/utils/helpers/asyncErrorHandler");
+
+
+const { router } = require("./src/v1/routes");
+const { agristackchRoutes } = require("@src/v1/modules/agristack/Routes");
+// application level middlewares
 
 app.use(morgan('dev'));
 app.use(morgan("combined", { stream: combinedLogStream }));
