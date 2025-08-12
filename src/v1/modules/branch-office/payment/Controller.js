@@ -19,6 +19,7 @@ const SLA = require("@src/v1/models/app/auth/SLAManagement");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches")
 const { Scheme } = require("@src/v1/models/master/Scheme");
 
+
 const validateMobileNumber = async (mobile) => {
     let pattern = /^[0-9]{10}$/;
     return pattern.test(mobile);
@@ -757,7 +758,9 @@ module.exports.qcReport = async (req, res) => {
 
         const qcReport = await Batch.findOne({ _id: id })
             .populate({
-                path: 'req_id', select: '_id reqNo product address quotedPrice fulfilledQty totalQuantity expectedProcurementDate'
+                path: 'req_id', select: '_id reqNo product address quotedPrice fulfilledQty totalQuantity expectedProcurementDate farmerOrderIds seller_id',
+                path: "farmerOrderIds.farmerOrder_id", select: "metaData.name order_no",
+                path: "seller_id", select: "basic_details.associate_details.organization_name"
             })
 
         return res.status(200).send(new serviceResponse({ status: 200, data: qcReport, message: _query.get('Qc Report') }))

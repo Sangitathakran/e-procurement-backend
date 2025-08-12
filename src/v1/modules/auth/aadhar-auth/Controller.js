@@ -9,6 +9,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { sendOtpToAadhar, verifyOtpWithAadhar } = require("@src/common/services/gridlines/AadharVerification");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { verfiyfarmer } = require("@src/v1/models/app/farmerDetails/verfiyFarmer");
+const { default: mongoose } = require("mongoose");
 
 // module.exports.sendAadharOTP = async (req, res) => {
 //   try {
