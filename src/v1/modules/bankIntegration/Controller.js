@@ -24,7 +24,10 @@ const {
   BatchOrderProcess,
 } = require("@src/v1/models/app/distiller/batchOrderProcess.js");
 
-const {REDIRECT_URL,APP_URL,SCCUESS_URL ,CANCEL_URL,PG_ENV, MERCHANT_ID,ACCESS_CODE, WORKING_KEY,} = require("@config/index.js")
+const {sendResponse} = require("@src/v1/utils/helpers/api_response");
+
+const {REDIRECT_URL,APP_URL,SCCUESS_URL ,CANCEL_URL,PG_ENV, MERCHANT_ID,ACCESS_CODE, WORKING_KEY,} = require("@config/index.js");
+const logger = require("@src/common/logger/logger.js");
 var workingKey = WORKING_KEY, //Put in the 32-Bit key shared by CCAvenues.
   accessCode = ACCESS_CODE, //Put in the Access Code shared by CCAvenues.
   encRequest = "";
@@ -88,35 +91,56 @@ module.exports.paymentStatus = async (req, res) => {
       if (paymentSection && paymentSection === "myorders") {
         const record = await BatchOrderProcess.findOne({ _id: order_id });
 
-        const purchaseOrderRecord = await PurchaseOrderModel.findOne({ _id: record.order_id });
+        let purchaseOrderRecord = await PurchaseOrderModel.findOne({ _id: record?.orderId }).lean();
+        logger.info("purchaseOrderRecord==>", purchaseOrderRecord);
+        if (!purchaseOrderRecord) {
+          return sendResponse({
+            res,
+            status: 404,
+            message: "Purchase Order not found"
+          });
+        }
 
         const amountToBePaid = handleDecimal(amount);
-        record.payment.status = _poBatchPaymentStatus.paid;
-        record.payment.amount = amountToBePaid;
         record.payment.date = Date.now();
-        await record.save();
 
-        purchaseOrderRecord.paymentGatewayDetails.transactionId = tracking_id;
-        purchaseOrderRecord.paymentGatewayDetails.paymentStatus = "Success";
+        let paymentRecord = {
+          "paymentGatewayDetails.transactionId": tracking_id,
+          "paymentGatewayDetails.paymentStatus": "Success",
+          payment: {
+            status: _poBatchPaymentStatus.paid,
+            amount: amountToBePaid,
+            date: Date.now(),
+          }
+        };
+        logger.info("paymentRecord==>", paymentRecord);
 
-
-        await purchaseOrderRecord.save();
+        let purchaseOrderRecordUpdate = await PurchaseOrderModel.findByIdAndUpdate(
+          { _id: record?.orderId },
+          paymentRecord
+        );
+     
+        if (!purchaseOrderRecordUpdate) {
+          return sendResponse({
+            res,
+            status: 404,
+            message: "Purchase Order not found"
+          });
+        }
 
       } else if (paymentSection && paymentSection === "penalty") {
         const record = await BatchOrderProcess.findOne({ _id: order_id });
         const amountToBePaid = handleDecimal(amount);
         record.penaltyDetails.penaltypaymentStatus = _penaltypaymentStatus.paid;
         record.penaltyDetails.penaltyAmount = amountToBePaid;
-        // record.payment.date = Date.now();
         await record.save();
+
       } else {
         const record = await PurchaseOrderModel.findOne({
           _id: order_id,
         }).populate("branch_id");
 
         if (record) {
-          // console.log(record);
-          // const totalPaid = record.paymentInfo?.advancePayment + record.paymentInfo?.mandiTax;
           const totalPaid = record.paymentInfo?.advancePayment;
           record.paymentInfo.advancePaymentStatus = _poAdvancePaymentStatus.paid;
           record.paymentInfo.paidAmount = handleDecimal(totalPaid);
