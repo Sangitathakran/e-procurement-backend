@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { _collectionName, _batchStatus,_whr_status, received_qc_status, _paymentApproval, _billstatus, _wareHouseApproval } = require('@src/v1/utils/constants');
+const { _collectionName, _batchStatus, _whr_status, received_qc_status, _paymentApproval, _billstatus, _wareHouseApproval } = require('@src/v1/utils/constants');
 
 const batchsSchema = new mongoose.Schema({
     seller_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users, required: true },
@@ -11,12 +11,12 @@ const batchsSchema = new mongoose.Schema({
         farmerOrder_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.FarmerOrder, required: true },
         qty: { type: Number, default: 0 },
         amt: { type: Number, default: 0 },
-        rejected_quantity : { type: Number, default: 0 }, 
-        rejected_bags : { type: Number, default: 0 }, 
-        gain_quantity : { type: Number, default: 0 }, 
-        gain_bags : { type: Number, default: 0 }, 
-        accepted_quantity : { type: Number, default: 0 }, 
-        accepted_bags : { type: Number, default: 0 }, 
+        rejected_quantity: { type: Number, default: 0 },
+        rejected_bags: { type: Number, default: 0 },
+        gain_quantity: { type: Number, default: 0 },
+        gain_bags: { type: Number, default: 0 },
+        accepted_quantity: { type: Number, default: 0 },
+        accepted_bags: { type: Number, default: 0 },
     }],
     procurementCenter_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ProcurementCenter },
     qty: { type: Number, default: 0 },
@@ -64,6 +64,10 @@ const batchsSchema = new mongoose.Schema({
             contact: { type: String, trim: true },
             license: { type: String, trim: true },
             aadhar: { type: String, trim: true },
+            aadhar_image: {
+                front: { type: String, trim: true },
+                back: { type: String, trim: true },
+            }
         },
         transport: {
             service_name: { type: String, trim: true },
@@ -101,7 +105,7 @@ const batchsSchema = new mongoose.Schema({
         rejected_reason: { type: String, trim: true },
     },
     receiving_details: {
-        qty: { type: Number, default: 0},
+        qty: { type: Number, default: 0 },
         quantity_received: { type: String, trim: true },
         no_of_bags: { type: String, trim: true },
         bag_weight_per_kg: { type: String, trim: true },
