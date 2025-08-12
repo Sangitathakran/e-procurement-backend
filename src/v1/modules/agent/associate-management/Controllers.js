@@ -151,22 +151,16 @@ module.exports.userStatusUpdate = async (req, res) => {
         }
         user.is_approved = status;
 
-        if (!user.is_welcome_email_send) {
-            emailService.sendWelcomeEmail(user);
-            user.is_welcome_email_send = true;
-        }
-        await user.save();
 
         const password = generateRandomPassword();
 
         const hashedPassword = await bcrypt.hash(password, 10);
-
         const masterUser = new MasterUser({
-            firstName: user.basic_details.associate_details.associate_name,
-            lastName: user.basic_details.associate_details.associate_name,
+            firstName: user?.basic_details?.associate_details?.associate_name || '',
+            lastName: user?.basic_details?.associate_details?.associate_name || '',
             isAdmin: true,
-            email: user.basic_details.associate_details.email.trim(),
-            mobile: user.basic_details.associate_details.phone.trim(),
+            email: user?.basic_details?.associate_details?.email?.trim() || '',
+            mobile: user?.basic_details?.associate_details?.phone?.trim() || '',
             password: hashedPassword,
             user_type: _userType.associate,
         });
@@ -182,7 +176,12 @@ module.exports.userStatusUpdate = async (req, res) => {
             <p> Warm regards,  </p> <br/> 
             <p> Navankur.</p> ` ;
 
-        await sendMail("ashita@navankur.org", null, subject, body);
+         if(user?.basic_details?.associate_details?.email){
+            emailService.sendWelcomeEmail(user);
+            user.is_welcome_email_send = true;
+            await sendMail(user?.basic_details?.associate_details?.email, null, subject, body);
+         }
+         await user.save();
 
         return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.updated('User status'), data: { userId, user_status: status } }));
     } catch (error) {

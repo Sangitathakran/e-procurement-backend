@@ -1,5 +1,3 @@
-// Path Alias
-
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
 });
@@ -9,6 +7,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 require("module-alias/register");
+
 // import modules
 const express = require("express");
 const app = express();
@@ -21,11 +20,12 @@ const cookieParser = require("cookie-parser");
 const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./src/v1/utils/swagger/swagger-output.json");
 require("@src/v1/utils/websocket/server");
-// require('newrelic');
-// configs
+const crypto = require("crypto");
+const { handleRateLimit } = require("@src/v1/middlewares/express_app");
+
 const { PORT, apiVersion } = require("./config/index");
+// require('newrelic');
 require("./config/database");
-// require('./config/redis')
 const {
   handleCatchError,
   handleRouteNotFound,
@@ -37,16 +37,42 @@ const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { router } = require("./src/v1/routes");
-const { sendMail } = require("@src/v1/utils/helpers/node_mailer");
 const { agristackchRoutes } = require("@src/v1/modules/agristack/Routes");
 // application level middlewares
-app.use(helmet());
+
 app.use(
   cors({
     origin: "*",
     methods: ["POST", "GET", "PUT", "DELETE", "OPTIONS", "PATCH"],
   })
 );
+
+app.use(handleRateLimit); 
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      "default-src": ["'self'"],
+      "base-uri": ["'self'"],
+      "font-src": ["'self'", "https:", "data:"],
+      "form-action": ["'self'"],
+      "frame-ancestors": ["'self'"],
+      "img-src": ["'self'", "data:"],
+      "object-src": ["'none'"],
+      "script-src": ["'self'"],
+      "script-src-attr": ["'none'"],
+      "style-src": ["'self'"],
+      "upgrade-insecure-requests": [] // this directive is a boolean-like switch
+    }
+  },
+  crossOriginOpenerPolicy: { policy: "same-origin" },
+  crossOriginResourcePolicy: { policy: "same-origin" },
+  referrerPolicy: { policy: "no-referrer" },
+  dnsPrefetchControl: { allow: false },
+  permittedCrossDomainPolicies: { permittedPolicies: "none" },
+  hidePoweredBy: true,
+}));
 
 
 app.use(morgan('dev'));
@@ -73,9 +99,26 @@ app.get(
   })
 );
 
-/* Handle errors */
-//app.use(handleCatchError)
+// Remove X-Powered-By header
+app.use((req, res, next) => {
+  res.removeHeader("X-Powered-By");
+  res.removeHeader("server");
+  res.removeHeader("Access-Control-Allow-Methods");
+  next();
+});
+
+
+
+
 app.all("*", handleRouteNotFound);
+
+app.use((req, res, next) => {
+  res.setHeader("cps",
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none';"
+  );
+  next();
+});
+
 
 // Listner server
 app.listen(PORT, async () => {

@@ -31,3 +31,10 @@ class Logger {
 
 module.exports = new Logger();
 
+//========== For example we can Implement like this  ============= //
+
+// const logger = require('./logger');
+
+// logger.info('Server started');
+// logger.warn('Disk space running low');
+// logger.error('Unable to connect to database');

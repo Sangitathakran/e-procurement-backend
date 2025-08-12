@@ -127,7 +127,6 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
   const { portalId, user_id } = req;
 
-  
 const portalObjectId = new mongoose.Types.ObjectId(portalId);
 const userObjectId = new mongoose.Types.ObjectId(user_id);
 
@@ -248,6 +247,7 @@ const userObjectId = new mongoose.Types.ObjectId(user_id);
   let matchQuery = search
     ? {
       $or: [
+        { "slaId": { $regex: search, $options: "i" } }, 
         { "basic_details.name": { $regex: search, $options: "i" } },
         { "basic_details.email": { $regex: search, $options: "i" } },
         { "basic_details.mobile": { $regex: search, $options: "i" } },
@@ -265,35 +265,101 @@ const userObjectId = new mongoose.Types.ObjectId(user_id);
        "schemes.cna": { $in: [portalObjectId, userObjectId] }
       },
     },
+    {
+      $lookup: {
+        from: "requests",
+        localField: "schemes.cna",
+        foreignField: "head_office_id",
+        as: "requests",
+        pipeline: [{$project: { _id: 1} }]
+
+      }
+    },
+      { $unwind: { path: "$requests", preserveNullAndEmptyArrays: true } },
+
+    {
+       $lookup: {
+        from: "batches",
+        localField: "requests._id",
+        foreignField: "req_id",
+        as: "batches",
+        pipeline: [{$project: { seller_id: 1} }]
+
+      }
+    },
+      { $unwind: { path: "$batches", preserveNullAndEmptyArrays: true } },
+
+   
     //   { $match: matchQuery },
     {
+    $group: {
+      _id: "$_id",
+      slaId: { $first: "$slaId" },
+      email: { $first: "$basic_details.email" },
+      sla_name: { $first: "$basic_details.name" },
+      address: { $first: "$address" },
+      status: { $first: "$status" },
+      poc: { $first: "$point_of_contact.name" },
+      branch: { $first: "$schemes.branch" },
+      sellerIds: { $addToSet: "$batches.seller_id" },
+    }
+  },
+    {
+      // $project: {
+      //   _id: 1,
+      //   slaId: 1,
+      //   email: "$basic_details.email",
+      //   sla_name: "$basic_details.name",
+      //   associate_count: {$addToSet: "$batches.seller_id"}, //{ $size: "$associatOrder_id" },
+      //   address: {
+      //     $concat: [
+      //       "$address.line1",
+      //       ", ",
+      //       { $ifNull: ["$address.line2", ""] },
+      //       ", ",
+      //       "$address.city",
+      //       ", ",
+      //       "$address.district",
+      //       ", ",
+      //       "$address.state",
+      //       ", ",
+      //       "$address.pinCode",
+      //       ", ",
+      //       { $ifNull: ["$address.country", ""] },
+      //     ],
+      //   },
+      //   status: 1,
+      //   poc: "$point_of_contact.name",
+      //   branch: "$schemes.branch",
+      // },
+
       $project: {
-        _id: 1,
-        slaId: 1,
-        email: "$basic_details.email",
-        sla_name: "$basic_details.name",
-        associate_count: { $size: "$associatOrder_id" },
-        address: {
-          $concat: [
-            "$address.line1",
-            ", ",
-            { $ifNull: ["$address.line2", ""] },
-            ", ",
-            "$address.city",
-            ", ",
-            "$address.district",
-            ", ",
-            "$address.state",
-            ", ",
-            "$address.pinCode",
-            ", ",
-            { $ifNull: ["$address.country", ""] },
-          ],
-        },
-        status: 1,
-        poc: "$point_of_contact.name",
-        branch: "$schemes.branch",
+      _id: 1,
+      slaId: 1,
+      email: 1,
+      sla_name: 1,
+      associate_count: { $size: { $setDifference: ["$sellerIds", [null]] } }, // filter out nulls if any
+      address: {
+        $concat: [
+          "$address.line1",
+          ", ",
+          { $ifNull: ["$address.line2", ""] },
+          ", ",
+          "$address.city",
+          ", ",
+          "$address.district",
+          ", ",
+          "$address.state",
+          ", ",
+          "$address.pinCode",
+          ", ",
+          { $ifNull: ["$address.country", ""] },
+        ],
       },
+      status: 1,
+      poc: 1,
+      branch: 1,
+    }
     },
   ];
 
@@ -633,7 +699,7 @@ const userObjectId = new mongoose.Types.ObjectId(user_id);
       { $or: [{ slaId }, { _id: slaId }],
        "schemes.cna": { $in: [portalObjectId, userObjectId] }
        },
-      { $set: { status: status } },
+       { $set: { status: status ? "active" : "inactive" } },
       { new: true }
     );
 
@@ -950,36 +1016,169 @@ module.exports.getUniqueStates = async (req, res) => {
   }
 };
 
+// module.exports.getUniqueHOBOScheme = async (req, res) => {
+//   try {
+//     const data = await SchemeAssign.aggregate([
+//       {
+//         $match: {
+//           sla_id: { $exists: true, $ne: null }, // Ensure sla_id exists
+//           deletedAt: null, // Ensure deletedAt is null
+//         },
+//       },
+//       {
+//         $lookup: {
+//           from: "branches", // Reference Branch collection
+//           localField: "bo_id",
+//           foreignField: "_id",
+//           as: "boDetails",
+//         },
+//       },
+
+//       {
+//         $lookup: {
+//           from: "schemes", // Reference Scheme collection
+//           localField: "scheme_id",
+//           foreignField: "_id",
+//           as: "schemeDetails",
+//         },
+//       },
+//       // Unwind schemeDetails first
+
+// // Now lookup commodityDetails using the unwound schemeDetails.commodity_id
+// {
+//   $lookup: {
+//     from: 'commodities',
+//     localField: 'schemeDetails.commodity_id',
+//     foreignField: '_id',
+//     as: 'commodityDetails',
+//   },
+// },
+// {
+//   $unwind: {
+//     path: '$commodityDetails',
+//     preserveNullAndEmptyArrays: true,
+//   },
+// },
+
+//       {
+//         $group: {
+//           _id: null,
+
+//           bo: {
+//             $addToSet: {
+//               name: { $arrayElemAt: ["$boDetails.branchName", 0] },
+//               id: "$bo_id",
+//             },
+//           },
+//           scheme: {
+//             $addToSet: {
+//               id: "$scheme_id",
+//               name: {
+//                 $concat: [
+//                   {
+//                     $ifNull: [
+//                       { $arrayElemAt: ["$schemeDetails.schemeName", 0] },
+//                       "",
+//                     ],
+//                   },
+//                   "  ",
+//                   {
+//                     $ifNull: [
+//                       { $arrayElemAt: ["$commodityDetails.name", 0] },
+//                       "",
+//                     ],
+//                   },
+//                   "  ",
+//                   {
+//                     $ifNull: [
+//                       { $arrayElemAt: ["$schemeDetails.season", 0] },
+//                       "",
+//                     ],
+//                   },
+//                   "  ",
+//                   {
+//                     $ifNull: [
+//                       { $arrayElemAt: ["$schemeDetails.period", 0] },
+//                       "",
+//                     ],
+//                   },
+//                 ],
+//               },
+//             },
+//           },
+
+
+//           //  name: {
+//           //  $arrayElemAt: ["$schemeDetails.schemeName", 0] } }
+//           //  },
+//         },
+//       },
+//       {
+//         $project: { _id: 0, ho: 1, bo: 1, scheme: 1 },
+//       },
+//     ]);
+
+//     return res.status(200).json({
+//       status: 200,
+//       data: data.length > 0 ? data[0] : { ho: [], bo: [], scheme: [] },
+//     });
+//   } catch (error) {
+//     console.error("Aggregation Error:", error);
+//     return res
+//       .status(500)
+//       .json({ status: 500, message: "Internal Server Error" });
+//   }
+// };
+
+
 module.exports.getUniqueHOBOScheme = async (req, res) => {
   try {
     const data = await SchemeAssign.aggregate([
       {
         $match: {
-          sla_id: { $exists: true, $ne: null }, // Ensure sla_id exists
-          deletedAt: null, // Ensure deletedAt is null
+          sla_id: { $exists: true, $ne: null },
+          deletedAt: null,
         },
       },
       {
         $lookup: {
-          from: "branches", // Reference Branch collection
+          from: "branches",
           localField: "bo_id",
           foreignField: "_id",
           as: "boDetails",
         },
       },
-
       {
         $lookup: {
-          from: "schemes", // Reference Scheme collection
+          from: "schemes",
           localField: "scheme_id",
           foreignField: "_id",
           as: "schemeDetails",
         },
       },
       {
+        $unwind: {
+          path: "$schemeDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "commodities",
+          localField: "schemeDetails.commodity_id",
+          foreignField: "_id",
+          as: "commodityDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$commodityDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
         $group: {
           _id: null,
-
           bo: {
             $addToSet: {
               name: { $arrayElemAt: ["$boDetails.branchName", 0] },
@@ -991,39 +1190,26 @@ module.exports.getUniqueHOBOScheme = async (req, res) => {
               id: "$scheme_id",
               name: {
                 $concat: [
-                  {
-                    $ifNull: [
-                      { $arrayElemAt: ["$schemeDetails.schemeName", 0] },
-                      "",
-                    ],
-                  },
+                  { $ifNull: ["$schemeDetails.schemeName", ""] },
                   "  ",
-
-                  {
-                    $ifNull: [
-                      { $arrayElemAt: ["$schemeDetails.season", 0] },
-                      "",
-                    ],
-                  },
+                  { $ifNull: ["$commodityDetails.name", ""] },
                   "  ",
-                  {
-                    $ifNull: [
-                      { $arrayElemAt: ["$schemeDetails.period", 0] },
-                      "",
-                    ],
-                  },
+                  { $ifNull: ["$schemeDetails.season", ""] },
+                  "  ",
+                  { $ifNull: ["$schemeDetails.period", ""] },
                 ],
               },
             },
           },
-
-          //  name: {
-          //  $arrayElemAt: ["$schemeDetails.schemeName", 0] } }
-          //  },
         },
       },
       {
-        $project: { _id: 0, ho: 1, bo: 1, scheme: 1 },
+        $project: {
+          _id: 0,
+          ho: [],
+          bo: 1,
+          scheme: 1,
+        },
       },
     ]);
 
@@ -1032,7 +1218,7 @@ module.exports.getUniqueHOBOScheme = async (req, res) => {
       data: data.length > 0 ? data[0] : { ho: [], bo: [], scheme: [] },
     });
   } catch (error) {
-    console.error(error);
+    console.error("Aggregation Error:", error);
     return res
       .status(500)
       .json({ status: 500, message: "Internal Server Error" });

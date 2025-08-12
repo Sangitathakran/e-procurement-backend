@@ -11,15 +11,20 @@ const { JWT_SECRET_KEY } = require('@config/index');
 const { Auth, decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
 const { _userType } = require('@src/v1/utils/constants');
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { LoginAttempt } = require("@src/v1/models/master/loginAttempt");
+const { LoginHistory } = require("@src/v1/models/master/loginHistery");
+const getIpAddress = require("@src/v1/utils/helpers/getIPAddress");
 const xlsx = require('xlsx');
 const csv = require("csv-parser");
 const isEmail = (input) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(input);
 const isMobileNumber = (input) => /^[0-9]{10}$/.test(input);
+
 const findUser = async (input, type) => {
     return type === 'email'
         ? await User.findOne({ email: input })
         : await User.findOne({ phone: input });
 };
+
 const sendEmailOtp = async (email) => {
     await emailService.sendEmailOTP(email);
 };
@@ -49,6 +54,17 @@ module.exports.sendOtp = async (req, res) => {
             await sendEmailOtp(input);
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Email") }));
         } else if (inputType === 'mobile') {
+            const blockCheck = await LoginAttempt.findOne({ phone: input });
+            if (blockCheck?.lockUntil && blockCheck.lockUntil > new Date()) {
+                const remainingTime = Math.ceil((blockCheck.lockUntil - new Date()) / (1000 * 60));
+                return res.status(400).send(
+                    new serviceResponse({
+                        status: 400,
+                        data: { remainingTime },
+                        errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minutes.` }]
+                    })
+                );
+            }
             await sendSmsOtp(input);
             return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.otpCreate("Mobile") }));
         } else {
@@ -62,7 +78,6 @@ module.exports.sendOtp = async (req, res) => {
 module.exports.loginOrRegister = async (req, res) => {
     try {
         const { userInput, inputOTP } = req.body;
-
         if (!userInput || !inputOTP) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require('otp_required') }] }));
         }
@@ -72,12 +87,62 @@ module.exports.loginOrRegister = async (req, res) => {
             ? { 'basic_details.associate_details.email': userInput }
             : { 'basic_details.associate_details.phone': userInput };
 
+
+        const blockCheck = await LoginAttempt.findOne({ phone: userInput });
+        if (blockCheck?.lockUntil && blockCheck.lockUntil > new Date()) {
+            const remainingTime = Math.ceil((blockCheck.lockUntil - new Date()) / (1000 * 60));
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    data: { remainingTime },
+                    errors: [{ message: `Your account is temporarily locked. Please try again after ${remainingTime} minutes.` }]
+                })
+            );
+        }
+
         const userOTP = await OTP.findOne(isEmailInput ? { email: userInput } : { phone: userInput });
 
 
-        // if ((!userOTP || inputOTP !== userOTP.otp)) {
         if ((!userOTP || inputOTP !== userOTP.otp) && inputOTP !== staticOTP) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP verification failed') }] }));
+
+            const loginAttempt = await LoginAttempt.findOne({ phone: userInput });
+
+            if (loginAttempt) {
+                loginAttempt.failedAttempts += 1;
+                loginAttempt.lastFailedAt = new Date();
+
+                if (loginAttempt.failedAttempts >= 5) {
+                    loginAttempt.lockUntil = new Date(Date.now() + 30 * 60 * 1000);
+                }
+
+                await loginAttempt.save();
+
+                const remainingAttempts = 5 - loginAttempt.failedAttempts;
+
+                if (remainingAttempts <= 0) {
+                    return res.status(400).send(
+                        new serviceResponse({
+                            status: 400,
+                            data: { remainingTime: 30 },
+                            errors: [{ message: `Your account is locked due to multiple failed attempts. Try again after 30 minutes.` }]
+                        })
+                    );
+                }
+
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP ') }] }));
+
+            } else {
+                await LoginAttempt.create({
+                    userType: _userType.associate,
+                    phone: userInput,
+                    failedAttempts: 1,
+                    lastFailedAt: new Date()
+                });
+
+                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid('OTP ') }] }));
+            }
+        } else {
+            await LoginAttempt.deleteMany({ phone: userInput });
         }
 
 
@@ -97,6 +162,7 @@ module.exports.loginOrRegister = async (req, res) => {
             } else {
                 newUser.is_mobile_verified = true;
             }
+
             userExist = await User.create(newUser);
         }
 
@@ -107,12 +173,22 @@ module.exports.loginOrRegister = async (req, res) => {
         const payload = { userInput: userInput, user_id: userExist._id, organization_id: userExist.client_id, user_type: userExist?.user_type }
         const expiresIn = 24 * 60 * 60; // 24 hour in seconds
         const token = jwt.sign(payload, JWT_SECRET_KEY, { expiresIn });
+        await LoginHistory.deleteMany({ master_id: userExist._id, user_type: _userType.associate });
+        await LoginHistory.create({ token: token, user_type: _userType.associate, master_id: userExist._id, ipAddress: getIpAddress(req) });
 
+        await LoginHistory.deleteMany({ master_id: userExist._id, user_type: userExist.user_type });
+        await LoginHistory.create({
+            token: token,
+            master_id: userExist._id,
+            user_type: userExist.user_type,
+            ipAddress: getIpAddress(req)
+        });
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local',
             maxAge: 24 * 60 * 60 * 1000 // 24 hours in milliseconds
         });
+
         const data = {
             token: token,
             user_type: userExist.user_type,
@@ -137,11 +213,20 @@ module.exports.saveAssociateDetails = async (req, res) => {
         }
         const decode = await decryptJwtToken(getToken);
         const userId = decode.data.user_id;
+        const { formName, ...formData } = req.body;
         const user = await User.findById(userId);
         if (!user) {
             return res.status(400).send(new serviceResponse({ status: 400, message: _response_message.notFound('User') }));
         }
-        const { formName, ...formData } = req.body;
+
+        if (formData.organization_name && formData.organization_name != user.basic_details.associate_details.organization_name) {
+            const isOrganizationName = await User.findOne({ 'basic_details.associate_details.organization_name': formData.organization_name });
+            if (isOrganizationName) {
+                return res.status(400).send(new serviceResponse({ status: 400, message: "You are already registered with this organization name." }));
+            }
+        }
+
+
         switch (formName) {
             case 'organization':
                 user.basic_details.associate_details.organization_name = formData.organization_name;
@@ -620,7 +705,7 @@ module.exports.associateNorthEastBulkuplod = async (req, res) => {
                         is_approved: 'approved',
                         is_form_submitted: true,
                         is_welcome_email_send: true,
-                        term_condition:true,
+                        term_condition: true,
                         active: true,
                         is_sms_send: true,
                     });

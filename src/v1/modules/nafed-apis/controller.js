@@ -1,4 +1,4 @@
-const { DistilleryStats, DistilleryStatsHistory } = require("@src/v1/models/app/auth/distilleryStats");
+const { NafedStats, NafedStatsHistory } = require("@src/v1/models/app/auth/NafedStats");
 const {MasterUser} = require("@src/v1/models/master/MasterUser");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const logService = require("@common/logger/logger");
@@ -51,13 +51,13 @@ exports.updateDistilleryStats = async (req, res) => {
       });
     }
 
-    let existing = await DistilleryStats.findOne();
+    let existing = await NafedStats.findOne();
 
     // Case: create new
     if (!existing) {
-      const created = await DistilleryStats.create(newStats);
+      const created = await NafedStats.create(newStats);
 
-      await DistilleryStatsHistory.create({
+      await NafedStatsHistory.create({
         distilleryStatsId: created._id,
         changes: { old: {}, new: newStats },
         changedBy: user._id,
@@ -80,13 +80,13 @@ exports.updateDistilleryStats = async (req, res) => {
       totalPaymentByDistilleries: existing.totalPaymentByDistilleries,
     };
 
-    const updated = await DistilleryStats.findByIdAndUpdate(
+    const updated = await NafedStats.findByIdAndUpdate(
       existing._id,
       { ...newStats },
       { new: true }
     );
 
-    await DistilleryStatsHistory.create({
+    await NafedStatsHistory.create({
       distilleryStatsId: updated._id,
       changes: { old: oldStats, new: newStats },
       changedBy: user._id,

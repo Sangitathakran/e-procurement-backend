@@ -1,5 +1,6 @@
 const { _collectionName } = require("@src/v1/utils/constants");
 const mongoose = require("mongoose");
+const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 // Procurement Details Schema
 const ProcurementDetailsSchema = new mongoose.Schema({
@@ -7,7 +8,7 @@ const ProcurementDetailsSchema = new mongoose.Schema({
   commodityName: { type: String },
   mandiName: { type: String },
   gatePassWeightQtl: { type: Number },
-  farmerID: { type: Number },
+  farmerID: { type: String },
   gatePassID: { type: Number },
   gatePassDate: { type: String },
   auctionID: { type: Number },
@@ -25,7 +26,16 @@ const ProcurementDetailsSchema = new mongoose.Schema({
   batchCreatedAt: {  type: Date },
   centerCreatedAt: {  type: Date },
   warehouseCreatedAt: {  type: Date },
-  batchIdUpdatedAt: { type: Date }
+  mspRateMT: { type: Number },
+
+  iFormId: { type: Number, unique: true }, // Unique IForm ID
+  incidentalExpenses: { type: Number },
+  laborCharges: { type: Number },
+  laborChargesPayableDate: { type: Date },
+  commissionCharges: { type: Number },
+  commissionChargesPayableDate: { type: Date },
+  batchIdUpdatedAt: { type: Date },
+  notIncludedJformId: { type: Boolean, default: false }, // Flag to indicate if JForm ID is not included
 });
 
 // Payment Details Schema
@@ -56,7 +66,8 @@ const EKhairidSchema = new mongoose.Schema({
   procurementDetails: { type: ProcurementDetailsSchema },
   paymentDetails: { type: PaymentDetailsSchema },
   warehouseData: { type: warehouseDataSchema },
-});
+  ..._commonKeys
+}, { timestamps: true });
 
 const eKharidHaryanaProcurementModel = mongoose.model(
   _collectionName.eKharidHaryana,

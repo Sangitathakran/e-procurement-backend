@@ -12,7 +12,7 @@ const mongoose = require("mongoose");
 
 module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit, skip, paginate = 1, sortBy, search = '',schemeName, commodity, cnaName, branchOffice } = req.query
+    const { page, limit, skip, paginate = 1, sortBy, search = '', schemeName, commodity, cnaName, branchOffice } = req.query
 
     const requestIds = (await AssociateOffers.find({})).map((ele) => ele.req_id);
 
@@ -30,6 +30,8 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
     } : {};
 
     query._id = { $in: requestIds };
+    query.sla_id = new mongoose.Types.ObjectId(req.user_id);
+
     if (schemeName) {
         const schemeIds = await Scheme.find({ schemeName: { $regex: schemeName, $options: 'i' } }).distinct('_id');
         if (schemeIds.length > 0) {
@@ -38,11 +40,11 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
             query["product.schemeId"] = { $in: [] };
         }
     }
-    
+
     if (commodity) {
         query["product.name"] = { $regex: commodity, $options: 'i' };
     }
-    
+
     if (cnaName) {
         const slaIds = await HeadOffice.find({ "company_details.name": { $regex: cnaName, $options: 'i' } }).distinct('_id');
         if (slaIds.length > 0) {
@@ -51,8 +53,7 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
             query.head_office_id = { $in: [] };
         }
     }
-    
-    
+
     if (branchOffice) {
         const branchIds = await Branches.find({ branchName: { $regex: branchOffice, $options: 'i' } }).distinct('_id');
         if (branchIds.length > 0) {
@@ -72,15 +73,15 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
         .skip(skip)
         .limit(parseInt(limit))
 
-        records.rows = records.rows.map((doc) => {
-            const obj = doc.toObject(); 
-            const commdityName = obj?.product?.name || '';
-            const schemeName= obj?.product?.schemeId?.schemeName || '';
-            const season= obj?.product?.schemeId?.season || '';
-            const period= obj?.product?.schemeId?.period || '';
-            obj.scheme_name = `${schemeName} ${commdityName} ${season} ${period}`;
-            return obj;
-        });
+    records.rows = records.rows.map((doc) => {
+        const obj = doc.toObject();
+        const commdityName = obj?.product?.name || '';
+        const schemeName = obj?.product?.schemeId?.schemeName || '';
+        const season = obj?.product?.schemeId?.season || '';
+        const period = obj?.product?.schemeId?.period || '';
+        obj.scheme_name = `${schemeName} ${commdityName} ${season} ${period}`;
+        return obj;
+    });
 
     records.count = await RequestModel.countDocuments(query);
 

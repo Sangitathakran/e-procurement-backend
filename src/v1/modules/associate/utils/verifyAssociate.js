@@ -5,7 +5,9 @@ const { _response_message } = require('@src/v1/utils/constants/messages');
 const { serviceResponse } = require('@src/v1/utils/helpers/api_response');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
 const jwt = require('jsonwebtoken');
-
+const { LoginHistory } = require('@src/v1/models/master/loginHistery');
+const { sendResponse } = require('@src/v1/utils/helpers/api_response');
+const {_auth_module} = require('@src/v1/utils/constants/messages')
 const tokenBlacklist = [];
 
 
@@ -19,6 +21,17 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
     if (tokenBlacklist.includes(token)) {
         return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "Token has been revoked" }] }))
     }
+    let loginHistory = await LoginHistory.findOne({ token: token, logged_out_at: null }).sort({ createdAt: -1 });
+   if (!loginHistory) {
+      return res.status(401).send(
+        {
+          status: 401,
+          message: "error while decode not found",
+          errors: _auth_module.tokenExpired,
+        }
+      );
+      
+    }
 
     jwt.verify(token, JWT_SECRET_KEY, async function (err, decodedToken) {
         if (err) {
@@ -28,9 +41,8 @@ exports.verifyAssociate = asyncErrorHandler(async (req, res, next) => {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.invalid("token") }] }))
 
         }
-      
-        const userExist = await User.findOne({ _id: decodedToken.user_id })
 
+        const userExist = await User.findOne({ _id: decodedToken.user_id })
         if (!userExist) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("User") }] }));
         }

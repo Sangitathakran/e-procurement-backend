@@ -14,10 +14,11 @@ slaRoute.get("/filterOption", getUniqueHOBOScheme);
 
 
 slaRoute.get("/:slaId", getSLAById);
-slaRoute.put("/:slaId", updateSLA);
-slaRoute.patch("/:slaId", updateSLAStatus);
-slaRoute.post("/:slaId/add-scheme", addSchemeToSLA);
-slaRoute.delete("/:slaId", deleteSLA);
+slaRoute.put("/:slaId", Auth, updateSLA);
+slaRoute.patch("/:slaId", Auth, updateSLAStatus);
+slaRoute.post("/:slaId/add-scheme", Auth, addSchemeToSLA);
+slaRoute.post("/", Auth, createSLA);
+slaRoute.delete("/:slaId", Auth, deleteSLA);
 
 
 module.exports = { slaRoute };

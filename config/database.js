@@ -2,6 +2,8 @@
 const mongoose = require('mongoose');
 const connection = mongoose.connection
 const { connection_string } = require('.');
+const redisService = require('@src/common/services/RedisService');
+const { cacheStatesData } = require('@src/v1/utils/helpers/redisCacheHelper');
 
 // const options = {
 //     maxPoolSize: 10,  // Adjust the pool size according to your needs
@@ -29,6 +31,12 @@ main().catch(err => console.log(err));
 
 async function main() {
     await mongoose.connect(`${connection_string}`);
+
+    // connect to redis
+    await redisService.connect();
+
+    // Cache states data
+    await cacheStatesData();
 }
 
 connection.on('error', console.error.bind(console, "Error unable to connect database...!"));
@@ -40,6 +48,16 @@ connection.once('open', function (error) {
         console.log("Connected MongoDB Successfully...!", connection._connectionString)
     }
 })
+async function fetchFromCollection(collectionName, query = {}, projection = {}) {
+    try {
+        const collection = connection.collection(collectionName);
+        const results = await collection.find(query, { projection }).toArray();
+        return results || []; // Ensure it returns an array
+    } catch (error) {
+        console.error(`❌ Failed to fetch from ${collectionName}:`, error);
+        return []; // Return empty array on error to avoid crashing
+    }
+}
 
 
 const db = new Proxy({}, {
@@ -78,4 +96,4 @@ const db = new Proxy({}, {
 });
 
 
-module.exports = { connection ,db};
+module.exports = { connection ,db,fetchFromCollection};

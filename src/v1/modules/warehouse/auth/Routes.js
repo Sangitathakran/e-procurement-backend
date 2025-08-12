@@ -3,9 +3,10 @@ const { sendOtp, loginOrRegister, saveWarehouseDetails, onboardingStatus, formPr
 const express = require("express");
 const { verifyWarehouseOwner } = require("../utils/verifyWarehouseOwner");
 const wareHouseAuthRoutes = express.Router();
+const {loginRequestPerMinute } = require("@src/v1/middlewares/express_app");
 
-wareHouseAuthRoutes.post("/send-otp", sendOtp);
-wareHouseAuthRoutes.post("/register-login", loginOrRegister);
+wareHouseAuthRoutes.post("/send-otp",loginRequestPerMinute, sendOtp);
+wareHouseAuthRoutes.post("/register-login",loginRequestPerMinute, loginOrRegister);
 wareHouseAuthRoutes.put("/onboarding", verifyWarehouseOwner, saveWarehouseDetails);
 wareHouseAuthRoutes.get("/onboarding", verifyWarehouseOwner, formPreview);
 wareHouseAuthRoutes.get("/onboarding-status", verifyWarehouseOwner, onboardingStatus);

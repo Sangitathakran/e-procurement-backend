@@ -1,4 +1,5 @@
 const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const { ObjectId } = require("mongoose").Types;
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
@@ -18,12 +19,18 @@ const {
 } = require("@src/v1/models/app/procurement/AssociateOffers");
 const { _query } = require("@src/v1/utils/constants/messages");
 const moment = require("moment");
-const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { default: mongoose } = require("mongoose");
-const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName, _associateOfferStatus } = require("@src/v1/utils/constants");
+const { _userType, _userStatus, _paymentstatus, _procuredStatus, _collectionName, _associateOfferStatus, _status, _paymentApproval } = require("@src/v1/utils/constants");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
 const { Distiller } = require("@src/v1/models/app/auth/Distiller");
 const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity");
+const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
+const { Scheme } = require("@src/v1/models/master/Scheme");
+const { Crop } = require("@src/v1/models/app/farmerDetails/Crop");
+const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
+const { getStateWiseUserCount, getStateWiseWarehouseCount, getStateWiseDistillerCount, getStateWiseBranchOfficeCount } = require("./Services");
+// const { Commodity } = require("@src/v1/models/master/Commodity");
+// const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 
 //widget listss
 module.exports.widgetList = asyncErrorHandler(async (req, res) => {
@@ -101,6 +108,37 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
 
     const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
     const { user_id, portalId } = req;
+   // console.log( { user_id, portalId} );
+    let {
+      schemeName = [],
+      commodityName = [],
+      dateRange,
+      sessionName = [],
+      stateName = []
+    } = req.query;
+    if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+    if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+    if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+    if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
+
+    if (!Array.isArray(commodityName)) commodityName = [commodityName];
+    if (!Array.isArray(schemeName)) schemeName = [schemeName];
+    if (!Array.isArray(sessionName)) sessionName = [sessionName];
+    if (!Array.isArray(stateName)) stateName = [stateName];
+
+    const paymentFilter = {
+      ho_id: { $in: [user_id, portalId] },
+      payment_status: _paymentstatus.completed,
+    };
+
+    let start_date = null, end_date= null;
+    if (dateRange) {
+      const { startDate, endDate } = parseDateRange(dateRange);
+      start_date = startDate, end_date = endDate
+      paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
+    }
+
+
     let widgetDetails = {
       branchOffice: { total: 0 },
       farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0, distillerTotal: 0 },
@@ -111,42 +149,115 @@ module.exports.dashboardWidgetList = asyncErrorHandler(async (req, res) => {
       totalProcurement: 0,
       todaysQtyProcured: 0,
     };
+    // if (commodityName.length) {
+    //   const matchedRequests = await RequestModel.find({
+    //     "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+    //     warehouse_id: { $ne: null },
+    //     branch_id: { $ne: null }
+    //   }).select("warehouse_id branch_id").lean();
+
+
+    //   const warehouseIds = [...new Set(matchedRequests.map(req => req.warehouse_id?.toString()).filter(Boolean))];
+    //   const branchIds = [...new Set(matchedRequests.map(req => req.branch_id?.toString()).filter(Boolean))];
+
+    //   if (warehouseIds.length === 0) {
+    //     widgetDetails.wareHouse.total = 0;
+    //   } else {
+    //     const warehouseFilter = { _id: { $in: warehouseIds } };
+    //     widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments(warehouseFilter);
+    //   }
+
+    //   if (branchIds.length === 0) {
+    //     widgetDetails.branchOffice.total = 0;
+    //   } else {
+    //     const branchFilter = {
+    //       _id: { $in: branchIds },
+    //       headOfficeId: hoId
+    //     };
+    //     widgetDetails.branchOffice.total = await Branches.countDocuments(branchFilter);
+    //   }
+
+    //   //
+
+    // } else {
+    //   // 🧾 No commodity filter, fallback to default counts
+    //   widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({});
+    //   widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    // }
 
     // Get counts safely
-    widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
-    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    // widgetDetails.wareHouse.total = await wareHouseDetails.countDocuments({ active: true });
+    // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
     //start of prachi code
 
-    widgetDetails.farmerRegistration.distillerTotal = await Distiller.countDocuments({ is_approved: _userStatus.approved });
-    widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
-    widgetDetails.farmerRegistration.farmertotal = await farmer.countDocuments({});
-    widgetDetails.farmerRegistration.associateFarmerTotal = await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
-    widgetDetails.farmerRegistration.totalRegistration = (widgetDetails.farmerRegistration.farmertotal + widgetDetails.farmerRegistration.associateFarmerTotal + widgetDetails.farmerRegistration.distillerTotal);
-    widgetDetails.farmerBenifitted = await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
-   
-    const payments = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: _paymentstatus.completed, }).select("qtyProcured createdAt amount").lean();
+    const {farmersCount, associateCount, distillerCount} = await getFarmersCount( { commodity: commodityName, state: stateName, season: sessionName, scheme: schemeName, start_date: start_date, end_date: end_date} );
 
-    let grandTotalQtyProcured = 0;
-    let todaysQtyProcured = 0;
-    let grandTotalamount = 0;
+    const {benifittedFarmersCount, totalProcurement, totalPaymentInitiated, todaysQtyProcured } = await getBenifittedFarmers({ hoId: hoId, commodity: commodityName, state: stateName, season: sessionName, scheme: schemeName, start_date: start_date, end_date: end_date });
+
+    const { branchOfficeCount, wareHouseCount } = await getBOWarehouseCount( { hoId:hoId, commodity: commodityName, state: stateName, season: sessionName, scheme: schemeName, start_date, end_date} );
+     widgetDetails.farmerRegistration.distillerTotal = distillerCount; //await Distiller.countDocuments({ is_approved: _userStatus.approved });
+    // widgetDetails.branchOffice.total = await Branches.countDocuments({ headOfficeId: hoId });
+    widgetDetails.farmerRegistration.farmertotal = farmersCount; //await farmer.countDocuments({});
+    widgetDetails.farmerRegistration.associateFarmerTotal =  associateCount; //await User.countDocuments({ user_type: _userType.associate, is_approved: _userStatus.approved, is_form_submitted: true });
+    widgetDetails.farmerRegistration.totalRegistration = (widgetDetails.farmerRegistration.farmertotal + widgetDetails.farmerRegistration.associateFarmerTotal + widgetDetails.farmerRegistration.distillerTotal);
+    widgetDetails.farmerBenifitted =benifittedFarmersCount;  //await Payment.countDocuments({ ho_id: hoId, payment_status: _paymentstatus.completed });
+    widgetDetails.branchOffice.total = branchOfficeCount;
+    widgetDetails.wareHouse.total = wareHouseCount;
+    // let scheme = null;
+    // if (schemeName.length) {
+    //   scheme = await Scheme.findOne({ schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) } }).select("_id").lean();
+    // }
+   
+
+    // const payments = await Payment.find(paymentFilter)
+    //   .select("qtyProcured createdAt amount")
+    //   .populate({
+    //     path: "req_id",
+    //     select: "product.name product.schemeId product.season",
+    //     match: {
+    //       ...(commodityName.length && { "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) } }),
+    //       ...(scheme && { "product.schemeId": scheme._id }),
+    //       ...(sessionName.length && { "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) } })
+    //     }
+    //   })
+    //   .populate({
+    //     path: "batch_id",
+    //     select: "seller_id",
+    //     populate: {
+    //       path: "seller_id",
+    //       select: "address.registered.state",
+    //       ...(stateName.length && {
+    //         match: {
+    //           "address.registered.state": {
+    //             $in: stateName.map(name => new RegExp(name, "i")),
+    //           },
+    //         },
+    //       }),
+    //     }
+    //   })
+    //   .lean();
+
+  //  let grandTotalQtyProcured = 0;
+  //  let todaysQtyProcured = 0;
+  //  let grandTotalamount = 0;
     // Get start of today
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
-    for (const payment of payments) {
-      const qty = Number(payment.qtyProcured) || 0;
-      const amount = Number(payment.amount) || 0;
-      grandTotalQtyProcured += qty;
-      grandTotalamount +=amount;
-      
-      const createdAt = new Date(payment.createdAt);
-      if (createdAt >= startOfToday) {
-        todaysQtyProcured += qty;
-      }
-    }
+    // for (const payment of payments) {
+    //   const qty = Number(payment.qtyProcured) || 0;
+    //   const amount = Number(payment.amount) || 0;
+    //   grandTotalQtyProcured += qty;
+    //   grandTotalamount += amount;
 
-    widgetDetails.paymentInitiated += grandTotalamount; 
-    widgetDetails.totalProcurement = Math.round(grandTotalQtyProcured * 100) / 100;
+    //   const createdAt = new Date(payment.createdAt);
+    //   if (createdAt >= startOfToday) {
+    //     todaysQtyProcured += qty;
+    //   }
+    // }
+
+    widgetDetails.paymentInitiated += totalPaymentInitiated; //grandTotalamount;
+    widgetDetails.totalProcurement = totalProcurement; //Math.round(grandTotalQtyProcured * 100) / 100;
     widgetDetails.todaysQtyProcured = todaysQtyProcured;
 
     return sendResponse({
@@ -251,21 +362,104 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
 
 //end of prachi code
 */
+function parseDateRange(dateRange) {
+  //console.log(dateRange) // 13/06/2025 - 25/06/2025
+  const [startStr, endStr] = dateRange.split(" - ").map(s => s.trim());
+
+  const [startDay, startMonth, startYear] = startStr.split('/');
+  const [endDay, endMonth, endYear] = endStr.split('/');
+
+  const startDate = new Date(`${startYear}-${startMonth}-${startDay}T00:00:00.000Z`);
+  const endDate = new Date(`${endYear}-${endMonth}-${endDay}T23:59:59.999Z`);
+//console.log( {startDate, endDate} ) //{ startDate: 2025-06-13T00:00:00.000Z, endDate: 2025-06-25T23:59:59.999Z }
+  return { startDate, endDate };
+}
 
 module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   const hoId = new mongoose.Types.ObjectId(req.portalId);
 
-  const { limit = 10, page = 1 } = req.query;
+  let { limit = 10, page = 1, commodityName = [],
+    schemeName = [],
+    sessionName = [], dateRange, stateName = [] } = req.query;
   const { user_id, portalId } = req;
   const skip = (page - 1) * limit;
 
-  let pendingPaymentDetails = await Payment.find({ ho_id: { $in: [user_id, portalId] }, payment_status: 'Pending' })
-    .select('req_id qtyProcured amount payment_status')
-    .populate({ path: "req_id", select: "reqNo" })
+  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+  if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
+
+  if (!Array.isArray(commodityName)) commodityName = [commodityName];
+  if (!Array.isArray(schemeName)) schemeName = [schemeName];
+  if (!Array.isArray(sessionName)) sessionName = [sessionName];
+  if (!Array.isArray(stateName)) stateName = [stateName];
+
+  const paymentFilter = {
+    ho_id: portalId,
+    payment_status: 'Pending'
+  };
+
+  // const scheme = schemeName
+  //   ? await Scheme.findOne({
+  //       schemeName: { $regex: new RegExp(schemeName, "i") },
+  //     }).select("_id").lean()
+  //   : null;
+
+  // if (schemeName && !scheme) {
+  //   return sendResponse({
+  //     res,
+  //     status: 200,
+  //     message: "Scheme not found",
+  //     data: { rows: [], totalCount: 0, totalPages: 0, limit, page },
+  //   });
+  // }
+  let schemeIds = [];
+  if (schemeName.length) {
+    const schemes = await Scheme.find({
+      schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
+    }).select("_id").lean();
+    schemeIds = schemes.map(s => s._id);
+  }
+
+  if (dateRange) {
+    const { startDate, endDate } = parseDateRange(dateRange);
+    paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
+  }
+  let pendingPaymentDetails = await Payment.find(paymentFilter)
+    .populate({
+      path: "req_id",
+      select: "reqNo product.name product.schemeId product.season batch_id",
+      match: {
+        ...(commodityName.length && {
+          "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+        }),
+        ...(schemeIds.length && {
+          "product.schemeId": { $in: schemeIds },
+        }),
+        ...(sessionName.length && {
+          "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+        }),
+      },
+    })
+    .populate({
+      path: "batch_id",
+      select: "seller_id",
+      populate: {
+        path: "seller_id",
+        select: "address.registered.state",
+        match: stateName.length
+          ? {
+            "address.registered.state": {
+              $in: stateName.map(name => new RegExp(name, "i")),
+            },
+          }
+          : undefined,
+      },
+    })
+    .select("req_id qtyProcured amount payment_status")
     .skip(skip)
     .limit(limit)
     .lean();
-
   // Filter out payments where reqNo is missing
   pendingPaymentDetails = pendingPaymentDetails.filter(payment => payment.req_id && payment.req_id.reqNo);
 
@@ -273,6 +467,7 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
   pendingPaymentDetails = pendingPaymentDetails.map(payment => ({
     ...payment,
     reqNo: payment.req_id.reqNo,
+    commodityName: payment.req_id?.product?.name || null
   }));
 
   // Note: Count still includes all "Pending" payments regardless of reqNo presence.
@@ -294,17 +489,84 @@ module.exports.farmerPendingPayments = asyncErrorHandler(async (req, res) => {
 });
 
 module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
-  const { limit = 10, page = 1 } = req.query;
+  let { limit = 10, page = 1, commodityName = [],
+    schemeName = [],
+    sessionName = [], dateRange, stateName = [] } = req.query;
   const skip = (page - 1) * limit;
   const { user_id, portalId } = req;
 
+  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+  if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
+
+  if (!Array.isArray(commodityName)) commodityName = [commodityName];
+  if (!Array.isArray(schemeName)) schemeName = [schemeName];
+  if (!Array.isArray(sessionName)) sessionName = [sessionName];
+  if (!Array.isArray(stateName)) stateName = [stateName];
+
+  const paymentFilter = {
+    ho_id: portalId,
+    ho_approve_status: 'Pending'
+  };
+
+  let schemeIds = [];
+  if (schemeName.length) {
+    const schemes = await Scheme.find({
+      schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
+    }).select("_id").lean();
+    schemeIds = schemes.map(s => s._id);
+  }
+
+  if (dateRange) {
+    const { startDate, endDate } = parseDateRange(dateRange);
+    paymentFilter.createdAt = { $gte: startDate, $lte: endDate };
+  }
+
   // Fetch all relevant records for this page
-  let pendingApprovalDetails = await Payment.find({
-    ho_id: { $in: [user_id, portalId] },
-    ho_approve_status: "Pending"
-  })
-    .populate({ path: "req_id", select: "reqNo deliveryDate" })
-    .select("req_id qtyProcured amountPaid ho_approve_status")
+  // let pendingApprovalDetails = await Payment.find(paymentFilter)
+  //   .populate({ path: "req_id", select: "reqNo deliveryDate product.name",
+  //     ...(commodityName && {
+  //       match: {
+  //         "product.name": { $regex: new RegExp(commodityName, "i") }
+  //       }
+  //     })
+  //   })
+  //   .select("req_id qtyProcured amountPaid ho_approve_status")
+  //   .skip(skip)
+  //   .limit(limit);
+  let pendingApprovalDetails = await Payment.find(paymentFilter)
+    .populate({
+      path: "req_id",
+      select: "reqNo deliveryDate product.name product.season batch_id",
+      match: {
+        ...(commodityName.length && {
+          "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+        }),
+        ...(schemeIds.length && {
+          "product.schemeId": { $in: schemeIds },
+        }),
+        ...(sessionName.length && {
+          "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+        }),
+      },
+    })
+    .populate({
+      path: "batch_id",
+      select: "seller_id",
+      populate: {
+        path: "seller_id",
+        select: "address.registered.state",
+        match: stateName.length
+          ? {
+            "address.registered.state": {
+              $in: stateName.map(name => new RegExp(name, "i")),
+            },
+          }
+          : undefined,
+      },
+    })
+    .select("req_id qtyProcured amountPaid ho_approve_status createdAt")
     .skip(skip)
     .limit(limit);
 
@@ -337,43 +599,178 @@ module.exports.farmerPendingApproval = asyncErrorHandler(async (req, res) => {
   });
 });
 
-module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
-  const skip = (page - 1) * limit;
+// module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
+//   const { page = 1, limit = 10 } = req.query;
+//   const skip = (page - 1) * limit;
 
-  const paymentDetails = await Payment.find({ ho_id: req.portalId })
-    .select("initiated_at req_id ho_approve_by ho_approve_at")
+//   const paymentDetails = await Payment.find({ ho_id: req.portalId })
+//     .select("initiated_at req_id ho_approve_by ho_approve_at")
+//     .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
+//     .populate({
+//       path: "req_id",
+//       select: "reqNo"
+//     })
+//     .populate({ path: "req_id", select: "reqNo" })
+//     .sort({ createdAt: -1 })
+//     .skip(skip)
+//     .limit(limit);
+
+//   const totalCount = await Payment.countDocuments({ ho_id: req.portalId });
+
+//   return sendResponse({
+//     res,
+//     status: 200,
+//     message: _query.get("PaymentActivity"),
+//     data: {
+//       paymentDetails,
+//       totalCount,
+//       pages: Math.ceil(totalCount / limit),
+//       limit: limit,
+//       page: page,
+//     },
+//   });
+// });
+module.exports.paymentActivity = asyncErrorHandler(async (req, res) => {
+  let { page = 1, limit = 10, commodityName = [], schemeName = [], dateRange, sessionName = [], stateName = [] } = req.query;
+  page = Number(page);
+  limit = Number(limit);
+  const skip = (page - 1) * limit;
+  const filter = { ho_id: req.portalId };
+
+  if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+  if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+  if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+  if (typeof stateName === "string") stateName = stateName.split(',').map(s => s.trim());
+
+  if (!Array.isArray(commodityName)) commodityName = [commodityName];
+  if (!Array.isArray(schemeName)) schemeName = [schemeName];
+  if (!Array.isArray(sessionName)) sessionName = [sessionName];
+  if (!Array.isArray(stateName)) stateName = [stateName];
+  // Apply date range filter
+  if (dateRange) {
+    const { startDate, endDate } = parseDateRange(dateRange);
+    filter.createdAt = { $gte: startDate, $lte: endDate };
+  }
+
+  // Scheme filter - find scheme ID if schemeName is passed
+  let schemeIds = [];
+  if (schemeName.length) {
+    const schemes = await Scheme.find({
+      schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
+    }).select("_id").lean();
+    schemeIds = schemes.map(s => s._id);
+  }
+
+  // const paymentDetails = await Payment.find(filter)
+  //   .select("initiated_at req_id ho_approve_by ho_approve_at")
+  //   .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
+  //   .populate({
+  //     path: "req_id",
+  //     select: "reqNo product.name product.schemeId",
+  //     match: {
+  //      ...(commodityName.length && {
+  //       "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+  //     }),
+  //      ...(schemeIds.length && {
+  //         "product.schemeId": { $in: schemeIds },
+  //       }),
+  //    ...(sessionName.length && {
+  //         "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+  //       }),
+  //   },
+  //   populate: {
+  //     path: "batch_id",
+  //     select: "seller_id",
+  //     populate: {
+  //       path: "seller_id",
+  //       select: "address.registered.state",
+  //       ...(stateName.length && {
+  //         match: {
+  //           "address.registered.state": {
+  //               $in: stateName.map(name => new RegExp(name, "i")),
+  //           },
+  //         },
+  //       }),
+  //     },
+  //   },
+  // })
+  //   .sort({ createdAt: -1 });
+
+  const paymentDetails = await Payment.find(filter)
+    .select("initiated_at req_id ho_approve_by ho_approve_at batch_id")
     .populate({ path: "ho_approve_by", select: "point_of_contact.name" })
     .populate({
       path: "req_id",
-      select: "reqNo"
+      select: "reqNo product.name product.schemeId product.season",
+      match: {
+        ...(commodityName.length && {
+          "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+        }),
+        ...(schemeIds.length && {
+          "product.schemeId": { $in: schemeIds },
+        }),
+        ...(sessionName.length && {
+          "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+        }),
+      },
     })
-    .populate({ path: "req_id", select: "reqNo" })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit);
+    .populate({
+      path: "batch_id",
+      select: "seller_id",
+      populate: {
+        path: "seller_id",
+        select: "address.registered.state",
+        match: stateName.length
+          ? {
+            "address.registered.state": {
+              $in: stateName.map(name => new RegExp(name, "i")),
+            },
+          }
+          : undefined,
+      },
+    })
 
-  const totalCount = await Payment.countDocuments({ ho_id: req.portalId });
+    .sort({ createdAt: -1 });
+  // .populate({ path: "req_id", select: "reqNo" })
+  // .sort({ createdAt: -1 })
+  // .skip(skip)
+  // .limit(limit);
+  const filteredPayments = paymentDetails.filter(p => p.req_id);
+
+  // Pagination manually
+  const paginated = filteredPayments.slice(skip, skip + limit);
+
+  // const totalCount = await Payment.countDocuments({ ho_id: req.portalId });
 
   return sendResponse({
     res,
     status: 200,
     message: _query.get("PaymentActivity"),
     data: {
-      paymentDetails,
-      totalCount,
-      pages: Math.ceil(totalCount / limit),
+      paymentDetails: paginated,
+      totalCount: filteredPayments.length,
+      pages: Math.ceil(filteredPayments.length / limit),
       limit: limit,
       page: page,
     },
   });
 });
 
-
 module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
   try {
     const hoId = new mongoose.Types.ObjectId(req.portalId);
     const { user_id, portalId } = req;
+    let { commodityName = [],
+      schemeName = [],
+      sessionName = [], dateRange } = req.query;
+
+    if (typeof commodityName === "string") commodityName = commodityName.split(',').map(s => s.trim());
+    if (typeof schemeName === "string") schemeName = schemeName.split(',').map(s => s.trim());
+    if (typeof sessionName === "string") sessionName = sessionName.split(',').map(s => s.trim());
+
+    if (!Array.isArray(commodityName)) commodityName = [commodityName];
+    if (!Array.isArray(schemeName)) schemeName = [schemeName];
+    if (!Array.isArray(sessionName)) sessionName = [sessionName];
 
     // Step 1: Fetch all states from the only StateDistrictCity document
     const stateContainer = await StateDistrictCity.findOne().lean();
@@ -391,16 +788,49 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
     for (const state of stateContainer.states) {
       stateMap[state._id.toString()] = state.state_title;
     }
+    let schemeIds = [];
+    if (schemeName.length) {
+      const schemes = await Scheme.find({
+        schemeName: { $in: schemeName.map(name => new RegExp(name, "i")) }
+      }).select("_id").lean();
+      schemeIds = schemes.map(s => s._id);
+    }
 
-    // Step 3: Fetch payments and populate farmer (only getting state_id in address)
-    const payments = await Payment.find({
+
+    const paymentFilter = {
       ho_id: { $in: [user_id, portalId] },
       payment_status: _paymentstatus.completed,
-    })
+    };
+
+    // Step 5: Add date range filter
+    if (dateRange) {
+      const { startDate, endDate } = parseDateRange(dateRange); // You must have this helper function defined
+      paymentFilter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+    // Step 3: Fetch payments and populate farmer (only getting state_id in address)
+    const payments = await Payment.find(paymentFilter)
       .select("qtyProcured farmer_id")
       .populate({
         path: "farmer_id",
         select: "address.state_id",
+      })
+      .populate({
+        path: "req_id",
+        select: "product.name product.schemeId",
+        match: {
+          ...(commodityName.length && {
+            "product.name": { $in: commodityName.map(name => new RegExp(name, "i")) },
+          }),
+          ...(schemeIds.length && {
+            "product.schemeId": { $in: schemeIds },
+          }),
+          ...(sessionName.length && {
+            "product.season": { $in: sessionName.map(name => new RegExp(name, "i")) },
+          }),
+        },
       })
       .lean();
 
@@ -457,6 +887,696 @@ module.exports.satewiseProcurement = asyncErrorHandler(async (req, res) => {
     });
   }
 });
+module.exports.stateWiseCommodityDetail = asyncErrorHandler(async (req, res) => {
+  try {
+    // STEP 1: STATE MAP
+    const stateDoc = await StateDistrictCity.findOne().lean();
+    if (!stateDoc || !Array.isArray(stateDoc.states)) {
+      return sendResponse({
+        res,
+        status: 500,
+        message: "StateDistrictCity not configured properly",
+      });
+    }
+
+    const stateMap = {};
+    for (const state of stateDoc.states) {
+      stateMap[state._id.toString()] = state.state_title;
+    }
+
+    // STEP 2: AGGREGATION
+    const result = await Crop.aggregate([
+      // JOIN FARMER (PROJECT ONLY NEEDED FIELDS)
+      {
+        $lookup: {
+          from: "farmers",
+          localField: "farmer_id",
+          foreignField: "_id",
+          as: "farmer",
+          pipeline: [
+            { $project: { _id: 1, associate_id: 1, address: 1 } }
+          ]
+        }
+      },
+      { $unwind: "$farmer" },
+
+      // JOIN ASSOCIATE (PROJECT ONLY NEEDED FIELDS)
+      {
+        $lookup: {
+          from: "users",
+          localField: "farmer.associate_id",
+          foreignField: "_id",
+          as: "associate",
+          pipeline: [
+            {
+              $project: {
+                _id: 1,
+                associate_type: 1,
+                "basic_details.associate_details.associate_type": 1
+              }
+            }
+          ]
+        }
+      },
+      { $unwind: { path: "$associate", preserveNullAndEmptyArrays: true } },
+
+      // ADD associate_type
+      {
+        $addFields: {
+          associate_type: {
+            $ifNull: [
+              "$associate.basic_details.associate_details.associate_type",
+              "$associate.associate_type"
+            ]
+          }
+        }
+      },
+
+      // JOIN PAYMENTS (WITHOUT $expr)
+      {
+        $lookup: {
+          from: "payments",
+          localField: "farmer._id",
+          foreignField: "farmer_id",
+          as: "completedPaymentsRaw"
+        }
+      },
+      {
+        $addFields: {
+          completedPayments: {
+            $filter: {
+              input: "$completedPaymentsRaw",
+              as: "p",
+              cond: { $eq: ["$$p.payment_status", "Completed"] }
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          completedPaymentsRaw: 0
+        }
+      },
+
+      // GROUP BY STATE + CROP
+      {
+        $group: {
+          _id: {
+            state_id: "$farmer.address.state_id",
+            crop_name: "$crop_name",
+          },
+          uniqueFarmerIds: { $addToSet: "$farmer._id" },
+          fpoOrPacsAssociates: {
+            $addToSet: {
+              $cond: [
+                { $in: ["$associate_type", ["PACS", "FPO"]] },
+                "$associate._id",
+                "$$REMOVE"
+              ]
+            }
+          },
+          benefitedFarmerIds: {
+            $addToSet: {
+              $cond: [
+                { $gt: [{ $size: "$completedPayments" }, 0] },
+                "$farmer._id",
+                "$$REMOVE"
+              ]
+            }
+          },
+          totalQtyProcured: {
+            $sum: {
+              $reduce: {
+                input: "$completedPayments",
+                initialValue: 0,
+                in: {
+                  $add: [
+                    "$$value",
+                    {
+                      $ifNull: [
+                        { $toDouble: "$$this.qtyProcured" },
+                        0
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+
+      // FINAL PROJECT
+      {
+        $project: {
+          state_id: "$_id.state_id",
+          crop_name: "$_id.crop_name",
+          totalFarmers: { $size: "$uniqueFarmerIds" },
+          totalAssociates: { $size: "$fpoOrPacsAssociates" },
+          totalBenefitedFarmers: { $size: "$benefitedFarmerIds" },
+          totalQuantityPurchased: "$totalQtyProcured"
+        }
+      }
+    ]);
+
+    // STEP 3: GROUP STATE → CROPS[]
+    const stateWiseData = {};
+
+    for (const item of result) {
+      const stateId = item.state_id?.toString();
+      if (!stateId || !item.crop_name) continue;
+
+      if (!stateWiseData[stateId]) {
+        stateWiseData[stateId] = {
+          state_id: stateId,
+          state_name: stateMap[stateId] || "Unknown",
+          crops: [],
+        };
+      }
+
+      stateWiseData[stateId].crops.push({
+        crop_name: item.crop_name,
+        totalFarmers: item.totalFarmers,
+        totalAssociates: item.totalAssociates,
+        totalBenefitedFarmers: item.totalBenefitedFarmers,
+        totalQuantityPurchased: item.totalQuantityPurchased,
+      });
+    }
+
+    const finalResult = Object.values(stateWiseData);
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: "State-wise commodity farmer + associate count fetched successfully",
+      data: finalResult,
+    });
+
+  } catch (error) {
+    console.error("Error in stateCommodityFarmerCount:", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+});
+
+
+// module.exports.getStateWiseCommodityStats = async (req, res) => {
+//   try {
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+//     const skip = (page - 1) * limit;
+
+//     const data = await User.aggregate([
+//       {
+//         $lookup: {
+//           from: 'associateoffers',
+//           localField: '_id',
+//           foreignField: 'seller_id',
+//           as: 'offers'
+//         }
+//       },
+//       { $unwind: '$offers' },
+
+//       {
+//         $lookup: {
+//           from: 'requests',
+//           localField: 'offers.req_id',
+//           foreignField: '_id',
+//           as: 'request'
+//         }
+//       },
+//       { $unwind: '$request' },
+//       {
+//         $lookup: {
+//           from: 'commodities',
+//           localField: 'request.product.commodity_id',
+//           foreignField: '_id',
+//           as: 'commodity'
+//         }
+//       },
+//       { $unwind: '$commodity' },
+
+//       {
+//         $lookup: {
+//           from: 'farmerorders',
+//           localField: 'offers._id',
+//           foreignField: 'associateOffers_id',
+//           as: 'farmerOrders'
+//         }
+//       },
+//       { $unwind: { path: '$farmerOrders', preserveNullAndEmptyArrays: true } },
+
+//       {
+//         $lookup: {
+//           from: 'farmers',
+//           localField: 'farmerOrders.farmer_id',
+//           foreignField: '_id',
+//           as: 'farmerInfo'
+//         }
+//       },
+//       { $unwind: { path: '$farmerInfo', preserveNullAndEmptyArrays: true } },
+
+//       {
+//         $addFields: {
+//           farmerId: '$farmerOrders.farmer_id',
+//           associateId: '$farmerInfo.associate_id',
+//           offeredQty: '$farmerOrders.offeredQty'
+//         }
+//       },
+
+//       {
+//         $group: {
+//           _id: {
+//             state: '$address.registered.state',
+//             commodityId: '$commodity._id',
+//             commodityName: '$commodity.name'
+//           },
+//           totalOffers: { $sum: 1 },
+//           uniqueFarmers: { $addToSet: '$_id' },
+//           totalQtyPurchased: { $sum: '$offeredQty' },
+//           allBenefittedFarmers: { $addToSet: '$farmerId' },
+//           allRegisteredPacs: { $addToSet: '$associateId' }
+//         }
+//       },
+//       {
+//         $lookup: {
+//           from: 'statedistrictcities',
+//           localField: '_id.state',
+//           foreignField: 'states.state_title',
+//           as: 'stateInfo',
+//         }
+//       },
+//       {
+//         $project: {
+//           state: '$_id.state',
+//            'stateInfo.states':1,
+//           commodity: {
+//             _id: '$_id.commodityId',
+//             name: '$_id.commodityName',
+//             quantityPurchased: { $ifNull: ['$totalQtyPurchased', 0] },
+//             farmersBenefitted: {
+//               $size: { $setUnion: ['$allBenefittedFarmers', []] }
+//             },
+//             registeredPacs: {
+//               $size: { $setUnion: ['$allRegisteredPacs', []] }
+//             }
+//           },
+//           _id: 0
+//         }
+//       },
+
+//       {
+//         $group: {
+//           _id: '$state',
+//           stateInfo: { $first: '$stateInfo' },
+//           commodities: { $push: '$commodity' }
+//         }
+//       },
+
+//       {
+//         $project: {
+//           state: '$_id',
+//           stateInfo: '$stateInfo',
+//           commodities: 1,
+//           _id: 0
+//         }
+//       },
+
+//       { $sort: { state: 1 } },
+
+//       // Pagination using $facet
+//       {
+//         $facet: {
+//           metadata: [{ $count: "total" }],
+//           data: [{ $skip: skip }, { $limit: limit }]
+//         }
+//       },
+
+//       // Format final result
+//       {
+//         $unwind: "$metadata"
+//       },
+//       {
+//         $project: {
+//           total: "$metadata.total",
+//           page: { $literal: page },
+//           data: 1
+//         }
+//       }
+//     ]);
+//     data[0].status = 200;
+//     data[0].message = _query.get("State Wise Commodity Stats");
+//     data[0].data = data[0]?.data || [];
+//     data[0].total = data[0]?.total || 0;
+//     data[0].page = page;
+//     data[0].limit = limit;
+
+//     res.status(200).json(data[0] );
+//   } catch (err) {
+//     console.error('Error generating stats:', err);
+//     res.status(500).json({ message: 'Server error', error: err.message });
+//   }
+// };
+module.exports.getStateWiseCommodityStats = async (req, res) => {
+  try {
+    const { state = "", commodityId = null } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const {  portalId } = req;
+    const matchConditions = {};
+   // if (state) matchConditions["address.registered.state"] = state;
+   if (state) matchConditions["address.registered.state_id"] = { $in: state.split(',').map( id=> new mongoose.Types.ObjectId(id)) };
+    const pipeline = [
+      { $match: matchConditions },
+
+      {
+        $lookup: {
+          from: "associateoffers",
+          localField: "_id",
+          foreignField: "seller_id",
+          as: "offers"
+        }
+      },
+      { $unwind: "$offers" },
+
+      {
+        $lookup: {
+          from: "requests",
+          let: { reqId: "$offers.req_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$_id", "$$reqId"] },
+            head_office_id:new mongoose.Types.ObjectId(portalId),
+           } },
+            ...(commodityId ? [{
+              $match: {
+                "product.commodity_id": { $in: commodityId.split(',').map( id => new mongoose.Types.ObjectId(id))}
+              }
+            }] : [])
+          ],
+          as: "request"
+        }
+      },
+      { $unwind: "$request" },
+
+      {
+        $lookup: {
+          from: "commodities",
+          localField: "request.product.commodity_id",
+          foreignField: "_id",
+          as: "commodity"
+        }
+      },
+      { $unwind: "$commodity" },
+
+      {
+        $lookup: {
+          from: "farmerorders",
+          localField: "offers._id",
+          foreignField: "associateOffers_id",
+          as: "farmerOrders"
+        }
+      },
+      { $unwind: { path: "$farmerOrders", preserveNullAndEmptyArrays: true } },
+
+      {
+        $lookup: {
+          from: "farmers",
+          localField: "farmerOrders.farmer_id",
+          foreignField: "_id",
+          as: "farmerInfo"
+        }
+      },
+      { $unwind: { path: "$farmerInfo", preserveNullAndEmptyArrays: true } },
+
+      {
+        $addFields: {
+          farmerId: "$farmerOrders.farmer_id",
+          associateId: "$farmerInfo.associate_id",
+          offeredQty: "$farmerOrders.offeredQty"
+        }
+      },
+
+      {
+        $group: {
+          _id: {
+            state: "$address.registered.state",
+            commodityId: "$commodity._id",
+            commodityName: "$commodity.name"
+          },
+          totalOffers: { $sum: 1 },
+          uniqueFarmers: { $addToSet: "$_id" },
+          totalQtyPurchased: { $sum: "$offeredQty" },
+          allBenefittedFarmers: { $addToSet: "$farmerId" },
+          allRegisteredPacs: { $addToSet: "$associateId" }
+        }
+      },
+
+      {
+        $lookup: {
+          from: "statedistrictcities",
+          let: { stateName: "$_id.state" },
+          pipeline: [
+            { $unwind: "$states" },
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$states.state_title", "$$stateName"]
+                }
+              }
+            },
+            {
+              $lookup: {
+                from: "farmers",
+                let: { stateId: "$states._id" },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: { $eq: ["$address.state_id", "$$stateId"] }
+                    }
+                  },
+                  {
+                    $group: {
+                      _id: null,
+                      totalFarmers: { $sum: 1 }
+                    }
+                  },
+                  {
+                    $project: {
+                      _id: 0,
+                      totalFarmers: 1
+                    }
+                  }
+                ],
+                as: "farmersCount"
+              }
+            },
+            {
+              $project: {
+                _id: "$states._id",
+                state_title: "$states.state_title",
+                totalFarmers: { $arrayElemAt: ["$farmersCount.totalFarmers", 0] }
+              }
+            }
+          ],
+          as: "stateInfo"
+        }
+      },
+      { $unwind: { path: "$stateInfo", preserveNullAndEmptyArrays: true } },
+
+      {
+        $project: {
+          state: "$_id.state",
+          commodity: {
+            _id: "$_id.commodityId",
+            name: "$_id.commodityName",
+            quantityPurchased: { $ifNull: ["$totalQtyPurchased", 0] },
+            farmersBenefitted: {
+              $size: { $setUnion: ["$allBenefittedFarmers", []] }
+            },
+            registeredPacs: {
+              $size: { $setUnion: ["$allRegisteredPacs", []] }
+            },
+            farmersRegistered: "$stateInfo.totalFarmers"
+          },
+          _id: 0
+        }
+      },
+
+      {
+        $group: {
+          _id: "$state",
+          commodities: { $push: "$commodity" }
+        }
+      },
+
+      {
+        $project: {
+          state: "$_id",
+          commodities: 1,
+          _id: 0
+        }
+      },
+
+      { $sort: { state: 1 } },
+
+      {
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [{ $skip: skip }, { $limit: limit }]
+        }
+      },
+
+      { $unwind: "$metadata" },
+
+      {
+        $project: {
+          total: "$metadata.total",
+          page: { $literal: page },
+          data: 1
+        }
+      }
+    ];
+    const data = await User.aggregate(pipeline);
+
+    res.status(200).send({
+      status: 200,
+      message: _query.get("State Wise Commodity Stats"),
+      data: {
+        page,
+        limit,
+        pages: Math.ceil(data[0]?.total / limit) || 1,
+        rows: data[0]?.data || [],
+        total: data[0]?.total || 0
+      }
+    });
+
+  } catch (err) {
+    console.error("Error generating stats:", err);
+    res.status(500).json({
+      message: "Server error",
+      error: err.message
+    });
+  }
+};
+
+
+
+
+
+
+// module.exports.getStateWiseCommodityStats = async (req, res) => {
+//   try {
+//     const page = parseInt(req.query.page) || 1;
+//     const limit = parseInt(req.query.limit) || 10;
+//     const skip = (page - 1) * limit;
+
+//     const users = await User.find({}).lean();
+//     const userIds = users.map(u => u._id);
+//     const offers = await AssociateOffers.find({ seller_id: { $in: userIds } }).lean();
+//     const reqIds = offers.map(o => o.req_id);
+//     const requests = await RequestModel.find({ _id: { $in: reqIds } }).lean();
+//     const commodityIds = requests.map(r => r.product.commodity_id);
+//     const commodities = await Commodity.find({ _id: { $in: commodityIds } }).lean();
+//     const offerIds = offers.map(o => o._id);
+//     const farmerOrders = await FarmerOrders.find({ associateOffers_id: { $in: offerIds } }).lean();
+//     const farmerIds = farmerOrders.map(f => f.farmer_id);
+//     const farmers = await farmer.find({ _id: { $in: farmerIds } }).lean();
+
+//     const userMap = new Map(users.map(u => [u._id.toString(), u]));
+//     const offerMap = new Map(offers.map(o => [o._id.toString(), o]));
+//     const requestMap = new Map(requests.map(r => [r._id.toString(), r]));
+//     const commodityMap = new Map(commodities.map(c => [c._id.toString(), c]));
+//     const farmerMap = new Map(farmers.map(f => [f._id.toString(), f]));
+
+//     const stats = {};
+//     const stateFarmersMap = {}; // For total farmers per state
+
+//     farmerOrders.forEach(fOrder => {
+//       const offer = offerMap.get(fOrder.associateOffers_id.toString());
+//       if (!offer) return;
+
+//       const seller = userMap.get(offer.seller_id.toString());
+//       if (!seller) return;
+
+//       const request = requestMap.get(offer.req_id.toString());
+//       if (!request) return;
+
+//       const commodity = commodityMap.get(request.product.commodity_id.toString());
+//       if (!commodity) return;
+
+//       const farmer = farmerMap.get(fOrder.farmer_id?.toString());
+
+//       const state = seller.address?.registered?.state || 'Unknown';
+
+//       if (!stats[state]) stats[state] = {};
+//       if (!stateFarmersMap[state]) stateFarmersMap[state] = new Set();
+
+//       const cId = commodity._id.toString();
+
+//       if (!stats[state][cId]) {
+//         stats[state][cId] = {
+//           commodityId: commodity._id,
+//           commodityName: commodity.name,
+//           totalOffers: 0,
+//           uniqueFarmers: new Set(),
+//           totalQtyPurchased: 0,
+//           registeredPacs: new Set()
+//         };
+//       }
+
+//       stats[state][cId].totalOffers += 1;
+//       if (farmer) {
+//         stats[state][cId].uniqueFarmers.add(farmer._id.toString());
+//         stateFarmersMap[state].add(farmer._id.toString());
+//         if (farmer.associate_id) stats[state][cId].registeredPacs.add(farmer.associate_id.toString());
+//       }
+//       stats[state][cId].totalQtyPurchased += fOrder.offeredQty || 0;
+//     });
+
+//     let results = Object.entries(stats).map(([stateName, commoditiesObj]) => {
+//       const commoditiesArr = Object.values(commoditiesObj).map(c => ({
+//         _id: c.commodityId,
+//         name: c.commodityName,
+//         quantityPurchased: c.totalQtyPurchased,
+//         farmersBenefitted: c.uniqueFarmers.size,
+//         registeredPacs: c.registeredPacs.size
+//       }));
+
+//       return {
+//         state: stateName,
+//         totalFarmersInState: stateFarmersMap[stateName]?.size || 0,
+//         commodities: commoditiesArr
+//       };
+//     });
+
+//     results.sort((a, b) => a.state.localeCompare(b.state));
+
+//     const total = results.length;
+//     const paginatedData = results.slice(skip, skip + limit);
+
+//     res.status(200).json({
+//       total,
+//       page,
+//       limit,
+//       data: paginatedData
+//     });
+
+//   } catch (err) {
+//     console.error('Error generating stats:', err);
+//     res.status(500).json({ message: 'Server error', error: err.message });
+//   }
+// };
+
+
+
+
+
+
 
 
 
@@ -1316,3 +2436,998 @@ module.exports.procurementOnTime = asyncErrorHandler(async (req, res) => {
     data: data,
   });
 });
+module.exports.getcommodity = asyncErrorHandler(async (req, res) => {
+  const hoId = new mongoose.Types.ObjectId(req.user.portalId);
+  console.log("hoid", hoId)
+  const { name } = req.query;
+
+  if (!name) {
+    return res.status(400).json({
+      success: false,
+      message: "Commodity name is required in query parameter"
+    });
+  }
+
+  const filteredRequests = await RequestModel.find({
+    head_office_id: hoId,
+    "product.name": { $regex: new RegExp(name, "i") }
+  })
+    .select("product.name product.grade product.quantity product.commodityImage status expectedProcurementDate deliveryDate")
+    .lean();
+
+  res.status(200).json({
+    success: true,
+    data: filteredRequests
+  });
+});
+
+module.exports.getAssignedSchemes = asyncErrorHandler(async (req, res) => {
+  const hoId = new mongoose.Types.ObjectId(req.user.portalId);
+  console.log("hoId", hoId)
+  const { schemeName } = req.query;
+
+  const assignedSchemes = await SchemeAssign.find({ ho_id: hoId })
+    .populate({
+      path: 'scheme_id',
+      model: _collectionName.Scheme,
+      // match: schemeName
+      //   ? {
+      //       schemeName: new RegExp("^" + schemeName.trim(), "i"),
+      //     }
+      // : {},
+    })
+    .lean();
+
+  const filtered = assignedSchemes.filter(item => item.scheme_id !== null);
+
+  res.status(200).json({
+    success: true,
+    data: filtered,
+  });
+});
+
+module.exports.dashboardWidgetListV2 = asyncErrorHandler(async (req, res) => {
+  try {
+    const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
+    const { user_id, portalId } = req;
+   // console.log( { user_id, portalId} );
+    let {
+      states, season, schemeId, commodity_id, dateRange
+    } = req.query;
+    
+console.log({user_id, portalId})
+
+    let widgetDetails = {
+      branchOffice: { total: 0 },
+      farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0, distillerTotal: 0 },
+      wareHouse: { total: 0 },
+      //procurementTarget: { total: 0 }
+      farmerBenifitted: 0,
+      paymentInitiated: 0,
+      totalProcurement: 0,
+      todaysQtyProcured: 0,
+    };
+
+    const associateResult = await getStateWiseUserCount(states, season, schemeId, commodity_id, dateRange);
+    const wareHouseResult = await getStateWiseWarehouseCount(hoId, states, season, schemeId, commodity_id, dateRange);
+    const distillerResult = await getStateWiseDistillerCount();
+    const branchOfficeResult = await getStateWiseBranchOfficeCount(hoId, states, season, schemeId, commodity_id, dateRange)
+    widgetDetails.farmerRegistration.associateFarmerTotal = associateResult;
+    widgetDetails.wareHouse.total = wareHouseResult;
+    widgetDetails.farmerRegistration.distillerTotal = distillerResult;
+    widgetDetails.branchOffice.total = branchOfficeResult;
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: _query.get("Widget List"),
+      data: widgetDetails,
+    });
+  } catch (error) {
+    console.error("Error in widgetList:", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+});
+
+module.exports.getBenefittedFarmersAndPaymentAmount = async (req, res) => {
+  try {
+    const { states, season, schemeId, commodity_id, dateRange } =
+      req.query;
+      const { portalId, user_id } = req;
+      const paymentIds = await Payment.distinct('req_id', {
+        ho_id: { $in: [portalId, user_id] },
+        bo_approve_status: _paymentApproval.approved,
+      });
+
+    //  console.log('paymentIds', paymentIds);
+      let query = {
+        'request._id': { $in: paymentIds },
+      };
+
+      const ho_id = new mongoose.Types.ObjectId(req.portalId);
+
+    if (!ho_id) {
+      return res
+        .status(400)
+        .json({ status: 400, message: 'ho_id is required' });
+    }
+
+    const stateArr = states
+      ? states.split(',').map(id => new ObjectId(id.trim()))
+      : null;
+
+    const schemeArr = schemeId
+      ? schemeId.split(',').map(id => new ObjectId(id.trim()))
+      : null;
+    const commodityArr = commodity_id
+      ? commodity_id.split(',').map(id => new ObjectId(id.trim()))
+      : null;
+    const seasonArr = season
+      ? season.split(',').map(s => new RegExp(s.trim(), 'i'))
+      : null;
+
+    const hasRequestFilters = schemeArr || commodityArr || seasonArr;
+
+    let dateFilter = {};
+    if (dateRange) {
+      const { startDate, endDate } = parseDateRange(dateRange);
+      dateFilter.createdAt = { $gte: startDate, $lte: endDate };
+    }
+
+    const pipeline = [
+      {
+        $match: {
+         //ho_id: new ObjectId(ho_id),
+          payment_status: _paymentstatus.completed,
+          ...dateFilter,
+        },
+      },
+      {
+        $lookup: {
+          from: 'batches',
+          localField: 'batch_id',
+          foreignField: '_id',
+          as: 'batch',
+        },
+      },
+      { $unwind: '$batch' },
+
+      {
+        $lookup: {
+          from: 'procurementcenters',
+          localField: 'batch.procurementCenter_id',
+          foreignField: '_id',
+          as: 'center',
+        },
+      },
+      { $unwind: { path: '$center', preserveNullAndEmptyArrays: true } },
+
+      {
+        $lookup: {
+          from: 'requests',
+          localField: 'req_id',
+          foreignField: '_id',
+          as: 'request',
+        },
+      },
+      { $unwind: '$request' },
+      { $match: query},
+
+      {
+        $lookup: {
+          from: 'schemes',
+          let: { schemeId: '$request.product.schemeId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$_id', '$$schemeId'] },
+              },
+            },
+            { $project: { season: 1 } },
+          ],
+          as: 'scheme',
+        },
+      },
+      { $unwind: { path: '$scheme', preserveNullAndEmptyArrays: true } },
+
+      {
+        $match: {
+          ...(stateArr && {
+            'center.address.state_id': { $in: stateArr },
+          }),
+          ...(schemeArr && {
+            'request.product.schemeId': { $in: schemeArr },
+          }),
+          ...(commodityArr && {
+            'request.product.commodity_id': { $in: commodityArr },
+          }),
+          ...(seasonArr && {
+            $or: [
+              { 'request.product.season': { $in: seasonArr } },
+              { 'scheme.season': { $in: seasonArr } },
+            ],
+          }),
+        },
+      },
+
+      {
+        $group: {
+          _id: {
+            state_id: '$center.address.state_id',
+            state: '$center.address.state',
+          },
+          benefitted_farmers: { $addToSet: '$farmer_id' },
+          total_payment_amount: { $sum: '$amount' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          state_id: '$_id.state_id',
+          state: '$_id.state',
+          benefitted_farmers_count: { $size: '$benefitted_farmers' },
+          total_payment_amount: 1,
+        },
+      },
+    ];
+
+    const result = await Payment.aggregate(pipeline);
+    //console.log( result)
+    const data = {
+      benefitted_farmers_count: result.reduce( (acc, curr) => acc+curr.benefitted_farmers_count, 0),
+      total_payment_amount: result.reduce( (acc, curr) => acc+curr.total_payment_amount, 0),
+    };
+
+    return res.status(200).json({
+      status: 200,
+      message: 'Benefitted farmers and total payment fetched successfully.',
+      data,
+    });
+  } catch (err) {
+    console.error('Error in getBenefittedFarmersAndPaymentAmount:', err);
+    return res.status(500).json({
+      status: 500,
+      message: 'Internal Server Error',
+      error: err.message,
+    });
+  }
+};
+
+
+
+async function getFarmersCount({
+  commodity = [],
+  state = [],
+  season = [],
+  scheme = [],
+  start_date,
+  end_date
+}) {
+  let farmersCount = 0;
+  let associateCount = 0;
+  let distillerCount = 0;
+
+  if (commodity.length || season.length || scheme.length || state.length) {
+    let filter = {};
+     let dateFilter = {};
+
+    if (start_date instanceof Date && end_date instanceof Date) {
+      dateFilter.createdAt = { $gte: start_date, $lte: end_date };
+    }
+
+    if (Array.isArray(commodity) && commodity.length > 0) {
+      filter['product.name'] = {
+        $in: commodity.map(c => new RegExp(c, 'i')),
+      };
+    }
+
+    // Season filter
+    if (Array.isArray(season) && season.length > 0) {
+      // Convert season values to case-insensitive regex patterns
+      const seasonRegexes = season.map(s => new RegExp(s, 'i'));
+
+      // Step 1: Find Scheme IDs matching the desired seasons
+      const matchingSchemes = await Scheme.find(
+        { season: { $in: seasonRegexes } },
+        { _id: 1 }
+      ).lean();
+
+      const matchingSchemeIds = matchingSchemes.map(s => s._id);
+
+      // Step 2: Construct $or condition for both direct and indirect matches
+      filter.$or = [
+        { 'product.season': { $in: seasonRegexes } },
+        { 'product.schemeId': { $in: matchingSchemeIds } },
+      ];
+    }
+
+    if (Array.isArray(scheme) && scheme.length > 0) {
+      filter['product.schemeId'] = { $in: scheme };
+    }
+
+    const requestObj = await RequestModel.find(filter, { _id: 1 }).lean();
+    // console.log(requestObj);
+    if (!requestObj.length)
+      return { farmersCount, associateCount, distillerCount };
+
+    const requestIds = requestObj.map(el => el._id);
+
+    const paymentObj = await Payment.find(
+      { req_id: { $in: requestIds } },
+      { farmer_id: 1, associate_id: 1 }
+    ).lean();
+
+    if (state.length) {
+      let farmersIds = new Set(paymentObj.map(el => String(el.farmer_id)));
+      let associateIds = new Set(paymentObj.map(el => String(el.associate_id)));
+
+      const stateRegex = state.map(s => new RegExp(s, 'i')); // case-insensitive exact match
+
+      const filteredAssociates = await User.find(
+        {
+          _id: {
+            $in: Array.from(associateIds).map(
+              id => new mongoose.Types.ObjectId(id)
+            ),
+          },
+          'address.registered.state': { $in: stateRegex },
+        },
+        { _id: 1 }
+      ).lean();
+
+      associateCount = new Set(filteredAssociates.map(user => String(user._id)))
+        .size;
+
+      const matchingAssociates = await User.find(
+        { 'address.registered.state': { $in: stateRegex }, ...dateFilter },
+        { _id: 1 }
+      ).lean();
+
+      const matchingAssociateIds = new Set(
+        matchingAssociates.map(u => String(u._id))
+      );
+
+      //  Get farmers whose _id is in farmersIds and associate_id is in matchingAssociateIds
+      const filteredFarmers = await farmer
+        .find(
+          {
+            _id: {
+              $in: Array.from(farmersIds).map(
+                id => new mongoose.Types.ObjectId(id)
+              ),
+            },
+            associate_id: {
+              $in: Array.from(matchingAssociateIds).map(
+                id => new mongoose.Types.ObjectId(id)
+              ),
+            },
+            ...dateFilter,
+          },
+          { _id: 1 }
+        )
+        .lean();
+
+      farmersCount = new Set(filteredFarmers.map(f => String(f._id))).size;
+
+      // ✅ DISTILLER COUNT based on commodity and/or state
+      const commodityRegex = commodity.map(c => new RegExp(c, 'i'));
+
+      let distillerFilter = { is_approved: _userStatus.approved, ...dateFilter };
+
+      let poDistillerIds = [];
+
+      if (commodity.length) {
+        poDistillerIds = await PurchaseOrderModel.distinct('distiller_id', {
+          'product.name': { $in: commodityRegex },
+        });
+        if (poDistillerIds.length === 0) {
+          distillerCount = 0; // no matching distillers if no POs found
+        } else {
+          distillerFilter._id = {
+            $in: poDistillerIds.map(id => new mongoose.Types.ObjectId(id)),
+          };
+        }
+      }
+
+      if (state.length) {
+        distillerFilter['address.registered.state'] = { $in: stateRegex };
+      }
+
+      if (!commodity.length && !state.length) {
+        distillerCount = await Distiller.countDocuments(distillerFilter);
+      } else {
+        const stateDistillerDocs = await Distiller.find(distillerFilter, {
+          _id: 1,
+        }).lean();
+        distillerCount = new Set(stateDistillerDocs.map(d => String(d._id)))
+          .size;
+      }
+    } else {
+      farmersCount = new Set(paymentObj.map(el => String(el.farmer_id))).size;
+      associateCount = new Set(paymentObj.map(el => String(el.associate_id)))
+        .size;
+
+      // DISTILLER COUNT only by commodity (no state filter)
+      if (commodity.length) {
+        const commodityRegex = commodity.map(c => new RegExp(c, 'i'));
+
+        const poDistillerIds = await PurchaseOrderModel.distinct(
+          'distiller_id',
+          {
+            'product.name': { $in: commodityRegex },
+          }
+        );
+
+        distillerCount = new Set(poDistillerIds.map(id => String(id))).size;
+      }
+    }
+  } else {
+    farmersCount = await farmer.countDocuments({});
+    associateCount = await User.countDocuments({
+      user_type: _userType.associate,
+      is_approved: _userStatus.approved,
+      is_form_submitted: true,
+    });
+    distillerCount = await Distiller.countDocuments({
+      is_approved: _userStatus.approved,
+    });
+  }
+  //console.log({ farmersCount, associateCount, distillerCount });
+
+  return { farmersCount, associateCount, distillerCount };
+}
+
+async function getBenifittedFarmers({
+  hoId,
+  commodity = [],
+  state = [],
+  season = [],
+  scheme = [],
+  start_date,
+  end_date
+}) {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  let dateFilter = {};
+
+    if (start_date instanceof Date && end_date instanceof Date) {
+      dateFilter.createdAt = { $gte: start_date, $lte: end_date };
+    }
+
+  const pipeline = [
+    {
+      $match: {
+        payment_status: _paymentstatus.completed, 
+        ho_id: hoId,
+        ...dateFilter
+      },
+    },
+    {
+      $lookup: {
+        from: 'requests',
+        localField: 'req_id',
+        foreignField: '_id',
+        as: 'request',
+        pipeline: [
+          {
+            $project: {
+              _id: 1,
+              product: { name: 1, season: 1, schemeId: 1 },
+            },
+          },
+        ],
+      },
+    },
+    { $unwind: '$request' },
+    {
+      $lookup: {
+        from: 'schemes',
+        localField: 'request.product.schemeId',
+        foreignField: '_id',
+        as: 'scheme',
+        pipeline: [
+          {
+            $project: {
+              _id: 1,
+              season: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: {
+        path: '$scheme',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $lookup: {
+        from: 'farmers',
+        localField: 'farmer_id',
+        foreignField: '_id',
+        as: 'farmer',
+        pipeline: [
+          {
+            $project: {
+              _id: 1,
+              associate_id: 1,
+            },
+          },
+        ],
+      },
+    },
+     { $unwind: '$farmer' },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'farmer.associate_id',
+        foreignField: '_id',
+        as: 'associate',
+        pipeline: [
+          {
+            $project: {
+              _id: 1,
+              'address.registered.state': 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: {
+        path: '$associate',
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+     // 6. Now apply all filters together
+    {
+      $match: {
+        ...(commodity.length > 0 && {
+          'request.product.name': { $in: commodity.map(c => new RegExp(c, 'i')) }
+        }),
+        ...(season.length > 0 && {
+          $or: [
+            { 'request.product.season': { $in: season.map(s => new RegExp(s, 'i')) } },
+            { 'scheme.season': { $in: season.map(s => new RegExp(s, 'i')) } }
+          ]
+        }),
+        ...(scheme.length > 0 && {
+          'request.product.schemeId': { $in: scheme.map(id => new mongoose.Types.ObjectId(id)) }
+        }),
+        ...(state.length > 0 && {
+          'associate.address.registered.state': { $in: state.map(s => new RegExp(s, 'i')) }
+        }),
+      }
+    },
+    {
+      $addFields: {
+        qty: {
+          $cond: [
+            { $ifNull: ['$qtyProcured', false] },
+            {
+              $convert: {
+                input: '$qtyProcured',
+                to: 'double',
+                onError: 0,
+                onNull: 0,
+              },
+            },
+            0,
+          ],
+        },
+        todaysQty: {
+          $cond: [
+            { $gte: ['$createdAt', startOfToday] },
+            {
+              $convert: {
+                input: '$qtyProcured',
+                to: 'double',
+                onError: 0,
+                onNull: 0,
+              },
+            },
+            0,
+          ],
+        },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        benifittedFarmers: { $addToSet: '$farmer_id' },
+        totalProcurement: { $sum: '$qty' },
+        totalPaymentInitiated: { $sum: '$amount' },
+        todaysQtyProcured: { $sum: '$todaysQty' },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        benifittedFarmersCount: { $size: '$benifittedFarmers' },
+        totalProcurement: 1,
+        totalPaymentInitiated: 1,
+        todaysQtyProcured: 1,
+      },
+    },
+  ];
+  const result = await Payment.aggregate(pipeline);
+//console.log('>>>>>>>>>>>>>>>>',result)
+  if (result.length > 0) {
+    return result[0];
+  }
+
+  return {
+    benifittedFarmersCount: 0,
+    totalProcurement: 0,
+    totalPaymentInitiated: 0,
+    todaysQtyProcured: 0,
+  };
+}
+
+async function getBOWarehouseCount({
+  hoId,
+  commodity = [],
+  state = [],
+  season = [],
+  scheme = [],
+  start_date,
+  end_date,
+}) {
+  try {
+    const commodityRegex = commodity.map(c => new RegExp(c, 'i'));
+    const seasonRegex = season.map(s => new RegExp(s, 'i'));
+    const schemeIds = scheme
+      .filter(mongoose.Types.ObjectId.isValid)
+      .map(id => new mongoose.Types.ObjectId(id));
+
+    const dateMatch =
+      start_date && end_date ? { $gte: start_date, $lte: end_date } : null;
+
+    // BRANCH COUNT
+    const isRequestFilterActive =
+      commodity.length > 0 ||
+      season.length > 0 ||
+      scheme.length > 0 ||
+      (start_date && end_date);
+
+    const branchMatch = {
+      headOfficeId: hoId,
+     // status: 'active',
+      ...(state.length && {
+        state: { $in: state.map(s => new RegExp(s, 'i')) },
+      }),
+      ...(start_date &&
+        end_date && { createdAt: { $gte: start_date, $lte: end_date } }),
+    };
+
+    let branchOfficeCount;
+
+    if (!isRequestFilterActive) {
+      // No filters on requests, count directly
+      branchOfficeCount = await Branches.countDocuments(branchMatch);
+    } else {
+      const pipeline = [
+        { $match: branchMatch },
+        {
+          $lookup: {
+            from: 'requests',
+            localField: '_id',
+            foreignField: 'branch_id',
+            as: 'relatedRequests',
+          },
+        },
+        {
+          $unwind: {
+            path: '$relatedRequests',
+            preserveNullAndEmptyArrays: true,
+          },  
+        },
+        {
+          $match: {
+            ...(commodity.length && {
+              'relatedRequests.product.name': {
+                $in: commodity.map(c => new RegExp(c, 'i')),
+              },
+            }),
+            ...(season.length && {
+              'relatedRequests.product.season': {
+                $in: season.map(s => new RegExp(s, 'i')),
+              },
+            }),
+            ...(scheme.length && {
+              'relatedRequests.product.schemeId': {
+                $in: scheme
+                  .filter(mongoose.Types.ObjectId.isValid)
+                  .map(id => new mongoose.Types.ObjectId(id)),
+              },
+            }),
+            ...(start_date &&
+              end_date && {
+                'relatedRequests.createdAt': {
+                  $gte: start_date,
+                  $lte: end_date,
+                },
+              }),
+          },
+        },
+        { $group: { _id: '$_id' } },
+      ];
+
+      const result = await Branches.aggregate(pipeline);
+      branchOfficeCount = result.length;
+    }
+
+    // WAREHOUSE COUNT
+    const warehousePipeline = [
+      {
+        $match: {
+          active: true,
+          ...(state.length && {
+            'addressDetails.state.state_name': {
+              $in: state.map(s => new RegExp(s, 'i')),
+            },
+          }),
+          ...(dateMatch && { createdAt: dateMatch }), // apply on parent
+        },
+      },
+      {
+        $lookup: {
+          from: 'requests',
+          localField: '_id',
+          foreignField: 'warehouse_id',
+          as: 'relatedRequests',
+        },
+      },
+      {
+        $unwind: { path: '$relatedRequests', preserveNullAndEmptyArrays: true },
+      },
+      {
+        $match: {
+          ...(commodity.length && {
+            'relatedRequests.product.name': { $in: commodityRegex },
+          }),
+          ...(season.length && {
+            'relatedRequests.product.season': { $in: seasonRegex },
+          }),
+          ...(schemeIds.length && {
+            'relatedRequests.product.schemeId': { $in: schemeIds },
+          }),
+          ...(dateMatch && {
+            'relatedRequests.createdAt': dateMatch,
+          }),
+        },
+      },
+      {
+        $group: {
+          _id: '$_id',
+        },
+      },
+    ];
+    const wareHouseCount = (await wareHouseDetails.aggregate(warehousePipeline))
+      .length;
+   // console.log({ branchOfficeCount, wareHouseCount, hoId });
+    return { branchOfficeCount, wareHouseCount };
+  } catch (error) {
+    console.error('Error in getBOWarehouseCount:', error);
+    return { branchOfficeCount: 0, wareHouseCount: 0 };
+  }
+}
+
+
+
+module.exports.dashboardWidgetListV2 = asyncErrorHandler(async (req, res) => {
+  try {
+    const hoId = new mongoose.Types.ObjectId(req.portalId); //req.portalId;
+    const { user_id, portalId } = req;
+   // console.log( { user_id, portalId} );
+    let {
+      states, season, schemeId, commodity_id, dateRange
+    } = req.query;
+    
+console.log({user_id, portalId})
+
+    let widgetDetails = {
+      branchOffice: { total: 0 },
+      farmerRegistration: { farmertotal: 0, associateFarmerTotal: 0, totalRegistration: 0, distillerTotal: 0 },
+      wareHouse: { total: 0 },
+      //procurementTarget: { total: 0 }
+      farmerBenifitted: 0,
+      paymentInitiated: 0,
+      totalProcurement: 0,
+      todaysQtyProcured: 0,
+    };
+
+    const associateResult = await getStateWiseUserCount(states, season, schemeId, commodity_id, dateRange);
+    const wareHouseResult = await getStateWiseWarehouseCount(hoId, states, season, schemeId, commodity_id, dateRange);
+    const distillerResult = await getStateWiseDistillerCount();
+    const branchOfficeResult = await getStateWiseBranchOfficeCount(hoId, states, season, schemeId, commodity_id, dateRange)
+    widgetDetails.farmerRegistration.associateFarmerTotal = associateResult;
+    widgetDetails.wareHouse.total = wareHouseResult;
+    widgetDetails.farmerRegistration.distillerTotal = distillerResult;
+    widgetDetails.branchOffice.total = branchOfficeResult;
+
+    return sendResponse({
+      res,
+      status: 200,
+      message: _query.get("Widget List"),
+      data: widgetDetails,
+    });
+  } catch (error) {
+    console.error("Error in widgetList:", error);
+    return sendResponse({
+      res,
+      status: 500,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+});
+module.exports.getBenefittedFarmersAndPaymentAmount = async (req, res) => {
+  try {
+    const { states, season, schemeId, commodity_id, dateRange } =
+      req.query;
+      const { portalId, user_id } = req;
+      const paymentIds = await Payment.distinct('req_id', {
+        ho_id: { $in: [portalId, user_id] },
+        bo_approve_status: _paymentApproval.approved,
+      });
+
+    //  console.log('paymentIds', paymentIds);
+      let query = {
+        'request._id': { $in: paymentIds },
+      };
+
+      const ho_id = new mongoose.Types.ObjectId(req.portalId);
+
+    if (!ho_id) {
+      return res
+        .status(400)
+        .json({ status: 400, message: 'ho_id is required' });
+    }
+
+    const stateArr = states
+      ? states.split(',').map(id => new ObjectId(id.trim()))
+      : null;
+
+    const schemeArr = schemeId
+      ? schemeId.split(',').map(id => new ObjectId(id.trim()))
+      : null;
+    const commodityArr = commodity_id
+      ? commodity_id.split(',').map(id => new ObjectId(id.trim()))
+      : null;
+    const seasonArr = season
+      ? season.split(',').map(s => new RegExp(s.trim(), 'i'))
+      : null;
+
+    const hasRequestFilters = schemeArr || commodityArr || seasonArr;
+
+    let dateFilter = {};
+    if (dateRange) {
+      const { startDate, endDate } = parseDateRange(dateRange);
+      dateFilter.createdAt = { $gte: startDate, $lte: endDate };
+    }
+
+    const pipeline = [
+      {
+        $match: {
+         //ho_id: new ObjectId(ho_id),
+          payment_status: _paymentstatus.completed,
+          ...dateFilter,
+        },
+      },
+      {
+        $lookup: {
+          from: 'batches',
+          localField: 'batch_id',
+          foreignField: '_id',
+          as: 'batch',
+        },
+      },
+      { $unwind: '$batch' },
+
+      {
+        $lookup: {
+          from: 'procurementcenters',
+          localField: 'batch.procurementCenter_id',
+          foreignField: '_id',
+          as: 'center',
+        },
+      },
+      { $unwind: { path: '$center', preserveNullAndEmptyArrays: true } },
+
+      {
+        $lookup: {
+          from: 'requests',
+          localField: 'req_id',
+          foreignField: '_id',
+          as: 'request',
+        },
+      },
+      { $unwind: '$request' },
+      { $match: query},
+
+      {
+        $lookup: {
+          from: 'schemes',
+          let: { schemeId: '$request.product.schemeId' },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ['$_id', '$$schemeId'] },
+              },
+            },
+            { $project: { season: 1 } },
+          ],
+          as: 'scheme',
+        },
+      },
+      { $unwind: { path: '$scheme', preserveNullAndEmptyArrays: true } },
+
+      {
+        $match: {
+          ...(stateArr && {
+            'center.address.state_id': { $in: stateArr },
+          }),
+          ...(schemeArr && {
+            'request.product.schemeId': { $in: schemeArr },
+          }),
+          ...(commodityArr && {
+            'request.product.commodity_id': { $in: commodityArr },
+          }),
+          ...(seasonArr && {
+            $or: [
+              { 'request.product.season': { $in: seasonArr } },
+              { 'scheme.season': { $in: seasonArr } },
+            ],
+          }),
+        },
+      },
+
+      {
+        $group: {
+          _id: {
+            state_id: '$center.address.state_id',
+            state: '$center.address.state',
+          },
+          benefitted_farmers: { $addToSet: '$farmer_id' },
+          total_payment_amount: { $sum: '$amount' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          state_id: '$_id.state_id',
+          state: '$_id.state',
+          benefitted_farmers_count: { $size: '$benefitted_farmers' },
+          total_payment_amount: 1,
+        },
+      },
+    ];
+
+    const result = await Payment.aggregate(pipeline);
+    //console.log( result)
+    const data = {
+      benefitted_farmers_count: result.reduce( (acc, curr) => acc+curr.benefitted_farmers_count, 0),
+      total_payment_amount: result.reduce( (acc, curr) => acc+curr.total_payment_amount, 0),
+    };
+
+    return res.status(200).json({
+      status: 200,
+      message: 'Benefitted farmers and total payment fetched successfully.',
+      data,
+    });
+  } catch (err) {
+    console.error('Error in getBenefittedFarmersAndPaymentAmount:', err);
+    return res.status(500).json({
+      status: 500,
+      message: 'Internal Server Error',
+      error: err.message,
+    });
+  }
+};

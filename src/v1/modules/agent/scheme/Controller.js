@@ -166,7 +166,6 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   }
 });
 
-
 module.exports.getSchemeById = asyncErrorHandler(async (req, res) => {
   const { id } = req.params;
   // Validate ObjectId
@@ -251,7 +250,7 @@ module.exports.updateScheme = asyncErrorHandler(async (req, res) => {
     record.centralNodalAgency = centralNodalAgency || record.centralNodalAgency;
     record.procurement = procurement || record.procurement;
     record.procurementDuration = procurementDuration || record.procurementDuration;
-    record.schemeApprovalLetter = schemeApprovalLetter || record.schemeApprovalLetter;
+    record.schemeApprovalLetter = schemeApprovalLetter  
 
     await record.save();
     return res
