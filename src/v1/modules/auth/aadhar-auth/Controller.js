@@ -219,7 +219,7 @@ module.exports.sendAadharOTP = async (req, res) => {
     return res.status(200).send(
       new serviceResponse({
         status: 200,
-        message: ResponseMsg,
+        message: ResponseMsg || 'OTP sent to registered mobile number!',
         data: {
           transaction_id,
           code,
