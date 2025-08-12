@@ -24,9 +24,9 @@ const {
   BatchOrderProcess,
 } = require("@src/v1/models/app/distiller/batchOrderProcess.js");
 
-const {sendResponse} = require("@src/v1/utils/helpers/api_response");
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 
-const {REDIRECT_URL,APP_URL,SCCUESS_URL ,CANCEL_URL,PG_ENV, MERCHANT_ID,ACCESS_CODE, WORKING_KEY,} = require("@config/index.js");
+const { REDIRECT_URL, APP_URL, SCCUESS_URL, CANCEL_URL, PG_ENV, MERCHANT_ID, ACCESS_CODE, WORKING_KEY, } = require("@config/index.js");
 const logger = require("@src/common/logger/logger.js");
 var workingKey = WORKING_KEY, //Put in the 32-Bit key shared by CCAvenues.
   accessCode = ACCESS_CODE, //Put in the Access Code shared by CCAvenues.
@@ -45,8 +45,8 @@ var ivBase64 = Buffer.from([
 
 module.exports.sendRequest = async (req, res) => {
   try {
-    let { order_id, currency, cancel_url , amount, paymentSection } = req.body;
-    cancel_url = cancel_url ? `${APP_URL}${cancel_url}`: CANCEL_URL
+    let { order_id, currency, cancel_url, amount, paymentSection } = req.body;
+    cancel_url = cancel_url ? `${APP_URL}${cancel_url}` : CANCEL_URL
     const paymentData = `merchant_id=${MERCHANT_ID}&order_id=${order_id}&currency=${currency}&amount=${amount}&redirect_url=${REDIRECT_URL}&cancel_url=${cancel_url}&access_code=${accessCode}&language=EN&merchant_param1=${paymentSection}`;
     // CCAvenue Encryption
     encRequest = ccav.encrypt(paymentData, keyBase64, ivBase64);
@@ -71,7 +71,7 @@ module.exports.paymentStatus = async (req, res) => {
   try {
     if (!encResp)
       return res.status(400).json({ error: "Missing encrypted response" });
-    
+
     const decrypted = ccav.decrypt(encResp, keyBase64, ivBase64);
 
     const responseParams = Object.fromEntries(new URLSearchParams(decrypted));
@@ -119,7 +119,7 @@ module.exports.paymentStatus = async (req, res) => {
           { _id: record?.orderId },
           paymentRecord
         );
-     
+
         if (!purchaseOrderRecordUpdate) {
           return sendResponse({
             res,
@@ -127,6 +127,14 @@ module.exports.paymentStatus = async (req, res) => {
             message: "Purchase Order not found"
           });
         }
+        await BatchOrderProcess.findByIdAndUpdate({ _id: order_id }, {
+          payment: {
+            status: _poBatchPaymentStatus.paid,
+            paymentId: tracking_id,
+            amount: amountToBePaid,
+            date: Date.now(),
+          }
+        });
 
       } else if (paymentSection && paymentSection === "penalty") {
         const record = await BatchOrderProcess.findOne({ _id: order_id });
