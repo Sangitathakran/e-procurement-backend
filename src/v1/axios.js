@@ -14,6 +14,7 @@ const https = require("https");
  * @returns {Promise<Object>} - API response
  */
 const callThirdPartyAPI = async ({ baseURL, path, data = {}, method = 'POST', headers = {} }) => {
+  console.log( {baseURL, path, data,  headers});
   try {
     const response = await axios.request({
       baseURL,
@@ -31,7 +32,7 @@ const callThirdPartyAPI = async ({ baseURL, path, data = {}, method = 'POST', he
        // console.log(errData)
 
     console.error(`Third Party API Error: `, errData);
-    throw new Error(errData?.error?.message || 'Third party API call failed');
+    throw new Error(errData?.error?.message || errData?.message || 'Third party API call failed');
   }
 };
 

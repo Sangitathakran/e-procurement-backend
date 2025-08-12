@@ -25,7 +25,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   };
 
   if(schemeName && !isValidObjectId(schemeName)){
-    return res.json( sendResponse( { res, status: 400, message: _query.invalid(schemeName) } ) )
+    return sendResponse( { res, status: 400, message: _query.invalid(schemeName) } );
   }
 
  
