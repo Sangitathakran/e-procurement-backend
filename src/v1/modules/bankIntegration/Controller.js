@@ -68,13 +68,10 @@ module.exports.paymentStatus = async (req, res) => {
   try {
     if (!encResp)
       return res.status(400).json({ error: "Missing encrypted response" });
-    // Decrypt the response
+    
     const decrypted = ccav.decrypt(encResp, keyBase64, ivBase64);
 
     const responseParams = Object.fromEntries(new URLSearchParams(decrypted));
-
-    console.log("CCAvenue Payment Response:", responseParams);
-
     const paymentStatus = responseParams?.order_status || "Not Found";
     // const paymentStatus = responseParams?.order_status || "Success";
     const {
