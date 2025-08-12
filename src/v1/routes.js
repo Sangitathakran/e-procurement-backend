@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { handlePagination, handleRateLimit } = require("./middlewares/express_app");
+const { handlePagination } = require("./middlewares/express_app");
 const { helperRoutes } = require("./modules/api_helpers/Routes");
 const { S3Router } = require("./modules/aws/routes");
 const multer = require('multer');

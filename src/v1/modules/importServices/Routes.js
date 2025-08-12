@@ -5,6 +5,6 @@ const { Auth } = require("@src/v1/middlewares/jwt")
 
 bulkImport.post("/uploadDistiller", bulkUploadDistiller);
 
-bulkImport.post("/uploadBatch", Auth,bulkUploadBatch);
+bulkImport.post("/uploadBatch",bulkUploadBatch);
 
 module.exports = { bulkImport }; 
