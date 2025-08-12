@@ -24,6 +24,7 @@ const { Scheme } = require("@src/v1/models/master/Scheme");
 const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { mongoose } = require("mongoose");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 module.exports.importBranches = async (req, res) => {
   try {
@@ -361,10 +362,7 @@ module.exports.branchList = async (req, res) => {
     const { limit = 10, skip = 0, paginate = 1, search = '', page = 1, fromAgent = false, state, scheme } = req.query;
     const { user_id, portalId } = req;
 
-    // Adding search filter
-    // let searchQuery = search ? {
-    //   branchName: { $regex: search, $options: 'i' }        // Case-insensitive search for branchName
-    // } : {};
+    
     let searchQuery = {};
     if (search.trim()) {
       searchQuery.$or = [
@@ -374,11 +372,11 @@ module.exports.branchList = async (req, res) => {
     }
 
     if (state) {
-      searchQuery.state = { $regex: `^${state}$`, $options: "i" };
+      searchQuery.state_id = convertToObjecId(state);
     }
     let branchIdsForScheme = [];
     if (scheme) {
-      const schemeData = await Scheme.findOne({ schemeName: scheme }).select('_id');
+      const schemeData = await Scheme.findById(scheme).select('_id');
       if (schemeData) {
         const schemeId = schemeData._id;
 
