@@ -36,6 +36,8 @@ const farmerSchema = new mongoose.Schema({
         country: { type: String, trim: true },
         state_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity' },
         district_id: { type: mongoose.Schema.Types.ObjectId, required: false, ref: 'StateDistrictCity.districts' },
+        state_title: { type: String},
+        district_title:{ type: String},
         tahshil: { type: String, trim: true },
         block: { type: String, trim: false },
         village: { type: String, trim: false },

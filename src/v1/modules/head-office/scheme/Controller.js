@@ -1,6 +1,6 @@
 const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, handleDecimal, dumpJSONToPdf } = require("@src/v1/utils/helpers");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
-const { _response_message } = require("@src/v1/utils/constants/messages");
+const { _response_message, _query } = require("@src/v1/utils/constants/messages");
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
@@ -8,7 +8,8 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _status } = require("@src/v1/utils/constants");
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
-const { mongoose } = require("mongoose");
+const { mongoose, isValidObjectId } = require("mongoose");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, isExport = 0 } = req.query;
@@ -23,16 +24,11 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     deletedAt: null,
   };
 
-  // if (search) {
-  //   matchQuery.$or = [
-  //     { schemeId: { $regex: search, $options: "i" } },
-  //     { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
-  //   ];
-  // }
+  if(schemeName && !isValidObjectId(schemeName)){
+    return res.json( sendResponse( { res, status: 400, message: _query.invalid(schemeName) } ) )
+  }
 
-  // if (schemeName) {
-  //   matchQuery["schemeDetails.schemeName"] = { $regex: schemeName, $options: "i" };
-  // }
+ 
   if (status) {
     matchQuery.status = status.toLowerCase();
   }
@@ -101,10 +97,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   if (schemeName) {
     aggregationPipeline.push({
       $match: {
-        schemeName: {
-          $regex: schemeName.trim(),
-          $options: "i"
-        }
+        scheme_id: convertToObjecId(schemeName)
       }
     });
   }
