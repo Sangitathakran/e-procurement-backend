@@ -69,8 +69,13 @@ class EmailService {
                 .replace("{{app_url}}", FRONTEND_URL)
                 .replace("{{logo_url}}", LOGO_URL);
 
-            await sendMail(emailPaylod.email, '', 'Reset Your Password', html);
+           let mailData = await sendMail(emailPaylod.email, '', 'Reset Your Password', html);
+          // console.log('mailData', mailData);
             logger.info('Forgot Password Link Send successfully', emailPaylod);
+            if(!mailData?.success){
+                logger.warn('Mail not sent, something went wrong');
+                return { message: 'Mail not sent, something went wrong'}
+            }
             return { message: 'Forgot Password Link Send successfully' };
         } catch (error) {
             console.error("Error sending forgot password email:", error);

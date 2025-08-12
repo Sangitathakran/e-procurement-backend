@@ -54,6 +54,7 @@ const SESsendEmail = async ({
     const result = await transporter.sendMail(mailOptions);
     console.log("Email sent via SES :", result.messageId);
     logger.info("Email sent via SES :", result.messageId);
+    result.success = true;
     return result;
   } catch (error) {
     console.error("Failed to send email via SES + Nodemailer:", error);
