@@ -322,7 +322,7 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
             filter['request.product.commodity_id'] = new mongoose.Types.ObjectId(commodity);
         }
         if(associate_name){
-            filter['user.basic_details.associate_details.associate_name'] = { $regex: associate_name, $options: 'i'}
+            filter['user.address.registered.state_id'] = convertToObjecId(associate_name)
         }
 
         if(qc_status){
