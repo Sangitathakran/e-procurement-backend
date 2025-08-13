@@ -4178,24 +4178,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
     const aggregationPipeline = [
       // { $match: query },
       { $sort: { createdAt: -1 } },
-      // {
-      //   $lookup: {
-      //     from: 'batches',
-      //     localField: '_id',
-      //     foreignField: 'req_id',
-      //     as: 'batches',
-      //     pipeline: [
-      //       {
-      //         $lookup: {
-      //           from: 'payments',
-      //           localField: '_id',
-      //           foreignField: 'batch_id',
-      //           as: 'payment',
-      //         }
-      //       }
-      //     ],
-      //   }
-      // },
+     
       {
         $lookup: {
           from: "batches",
@@ -4332,41 +4315,41 @@ module.exports.proceedToPayPayment = async (req, res) => {
       )
     }
 
-    // Apply filters on already aggregated data
-    if (state || commodityName || schemeName || branch) {
-      aggregationPipeline.push({
-        $match: {
-          $and: [
-            ...(state
-              ? [{ "branchDetails.state": { $regex: state, $options: "i" } }]
-              : []),
-            ...(commodityName
-              ? [
-                {
-                  "product.name": {
-                    $regex: escapeRegex(commodityName),
-                    $options: "i",
-                  },
-                },
-              ]
-              : []),
-            ...(schemeName
-              ? [{ schemeName: { $regex: schemeName, $options: "i" } }]
-              : []),
-            ...(branch
-              ? [
-                {
-                  "branchDetails.branchName": {
-                    $regex: branch,
-                    $options: "i",
-                  },
-                },
-              ]
-              : []),
-          ],
-        },
-      });
-    }
+    // // Apply filters on already aggregated data
+    // if (state || commodityName || schemeName || branch) {
+    //   aggregationPipeline.push({
+    //     $match: {
+    //       $and: [
+    //         ...(state
+    //           ? [{ "branchDetails.state": { $regex: state, $options: "i" } }]
+    //           : []),
+    //         ...(commodityName
+    //           ? [
+    //             {
+    //               "product.name": {
+    //                 $regex: escapeRegex(commodityName),
+    //                 $options: "i",
+    //               },
+    //             },
+    //           ]
+    //           : []),
+    //         ...(schemeName
+    //           ? [{ schemeName: { $regex: schemeName, $options: "i" } }]
+    //           : []),
+    //         ...(branch
+    //           ? [
+    //             {
+    //               "branchDetails.branchName": {
+    //                 $regex: branch,
+    //                 $options: "i",
+    //               },
+    //             },
+    //           ]
+    //           : []),
+    //       ],
+    //     },
+    //   });
+    // }
 
     aggregationPipeline.push(
       {
@@ -4384,6 +4367,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           "sla.basic_details.name": 1,
           "scheme.schemeName": "$schemeName",
           approval_date: 1,
+          branch_id: 1,
         },
       },
       // { $skip: (page - 1) * limit },
@@ -4399,6 +4383,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
     let response = { count: 0 };
     response.rows = await RequestModel.aggregate(aggregationPipeline);
+
 
     const countResult = await RequestModel.aggregate([
       ...aggregationPipeline.slice(0, -2),
