@@ -22,6 +22,7 @@ const Readable = require('stream').Readable;
 const logger = require('@src/common/logger/logger');
 
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 module.exports.createProcurementCenter = async (req, res) => {
   try {
@@ -451,8 +452,9 @@ module.exports.getHoProcurementCenter = async (req, res) => {
       query["point_of_contact.name"] = { $regex: associateName, $options: "i" };
     }
     if (state) {
-      query["address.state"] = { $regex: state, $options: "i" };
+      query["address.state_id"] = convertToObjecId(state);
     }
+
 
     // City filter
     if (city) {

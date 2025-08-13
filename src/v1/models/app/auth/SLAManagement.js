@@ -39,6 +39,8 @@ const SLASchema = new mongoose.Schema({
         pinCode: { type: String, trim: true, required: true },
         state: { type: String, trim: true, required: true },
         district: { type: String, trim: true, required: true },
+        state_id: { type : mongoose.Schema.Types.ObjectId},
+        district_id: { type : mongoose.Schema.Types.ObjectId },
         city: { type: String, trim: true, required: true },
         country: { type: String, trim: true, },
     },
