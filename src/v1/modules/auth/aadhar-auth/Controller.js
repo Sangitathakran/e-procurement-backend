@@ -254,6 +254,11 @@ module.exports.verifyAadharOTP = async (req, res) => {
       );
     }
 
+    let farmerDetails = await farmer.findById(farmer_id, { proof: 1});
+    if(farmerDetails && farmerDetails?.proof?.is_verified){
+      return res.send( { status: 400, message: "Your Aadhar number already has been verified !"} );
+    }
+
     const responseData = await verifyOtpWithAadhar({
       otp,
       share_code: code,

@@ -401,6 +401,7 @@ module.exports.getAssociates = async (req, res) => {
 
     // Format response
     const data = associate_list.map((item) => ({
+      _id: item?._id,
       name: item.basic_details?.associate_details?.associate_name || "",
       organization_name:
         item.basic_details?.associate_details?.organization_name || "",
