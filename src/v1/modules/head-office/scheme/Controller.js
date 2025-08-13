@@ -16,7 +16,6 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   const { user_id, portalId } = req;
 
   const Ids = (await SchemeAssign.find({ ho_id: new mongoose.Types.ObjectId(portalId) })).map(i => i.scheme_id);
-
   // Initialize matchQuery
   let matchQuery = {
     // _id: { $in: Ids },
@@ -24,13 +23,9 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     deletedAt: null,
   };
 
+
   if(schemeName && !isValidObjectId(schemeName)){
     return sendResponse( { res, status: 400, message: _query.invalid(schemeName) } );
-  }
-
- 
-  if (status) {
-    matchQuery.status = status.toLowerCase();
   }
 
 
@@ -45,6 +40,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     },
     { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+    ...( status ? [ { $match:  { "schemeDetails.status": status}  } ] : []),
     {
       $lookup: {
         from: 'commodities',
@@ -54,6 +50,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     },
     { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+    
 
      // 💥 Unique filtering based on scheme_id
      {
