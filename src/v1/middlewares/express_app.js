@@ -49,13 +49,18 @@ module.exports = {
             return sendResponse({ res, status: 404, errors: err.message })
         }
     },
+
     handleRateLimit: rateLimit({
-        windowMs: 1 * 60 * 1000, // 1 minutes
-        max: 50, // Limit each IP to 5 requests per `window` (here, per 1 minutes)
-        standardHeaders: false, // Return rate limit info in the `RateLimit-*` headers
-        legacyHeaders: true, // Disable the `X-RateLimit-*` headers
+        windowMs: 60 * 1000,       // 1 minute
+        max: 50,                   // Limit each IP to 50 requests per 1 minute
+        standardHeaders: false,    // Do NOT return modern RateLimit-* headers
+        legacyHeaders: true,       // Send old X-RateLimit-* headers
         handler: (req, res, next, options) => {
-            return sendResponse({ res, status: options.statusCode, errors: [{ message: options.message }] })
+            return sendResponse({
+                res,
+                status: options.statusCode,
+                errors: [{ message: options.message }]
+            });
         }
     }),
 
