@@ -134,7 +134,7 @@ const purchaseOrderSchema = new mongoose.Schema(
       default: "Draft",
     },
     paymentGatewayDetails: {
-      transactionId: { type: String },
+      transactionId: { type: String ,default: null, },
       paymentStatus: {
         type: String,
         enum: ["Success", "Failure"],

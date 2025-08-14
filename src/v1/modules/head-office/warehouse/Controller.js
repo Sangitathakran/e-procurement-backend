@@ -13,6 +13,7 @@ const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrd
 const { TrackOrder } = require("@src/v1/models/app/warehouse/TrackOrder");
 const { Truck } = require("@src/v1/models/app/warehouse/Truck");
 const { _trackOrderStatus } = require("@src/v1/utils/constants");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 module.exports.warehousedata = async (req, res) => {
     try {
@@ -120,7 +121,6 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         commodity,
         isExport = 0
     } = req.query;
-
     try {
         const searchFields = ['wareHouse_code', 'basicDetails.warehouseName', 'warehouseOwner.ownerDetails.name'];
 
@@ -132,13 +132,12 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
 
         const query = search ? makeSearchQuery(searchFields) : {};
         if (state) {
-            query['addressDetails.state.state_name'] = { $regex: state, $options: 'i' };
+            query['addressDetails.state.state_id'] = convertToObjecId(state);
         }
         
         if (city) {
             query['addressDetails.city'] = { $regex: city, $options: 'i' };
         }
-//console.log({ commodity});
        
 
        const pipeline = [
@@ -323,7 +322,7 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
             filter['request.product.commodity_id'] = new mongoose.Types.ObjectId(commodity);
         }
         if(associate_name){
-            filter['user.basic_details.associate_details.associate_name'] = { $regex: associate_name, $options: 'i'}
+            filter['user.address.registered.state_id'] = convertToObjecId(associate_name)
         }
 
         if(qc_status){

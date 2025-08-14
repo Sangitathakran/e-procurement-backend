@@ -18,19 +18,11 @@ const { ProcurementCenter } = require("@src/v1/models/app/procurement/Procuremen
 const { parseDateRange } = require("../ho-dashboard/Services");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const { _paymentApproval } = require("@src/v1/utils/constants");
+const { validateObjectIdFields, convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 module.exports. farmerList = async (req, res) => {
   try {
-    // const {
-    //   page = 1,
-    //   limit = 10,
-    //   sortBy = "name",
-    //   search = "",
-    //   isExport = 0,
-    //   state,
-    //   district,
-    // } = req.query;
-
+   
     let {
       page = 1,
       limit = 10,
@@ -43,10 +35,11 @@ module.exports. farmerList = async (req, res) => {
       endDate,
     } = req.query;
 
-    state = Array.isArray(state) ? state : state ? [state] : [];
+    //state = Array.isArray(state) ? state : state ? [state] : [];
 
     const skip = (page - 1) * limit;
     const searchFields = ["name", "farmer_id", "farmer_code", "mobile_no"];
+    validateObjectIdFields(req, res, ['state', 'district']);
 
     // Disallow special characters
     if (/[.*+?^${}()|[\]\\]/.test(search)) {
@@ -68,50 +61,54 @@ module.exports. farmerList = async (req, res) => {
 
     const query = search ? makeSearchQuery(searchFields) : {};
 
-    //  Build State & District Maps
-    const stateDistrictData = await StateDistrictCity.find(
-      {},
-      { states: 1 }
-    ).lean();
+    // //  Build State & District Maps
+    // const stateDistrictData = await StateDistrictCity.find(
+    //   {},
+    //   { states: 1 }
+    // ).lean();
 
-    const stateMap = {};
-    const districtMap = {};
-    const reverseStateMap = {};
-    const reverseDistrictMap = {};
+    // const stateMap = {};
+    // const districtMap = {};
+    // const reverseStateMap = {};
+    // const reverseDistrictMap = {};
 
-    stateDistrictData.forEach(({ states }) => {
-      states.forEach(({ _id, state_title, districts }) => {
-        const stateIdStr = _id.toString();
-        stateMap[stateIdStr] = state_title;
-        reverseStateMap[state_title.toLowerCase()] = stateIdStr;
+    // stateDistrictData.forEach(({ states }) => {
+    //   states.forEach(({ _id, state_title, districts }) => {
+    //     const stateIdStr = _id.toString();
+    //     stateMap[stateIdStr] = state_title;
+    //     reverseStateMap[state_title.toLowerCase()] = stateIdStr;
 
-        districts.forEach(({ _id, district_title }) => {
-          const districtIdStr = _id.toString();
-          districtMap[districtIdStr] = district_title;
-          reverseDistrictMap[district_title.toLowerCase()] = districtIdStr;
-        });
-      });
-    });
+    //     districts.forEach(({ _id, district_title }) => {
+    //       const districtIdStr = _id.toString();
+    //       districtMap[districtIdStr] = district_title;
+    //       reverseDistrictMap[district_title.toLowerCase()] = districtIdStr;
+    //     });
+    //   });
+    // });
 
-    //  Add filtering by state and district name
-    // if (state || district) {
+
+    // if (state.length > 0 || district) {
     //   const andConditions = [];
 
-    //   if (state) {
-    //     const stateId = reverseStateMap[state.toLowerCase()];
-    //     if (stateId) {
-    //       andConditions.push({ "address.state_id": stateId });
+    //   // Handle multiple states
+    //   if (state.length > 0) {
+    //     const stateIds = state
+    //       .map((s) => reverseStateMap[s.toLowerCase()])
+    //       .filter(Boolean);
+
+    //     if (stateIds.length > 0) {
+    //       andConditions.push({ "address.state_id": { $in: stateIds } });
     //     } else {
-    //       // no match found, return empty
     //       return sendResponse({
     //         res,
     //         status: 200,
     //         data: { count: 0, rows: [], page, limit, pages: 0 },
-    //         message: "No matching state found",
+    //         message: "No matching states found",
     //       });
     //     }
     //   }
 
+    //   // Handle single district
     //   if (district) {
     //     const districtId = reverseDistrictMap[district.toLowerCase()];
     //     if (districtId) {
@@ -129,50 +126,9 @@ module.exports. farmerList = async (req, res) => {
     //   if (andConditions.length > 0) {
     //     query.$and = [...(query.$and || []), ...andConditions];
     //   }
+
     // }
-
-    if (state.length > 0 || district) {
-      const andConditions = [];
-
-      // Handle multiple states
-      if (state.length > 0) {
-        const stateIds = state
-          .map((s) => reverseStateMap[s.toLowerCase()])
-          .filter(Boolean);
-
-        if (stateIds.length > 0) {
-          andConditions.push({ "address.state_id": { $in: stateIds } });
-        } else {
-          return sendResponse({
-            res,
-            status: 200,
-            data: { count: 0, rows: [], page, limit, pages: 0 },
-            message: "No matching states found",
-          });
-        }
-      }
-
-      // Handle single district
-      if (district) {
-        const districtId = reverseDistrictMap[district.toLowerCase()];
-        if (districtId) {
-          andConditions.push({ "address.district_id": districtId });
-        } else {
-          return sendResponse({
-            res,
-            status: 200,
-            data: { count: 0, rows: [], page, limit, pages: 0 },
-            message: "No matching district found",
-          });
-        }
-      }
-
-      if (andConditions.length > 0) {
-        query.$and = [...(query.$and || []), ...andConditions];
-      }
-    }
-
-    const records = { count: 0, rows: [] };
+     const records = { count: 0, rows: [] };
 
     //  EXPORT to Excel
     if (isExport == 1) {
@@ -386,6 +342,14 @@ module.exports. farmerList = async (req, res) => {
       });
     }
 
+
+    if(state){
+      query['address.state_id'] = convertToObjecId(state);
+    }
+    if(district){
+      query['address.district_id'] = convertToObjecId(district);
+    }
+
     //  PAGINATED FETCH
     records.rows = await farmer
       .find(query)
@@ -402,6 +366,7 @@ module.exports. farmerList = async (req, res) => {
       records.rows.map(async (item) => {
         const address = await getAddress(item);
         const basicDetails = item?.basic_details || {};
+        
 
         return {
           _id: item?._id,
@@ -931,6 +896,8 @@ const getAddress = async (item) => {
       block: item.address.block || "",
       village: item.address.village || "",
       pin_code: item.address.pin_code || "",
+      state_id: item.address.state_id,
+      district_id: item.address.district_id
     };
   } catch (error) {
     console.error("Error in getAddress:", error);

@@ -2,7 +2,7 @@ const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers")
 const { serviceResponse, sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message, _middleware, } = require("@src/v1/utils/constants/messages");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-const { _poRequestStatus, _poAdvancePaymentStatus, _userStatus, _poPickupStatus } = require("@src/v1/utils/constants");
+const { _poRequestStatus, _poAdvancePaymentStatus, _poBatchStatus, _poPickupStatus } = require("@src/v1/utils/constants");
 const { asyncErrorHandler, } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { wareHousev2 } = require("@src/v1/models/app/warehouse/warehousev2Schema");
 const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrder");
@@ -105,9 +105,9 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
       {
         $lookup: {
           from: "batchorderprocesses",
-          let: { orderId: "$orderId" },
+          let: { poId: "$_id" },
           pipeline: [
-            { $match: { $expr: { $eq: ["$orderId", "$$orderId"] }, status: "Accepted" } },
+            { $match: {  $expr: { $eq: ["$orderId", "$$poId"] }, status: { $nin: [_poBatchStatus.pending, _poBatchStatus.rejected] } } },
             {
               $lookup: {
                 from: "warehousedetails",
@@ -123,12 +123,24 @@ module.exports.summary = asyncErrorHandler(async (req, res) => {
       },
       {
         $addFields: {
-          liftedQuantity: { $sum: "$acceptedBatches.quantityRequired" },
-          liftedDate: { $first: "$batchorderprocesses.updatedAt" },
+          liftedQuantity: {
+            $reduce: {
+              input: "$acceptedBatches",
+              initialValue: 0,
+              in: { $add: ["$$value", "$$this.quantityRequired"] }
+            }
+          },
+          liftedDate: { $first: "$acceptedBatches.updatedAt" },
           balanceQuantity: {
             $subtract: [
               "$purchasedOrder.poQuantity",
-              { $sum: "$acceptedBatches.quantityRequired" }
+              {
+                $reduce: {
+                  input: "$acceptedBatches",
+                  initialValue: 0,
+                  in: { $add: ["$$value", "$$this.quantityRequired"] }
+                }
+              }
             ]
           },
           warehouse: { $first: "$acceptedBatches.warehouse.basicDetails.warehouseName" },
