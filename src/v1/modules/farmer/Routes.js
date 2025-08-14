@@ -9,7 +9,8 @@ const { saveFarmerDetails, updateIndCrop, getLandDetails, getIndCropDetails, sen
     submitForm, createZip, createFarmer, bulkUploadFarmers, getFarmers, deletefarmer, createLand, updateLand, deleteLand,
     createCrop, updateCrop, deleteCrop, createBank, updateBank, deleteBank, exportFarmers, getLand, getCrop, getBank, individualfarmerList, makeAssociateFarmer,
     getBoFarmer, getAllFarmers, getAllFarmersExport, getBoFarmerPreview, uploadFarmerDocument, getFarmerDocument, getLocationOfIpaddress,
-    editFarmerDocument, getStates, getDistrictByState, haryanaFarmerUplod, addDistrictCity, bulkUploadNorthEastFarmers, getDistrictsByState, getStatesByPincode, getVerifiedAdharDetails, getMaizeProcurementSummary, getAssamMaizeProcurementSummary } = require("@modules/farmer/Controller");
+    editFarmerDocument, getStates, getDistrictByState, haryanaFarmerUplod, addDistrictCity, bulkUploadNorthEastFarmers, getDistrictsByState, getStatesByPincode, getVerifiedAdharDetails, getMaizeProcurementSummary, getAssamMaizeProcurementSummary, 
+    getAadharDetails} = require("@modules/farmer/Controller");
 const { verifyBO } = require("../branch-office/utils/verifyBO");
 const { Auth, authenticateUser, authorizeRoles, } = require("@src/v1/middlewares/jwt")
 const { _userType } = require("@src/v1/utils/constants/index")
@@ -83,6 +84,8 @@ farmerRoutes.get('/download-zipFile', createZip)
 
 farmerRoutes.post('/get-state-from-ip-address', getLocationOfIpaddress)
 farmerRoutes.post('/get-verified-adhar-details', authenticateUser, authorizeRoles(_userType.farmer), getVerifiedAdharDetails);
+farmerRoutes.get('/get-adhar-details', authenticateUser, authorizeRoles(_userType.farmer), getAadharDetails);
+
 /* 
  individual farmer haryana bulkuplod
  */
