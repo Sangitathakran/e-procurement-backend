@@ -4628,11 +4628,12 @@ module.exports.getAadharDetails = async (req, res) => {
     const farmer_record = await farmer.findOne({'proof.aadhar_no': uidai_aadharNo, mobile_no: mobile}).lean();
 
     if (!farmer_record) {
-      return res.status(404).send({
-        status: 404,
-        message: "No record found for given Aadhaar and mobile"
+      return res.status(200).send({
+        status: 200,
+        message: ""
       });
     }
+
     let aadhaar_details = await verfiyfarmer.findOne({ farmer_id: farmer_record?._id}, {aadhaar_details: 1, is_verify_aadhaar: 1, _id:0 });
     delete aadhaar_details?.aadhaar_details?.photo_base64;
    return sendResponse( { res, status: 200, message: _query.get('aadhar_details'), data: { aadhaar_details}} );
