@@ -65,6 +65,7 @@ const { Scheme } = require("@src/v1/models/master/Scheme");
 const { Commodity } = require("@src/v1/models/master/Commodity");
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
 const { buildDateRange } = require("./Services");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 const validateMobileNumber = async (mobile) => {
   let pattern = /^[0-9]{10}$/;
@@ -1193,7 +1194,6 @@ module.exports.payment = async (req, res) => {
     limit = parseInt(limit);
     isApproved = isApproved === "true";
     const { portalId, user_id } = req;
-
     // Ensure necessary indexes are created (run once in your database setup)
     await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
     await RequestModel.createIndexes({ reqNo: 1, createdAt: -1 });
@@ -1221,13 +1221,23 @@ module.exports.payment = async (req, res) => {
     let query = {
       _id: { $in: paymentIds },
     };
+    let filterQuery = {};
+
+     if (state || commodityName || schemeName || branch) {
+      filterQuery['$and'] = [
+        ...(state ? [{ "sellers.address.registered.state_id": convertToObjecId(state) }] : []),
+        ...(commodityName ? [{ "product.commodity_id": convertToObjecId(commodityName) }] : []),
+        ...(schemeName ? [{ "product.schemeId": convertToObjecId(schemeName) }] : []),
+        ...(branch ? [{ "branch_id": convertToObjecId(branch) }] : []),
+      ]
+    }
 
     // Step 3: Get total count
     // const totalCount = await RequestModel.countDocuments(query);
-
     // Step 4: Aggregation Pipeline
     const aggregationPipeline = [
       { $match: query },
+      
       {
         $lookup: {
           from: "batches",
@@ -1266,6 +1276,8 @@ module.exports.payment = async (req, res) => {
           as: "sellers",
         },
       },
+      { $unwind: { path: "$sellers", preserveNullAndEmptyArrays: true } },
+      { $match: filterQuery},
       {
         $lookup: {
           from: "branches",
@@ -1470,6 +1482,8 @@ module.exports.payment = async (req, res) => {
           overall_payment_status: { $first: "$overall_payment_status" },
           ho_approval_at: { $first: "$ho_approval_at" },
           commodity: { $first: "$product.name" },
+          commodity_id: { $first: "$product.commodity_id" },
+          scheme_id: { $first: "$product.schemeId"},
           schemeFirst: { $first: "$schemeDetails.schemeName" },
           state: { $first: "$sellers" },
           schemeName: {
@@ -1502,39 +1516,7 @@ module.exports.payment = async (req, res) => {
     }
 
 
-    if (state || commodityName || schemeName || branch) {
-      aggregationPipeline.push({
-        $match: {
-          $and: [
-
-            ...(state ? [{ state: { $regex: state, $options: "i" } }] : []),
-            ...(commodityName
-              ? [
-                {
-                  commodity: {
-                    $regex: escapeRegex(commodityName),
-                    $options: "i",
-                  },
-                },
-              ]
-              : []),
-            ...(schemeName
-              ? [{ schemeName: { $regex: schemeName, $options: "i" } }]
-              : []),
-            ...(branch
-              ? [{ branchName: { $regex: branch, $options: "i" } }]
-              : []),
-          ],
-        },
-      });
-
-      // query.$and = [
-      //   ...(state ? [{ "sellers.address.registered.state": { $regex: state, $options: "i" } }] : []),
-      //   ...(commodity ? [{ "product.name": { $regex: commodity, $options: "i" } }] : []),
-      //   ...(schemeName ? [{ "schemeDetails.schemeName": { $regex: schemeName, $options: "i" } }] : []),
-      //   ...(branch ? [{ "branch.branchName": { $regex: branch, $options: "i" } }] : []),
-      // ];
-    }
+   
     // aggregationPipeline.push(
     //   {
     //     $match: {
@@ -1548,6 +1530,8 @@ module.exports.payment = async (req, res) => {
           _id: 1,
           reqNo: 1,
           commodity: 1,
+          commodity_id: 1,
+          scheme_id: 1,
           branch_id: 1,
           branchName: 1,
           approval_status: 1,
@@ -4105,6 +4089,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
     limit = parseInt(limit) || 10;
     page = parseInt(page) || 1;
 
+
     const { portalId, user_id } = req;
     let exportDates = {};
     if(dateFilterType.trim() && !dateRanges.includes(dateFilterType)){
@@ -4118,34 +4103,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
     }else{
       exportDates = buildDateRange(dateRangesObj.currentMonth);
     }
-
-    // const cacheKey = `payment:${portalId}:${user_id}:${page}:${limit}:${search}:${payment_status}:${state}:${branch}:${schemeName}:${commodityName}:${paginate}:${isExport}`;
-
-    const cacheKey = generateCacheKey("payment", {
-      portalId,
-      user_id,
-      page,
-      limit,
-      search,
-      payment_status,
-      state,
-      branch,
-      schemeName,
-      commodityName,
-      paginate,
-      isExport,
-    });
-
-    // const cachedData = getCache(cacheKey);
-    // if (cachedData && isExport != 1) {
-    //   return res.status(200).send(
-    //     new serviceResponse({
-    //       status: 200,
-    //       data: cachedData,
-    //       message: "Payments found (cached)",
-    //     })
-    //   );
-    // }
+    
 
     // Ensure indexes (if not already present, ideally done at setup)
     await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
@@ -4206,27 +4164,21 @@ module.exports.proceedToPayPayment = async (req, res) => {
       paymentStatusCondition = "Failed";
     }
 
+     let filterQuery = {};
+
+     if (state || commodityName || schemeName || branch) {
+      filterQuery['$and'] = [
+        ...(state ? [{ "sla.address.state_id": convertToObjecId(state) }] : []),
+        ...(commodityName ? [{ "product.commodity_id": convertToObjecId(commodityName) }] : []),
+        ...(schemeName ? [{ "product.schemeId": convertToObjecId(schemeName) }] : []),
+        ...(branch ? [{ "branch_id": convertToObjecId(branch) }] : []),
+      ]
+    }
+
     const aggregationPipeline = [
       // { $match: query },
       { $sort: { createdAt: -1 } },
-      // {
-      //   $lookup: {
-      //     from: 'batches',
-      //     localField: '_id',
-      //     foreignField: 'req_id',
-      //     as: 'batches',
-      //     pipeline: [
-      //       {
-      //         $lookup: {
-      //           from: 'payments',
-      //           localField: '_id',
-      //           foreignField: 'batch_id',
-      //           as: 'payment',
-      //         }
-      //       }
-      //     ],
-      //   }
-      // },
+     
       {
         $lookup: {
           from: "batches",
@@ -4294,6 +4246,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
         },
       },
       { $unwind: { path: "$sla", preserveNullAndEmptyArrays: true } },
+      { $match: filterQuery},
       {
         $lookup: {
           from: "schemes",
@@ -4362,41 +4315,41 @@ module.exports.proceedToPayPayment = async (req, res) => {
       )
     }
 
-    // Apply filters on already aggregated data
-    if (state || commodityName || schemeName || branch) {
-      aggregationPipeline.push({
-        $match: {
-          $and: [
-            ...(state
-              ? [{ "branchDetails.state": { $regex: state, $options: "i" } }]
-              : []),
-            ...(commodityName
-              ? [
-                {
-                  "product.name": {
-                    $regex: escapeRegex(commodityName),
-                    $options: "i",
-                  },
-                },
-              ]
-              : []),
-            ...(schemeName
-              ? [{ schemeName: { $regex: schemeName, $options: "i" } }]
-              : []),
-            ...(branch
-              ? [
-                {
-                  "branchDetails.branchName": {
-                    $regex: branch,
-                    $options: "i",
-                  },
-                },
-              ]
-              : []),
-          ],
-        },
-      });
-    }
+    // // Apply filters on already aggregated data
+    // if (state || commodityName || schemeName || branch) {
+    //   aggregationPipeline.push({
+    //     $match: {
+    //       $and: [
+    //         ...(state
+    //           ? [{ "branchDetails.state": { $regex: state, $options: "i" } }]
+    //           : []),
+    //         ...(commodityName
+    //           ? [
+    //             {
+    //               "product.name": {
+    //                 $regex: escapeRegex(commodityName),
+    //                 $options: "i",
+    //               },
+    //             },
+    //           ]
+    //           : []),
+    //         ...(schemeName
+    //           ? [{ schemeName: { $regex: schemeName, $options: "i" } }]
+    //           : []),
+    //         ...(branch
+    //           ? [
+    //             {
+    //               "branchDetails.branchName": {
+    //                 $regex: branch,
+    //                 $options: "i",
+    //               },
+    //             },
+    //           ]
+    //           : []),
+    //       ],
+    //     },
+    //   });
+    // }
 
     aggregationPipeline.push(
       {
@@ -4414,6 +4367,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           "sla.basic_details.name": 1,
           "scheme.schemeName": "$schemeName",
           approval_date: 1,
+          branch_id: 1,
         },
       },
       // { $skip: (page - 1) * limit },
@@ -4430,6 +4384,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
     let response = { count: 0 };
     response.rows = await RequestModel.aggregate(aggregationPipeline);
 
+
     const countResult = await RequestModel.aggregate([
       ...aggregationPipeline.slice(0, -2),
       { $count: "count" },
@@ -4440,7 +4395,6 @@ module.exports.proceedToPayPayment = async (req, res) => {
     response.limit = limit
 
     if (isExport != 1) {
-     // setCache(cacheKey, response, 300); // 5 mins
     }
 
     if (isExport == 1) {

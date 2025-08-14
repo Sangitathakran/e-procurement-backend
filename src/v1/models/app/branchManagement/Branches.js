@@ -65,6 +65,12 @@ const branchSchema = new mongoose.Schema({
     trim: true,
     maxLength: 100, // Max 100 characters
   },
+  state_id: {
+    type: mongoose.Schema.Types.ObjectId
+  },
+  district_id: {
+    type: mongoose.Schema.Types.ObjectId
+  },
   pincode: {
     type: String,
     required: false,

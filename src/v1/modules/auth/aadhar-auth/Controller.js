@@ -9,6 +9,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { sendOtpToAadhar, verifyOtpWithAadhar } = require("@src/common/services/gridlines/AadharVerification");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { verfiyfarmer } = require("@src/v1/models/app/farmerDetails/verfiyFarmer");
+const { default: mongoose } = require("mongoose");
 
 // module.exports.sendAadharOTP = async (req, res) => {
 //   try {
@@ -218,7 +219,7 @@ module.exports.sendAadharOTP = async (req, res) => {
     return res.status(200).send(
       new serviceResponse({
         status: 200,
-        message: ResponseMsg,
+        message: ResponseMsg || 'OTP sent to registered mobile number!',
         data: {
           transaction_id,
           code,
@@ -251,6 +252,11 @@ module.exports.verifyAadharOTP = async (req, res) => {
           errors: [{ message: _middleware.require("OTP,transaction_id,farmer_id,uidai_aadharNo") }],
         })
       );
+    }
+
+    let farmerDetails = await farmer.findById(farmer_id, { proof: 1});
+    if(farmerDetails && farmerDetails?.proof?.is_verified){
+      return res.send( { status: 400, message: "Your Aadhar number already has been verified !"} );
     }
 
     const responseData = await verifyOtpWithAadhar({

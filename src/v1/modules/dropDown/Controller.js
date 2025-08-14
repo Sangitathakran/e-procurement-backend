@@ -16,7 +16,13 @@ const UserRole = require("@src/v1/models/master/UserRole");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { default: mongoose } = require("mongoose");
 const SLAManagement = require("@src/v1/models/app/auth/SLAManagement");
-const { serviceResponse } = require("@src/v1/utils/helpers/api_response")
+const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
+const { getAllStates, getDistrictsByStateId, getAddressByPincode } = require("./Services");
+const redisService = require("@src/common/services/RedisService");
+const { redisKeys } = require("@src/v1/utils/constants");
+const { cacheStatesData, getDistrictsByState } = require("@src/v1/utils/helpers/redisCacheHelper");
+const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const { _query } = require("@src/v1/utils/constants/messages");
 
 module.exports.scheme = async (req, res) => {
   const query = { deletedAt: null, status: "active" };
@@ -368,25 +374,60 @@ module.exports.getRoles = async (req, res) => {
 };
 
 module.exports.getAssociates = async (req, res) => {
-  const query = { active: true, deletedAt: null };
-
   try {
-    const associate_list = await User.aggregate([
-      { $match: query },
-      {
-        $project: {
-          name: "$basic_details.associate_details.associate_name",
-          organization_name: "$basic_details.associate_details.organization_name",
-        },
-      },
-    ]);
+    let { page , limit ,skip, search = "" } = req.query;
 
-    return sendResponse({ res, message: "", data: associate_list });
+    // Base query
+    const query = { active: true, deletedAt: null };
+
+    // Search condition
+    if (search.trim()) {
+      query.$or = [
+        { "basic_details.associate_details.associate_name": { $regex: search, $options: "i" } },
+        { "basic_details.associate_details.organization_name": { $regex: search, $options: "i" } }
+      ];
+    }
+
+    // Get total count
+    const totalCount = await User.countDocuments(query);
+
+    const associate_list = await User.find(query)
+      .select(
+        "basic_details.associate_details.associate_name basic_details.associate_details.organization_name"
+      )
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // Format response
+    const data = associate_list.map((item) => ({
+      _id: item?._id,
+      name: item.basic_details?.associate_details?.associate_name || "",
+      organization_name:
+        item.basic_details?.associate_details?.organization_name || "",
+    }));
+
+    return sendResponse({
+      res,
+      message: "Associates fetched successfully",
+      data,
+      pagination: {
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    });
   } catch (err) {
-    console.log("ERROR: ", err);
-    return sendResponse({ status: 500, message: err.message });
+    console.error("Error in getAssociates:", err);
+    return sendResponse({
+      res,
+      status: 500,
+      message: err.message,
+    });
   }
 };
+
 
 module.exports.getWarehouses = async (req, res) => {
   const query = { active: true };
@@ -403,10 +444,10 @@ module.exports.getWarehouses = async (req, res) => {
 
     return sendResponse({ res, message: "", data: warehouse_list });
   } catch (err) {
-    console.log("ERROR: ", err);
     return sendResponse({ status: 500, message: err.message });
   }
 };
+
 module.exports.districtWisecenter = async (req, res) => {
    try {
     const { district } = req.query;
@@ -516,14 +557,16 @@ module.exports.getStatesByPincode = async (req, res) => {
         new serviceResponse({ status: 400, message: _query.invalid("pincode") })
       );
     }
-
-    const states = await getAllStates();
+    let stateCacheData = await redisService.getJson(redisKeys.STATES_DATA);
+    if(!stateCacheData){
+      cacheStatesData();
+    }
+    const states = stateCacheData ||   await getAllStates();
     const filteredState = states.find(
       (obj) =>
         obj.state_title.toLowerCase() ===
         pincode_data?.PostOffice[0]?.State?.toLowerCase()
     );
-    //console.log(">>>>>>>>>>>>>>>>>>>>>>>>", pincode_data, states);
     return res.send(
       new serviceResponse({
         message: "OK",
@@ -574,7 +617,7 @@ module.exports.getDistrictsByStateAndPincode = async (req, res) => {
     }
 
     let villages = pincode_data.PostOffice.map((obj) => obj.Name);
-    let districts = await getDistrictsByStateId(stateId);
+    let districts = await getDistrictsByState(stateId) || await getDistrictsByStateId(stateId);
     let filteredDistricts = districts.find(
       (obj) =>
         obj.district_title.toLowerCase() ===

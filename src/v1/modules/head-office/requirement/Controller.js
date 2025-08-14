@@ -22,7 +22,7 @@ const {wareHouseDetails} = require("@src/v1/models/app/warehouse/warehouseDetail
 const {ProcurementCenter} = require("@src/v1/models/app/procurement/ProcurementCenter");
 const {User} = require("@src/v1/models/app/auth/User");
 const { default: mongoose } = require("mongoose");
-const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
+const { convertToObjecId, validateObjectIdFields } = require("@src/v1/utils/helpers/api.helper");
 
 //widget list
 /*
@@ -338,11 +338,13 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
     const parsedSkip = parseInt(skip) || 0;
     const parsedLimit = parseInt(limit) || 10;
     const parsedPage = parseInt(page) || 1;
+    let isValid = validateObjectIdFields(req, res, ['state', 'district', 'commodity', 'schemeName']);
 
     // Base query
     let query = {};
     // if (req.user.user_type === 2 || req.user.user_type === "2") {
     //   query.head_office_id = req?.user?.portalId?._id;
+
     // }
     if (req.user.user_type === 2 || req.user.user_type === "2") {
       const portalId = req.user.portalId;
@@ -369,13 +371,12 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
               ],
             }]
           : []),
-        ...(commodity ? [{ "product.name": { $regex: commodity, $options: "i" } }] : []),
-        ...(schemeName ? [{ "schemeDetails.schemeName": { $regex: schemeName, $options: "i" } }] : []),
+        ...(commodity ? [{ "product.commodity_id": convertToObjecId(commodity) }] : []),
+        ...(schemeName ? [{ "schemeDetails._id": convertToObjecId(schemeName) }] : []),
         ...(schemeYear ? [{ "schemeDetails.period": { $regex: schemeYear, $options: "i" } }] : []),
       ];
     }
 
-   // console.log("Filter Query:", JSON.stringify(query, null, 2));
 
     // Aggregate query to filter and populate details
     const aggregateQuery = [
@@ -443,6 +444,7 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
           branch_id: 1,
           branchName: { $arrayElemAt: ["$branchDetails.branchName", 0] },
           "product.name": 1,
+          "product.commodity_id": 1,
           quotedPrice: 1,
           quoteExpiry: 1,
           fulfilledQty: 1,
@@ -461,12 +463,12 @@ module.exports.requireMentList = asyncErrorHandler(async (req, res) => {
               { $ifNull: ["$schemeDetails.period", ""] },
             ],
           },
+          scheme_id: "$schemeDetails._id",
+          year: "$schemeDetails.period"
         },
       },
     ];
-    // console.log("aggregateQuery",aggregateQuery);
     const records = await RequestModel.aggregate(aggregateQuery);
-   // console.log("Records fetched:", records.length);
 
     // Count query with state and search filters
     const countQuery = [

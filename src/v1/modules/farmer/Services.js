@@ -9,7 +9,7 @@ async function getVerifiedAadharInfo(uidai_aadharNo, farmer_id) {
   try {
     const adharDetails = await verfiyfarmer.findOne(
       {
-        "aadhaar_details.uidai_aadharNo": uidai_aadharNo,
+        "aadhaar_details.uidai_aadharNo": uidai_aadharNo, //verfiyfarmer
         is_verify_aadhaar: true,
         farmer_id: new mongoose.Types.ObjectId(farmer_id),
       },

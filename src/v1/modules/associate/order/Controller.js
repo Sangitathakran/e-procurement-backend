@@ -240,7 +240,7 @@ module.exports.editTrackDelivery = async (req, res) => {
 
         const { form_type, id, material_img = [], weight_slip = [], procurementExp, qc_survey, gunny_bags, weighing_stiching,
             loading_unloading, transportation, driage, storageExp, qc_report = [], lab_report = [], name, contact, license,
-            aadhar, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number,
+            aadhar, aadhar_image, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number,
             intransit_weight_slip, no_of_bags, weight, warehousedetails_id } = req.body;
         const { user_id } = req
 
@@ -309,6 +309,8 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.intransit.driver.contact = contact;
                     record.intransit.driver.license = license;
                     record.intransit.driver.aadhar = aadhar;
+                    record.intransit.driver.aadhar_image.front = aadhar_image.front;
+                    record.intransit.driver.aadhar_image.back = aadhar_image.back;
 
                     record.intransit.licenseImg = licenseImg;
                     record.intransit.transport.service_name = service_name;

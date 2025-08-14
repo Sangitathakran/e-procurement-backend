@@ -30,8 +30,8 @@ module.exports = {
     apiVersion: process.env.API_VERSION,
     APP_URL:process.env.APP_URL,
     REDIRECT_URL :`${process.env.APP_URL}/v1/bank/payment-status`,
-    CANCEL_URL :`${process.env.FRONTEND_URL}/distiller/penaltyorders`,
-    SCCUESS_URL :`${process.env.FRONTEND_URL}/distiller/purchaseOrder/myorders`,
+    CANCEL_URL :`${process.env.DISTILLER}/distiller/penaltyorders`,
+    SCCUESS_URL :`${process.env.DISTILLER}/distiller/purchaseOrder/myorders`,
     // Default Secret Key For Auth Token
     JWT_SECRET_KEY: process.env.SECRET_KEY,
     THIRD_PARTY_JWT_SECRET: process.env.THIRD_PARTY_JWT_SECRET,
@@ -102,6 +102,13 @@ module.exports = {
   farmer: process.env.FARMER,
   agent: process.env.SLA,
   associate: process.env.ASSOCIATE,
-}
+},
+
+REDIS_CRED: {
+REDIS_HOST: process.env.REDIS_HOST,
+REDIS_PORT: process.env.REDIS_PORT,
+REDIS_DB: process.env.REDIS_DB,
+REDIS_URL: process.env.REDIS_URL,
+},
 
 }

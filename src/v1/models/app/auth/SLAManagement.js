@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { _collectionName, _status, _userType, _trader_type } = require('@src/v1/utils/constants');
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
+// const { boolean } = require('joi');
 
 const SLASchema = new mongoose.Schema({
     basic_details: {
@@ -38,6 +39,8 @@ const SLASchema = new mongoose.Schema({
         pinCode: { type: String, trim: true, required: true },
         state: { type: String, trim: true, required: true },
         district: { type: String, trim: true, required: true },
+        state_id: { type : mongoose.Schema.Types.ObjectId},
+        district_id: { type : mongoose.Schema.Types.ObjectId },
         city: { type: String, trim: true, required: true },
         country: { type: String, trim: true, },
     },
@@ -79,6 +82,7 @@ const SLASchema = new mongoose.Schema({
         account_number: { type: String, trim: true, required: true },
         proof: { type: String, trim: true, required: true },
     },
+    bank_payment_permission: { type: Boolean, default: false },
     activity: {
         ..._commonKeys,
     },

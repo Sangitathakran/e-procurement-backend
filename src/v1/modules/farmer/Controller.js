@@ -208,7 +208,7 @@ module.exports.verifyOTP = async (req, res) => {
 
     // Prepare the response data
     const resp = {
-      token: generateJwtToken({ mobile_no: mobileNumber, user_type: _userType.farmer }),
+      token: await generateJwtToken({ mobile_no: mobileNumber ,user_type: _userType.farmer}),
       ...JSON.parse(JSON.stringify(individualFormerData)), // Use individualFormerData (existing or newly saved)
     };
 
@@ -4602,7 +4602,6 @@ module.exports.getStatesByPincode = async (req, res) => {
         })
       );
     }
-
     if (pincode.length !== 6) {
       return res.send(
         new serviceResponse({
@@ -5175,6 +5174,7 @@ module.exports.getMaizeProcurementSummary = async (req, res) => {
       });
       item.totalFarmersRegistered = registeredCount;
     }
+    logger.info(" Farmer statistics fetched successfully");
 
     // Generate overall totals
     const totalSummary = {

@@ -166,7 +166,6 @@ const calculateAmount = async (token, poQuantity, branch_id, session) => {
     const mandiTaxAmount = handleDecimal((totalAmount * mandiTax) / 100);
     const advancenAmount = handleDecimal(tokenAmount + mandiTaxAmount);
     const remainingAmount = handleDecimal(totalAmount - tokenAmount);
-
     return {
       msp,
       stateWiseMandiTax: taxDoc?.mandi_tax || 0,

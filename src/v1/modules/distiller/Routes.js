@@ -8,7 +8,6 @@ const { distillerPenaltyRoutes } = require("./penalty/Routes");
 const { dashboardRoutes } = require("./dashboard/Routes");
 const {dropDownRoutes} = require("./dropDown/Routes")
 
-
 const {thirdPartyRoutes} = require("./distiller_third_party_service/routes");
 const distillerRoutes = express.Router();
 

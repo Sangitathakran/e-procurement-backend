@@ -19,7 +19,7 @@ const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const mongoose = require("mongoose");
 const { Scheme } = require("@src/v1/models/master/Scheme");
 
-
+/*
 module.exports.getDashboardStats = async (req, res) => {
     try {
         const {portalId, user_id} = req;
@@ -110,6 +110,172 @@ module.exports.getDashboardStats = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+*/
+
+
+module.exports.getDashboardStats = async (req, res) => {
+    try {
+        const boId = new mongoose.Types.ObjectId(req.portalId);
+        const { commodity, season, scheme } = req.query;
+        console.log(boId);
+        // Step 1: Build Request Filters
+        const filters = [{ branch_id: boId }];
+
+        if (commodity) {
+            const ids = commodity.split(',').filter(Boolean).map(id => new mongoose.Types.ObjectId(id));
+            if (ids.length) filters.push({ "product.commodity_id": { $in: ids } });
+        }
+
+        if (scheme) {
+            const ids = scheme.split(',').filter(Boolean).map(id => new mongoose.Types.ObjectId(id));
+            if (ids.length) filters.push({ "product.schemeId": { $in: ids } });
+        }
+
+        if (season) {
+            const seasons = season.split(',').filter(Boolean).map(s => new RegExp(`^${s}$`, 'i'));
+            const schemeDocs = await Scheme.find({ season: { $in: seasons } }, { _id: 1 });
+            const schemeIds = schemeDocs.map(s => s._id);
+            if (schemeIds.length) filters.push({ "product.schemeId": { $in: schemeIds } });
+        }
+
+        const requestMatch = { $and: filters };
+
+        // Step 2: Aggregate Requests for totals
+        const requestAgg = await RequestModel.aggregate([
+            { $match: requestMatch },
+            {
+                $group: {
+                    _id: null,
+                    totalQty: { $sum: { $toDouble: "$fulfilledQty" } },
+                    totalAmount: { $sum: { $multiply: [{ $toDouble: "$fulfilledQty" }, { $toDouble: "$quotedPrice" }] } },
+                    requestIds: { $addToSet: "$_id" }
+                }
+            }
+        ]);
+
+        if (!requestAgg.length) {
+            return res.send(new serviceResponse({
+                status: 200,
+                data: { farmerRegisteredCount: 0, warehouseCount: 0, procurementCenterCount: 0, PaymentInitiatedCount: 0, totalProcurementCount: 0 },
+                message: _response_message.notFound("Dashboard Stats")
+            }));
+        }
+
+        const { totalQty, totalAmount, requestIds } = requestAgg[0];
+
+        // Step 3: Batch aggregation for unique warehouses & procurement centers
+        const batchAgg = await Batch.aggregate([
+            { $match: { req_id: { $in: requestIds } } },
+            {
+                $group: {
+                    _id: null,
+                    warehouseIds: { $addToSet: "$warehousedetails_id" },
+                    pocIds: { $addToSet: "$procurementCenter_id" }
+                }
+            }
+        ]);
+
+        const warehouseCount = batchAgg.length ? batchAgg[0].warehouseIds.filter(Boolean).length : 0;
+        const procurementCenterCount = batchAgg.length ? batchAgg[0].pocIds.filter(Boolean).length : 0;
+
+        // Step 4: Farmer count (based on Payment)
+        const payments = await Payment.distinct("farmer_id", {
+            req_id: { $in: requestIds },
+            payment_status: "Completed"
+        });
+        const farmerRegisteredCount = payments.length;
+
+        return res.send(new serviceResponse({
+            status: 200,
+            data: {
+                farmerRegisteredCount,
+                warehouseCount,
+                procurementCenterCount,
+                PaymentInitiatedCount: handleDecimal(totalAmount),
+                totalProcurementCount: handleDecimal(totalQty)
+            },
+            message: _response_message.found("Dashboard Stats")
+        }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+
+module.exports.getProcurementsStats = async (req, res) => {
+
+    try {
+
+        const { month, year } = req.query;
+
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear();
+
+        if (month && (isNaN(month) || month < 1 || month > 12)) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid("month. It should be between 1 and 12.") }] }));
+        }
+
+        if (year && (isNaN(year) || year > currentYear)) {
+            return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid(`year. It should not be greater than ${currentYear}`) }] }));
+        }
+
+        const selectedMonth = month ? parseInt(month) - 1 : currentDate.getMonth();
+        const selectedYear = year ? parseInt(year) : currentDate.getFullYear();
+
+        const startOfMonth = new Date(selectedYear, selectedMonth, 1);
+        const endOfMonth = new Date(selectedYear, selectedMonth + 1, 0, 23, 59, 59, 999);
+
+
+        const procurementsStats = await FarmerOrders.aggregate([
+            {
+                $match: {
+                    createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+                }
+            },
+            {
+                $group: {
+                    _id: "$status",
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const records = {
+            completed: 0,
+            ongoing: 0,
+            failed: 0,
+            total: 0,
+            completedPercentage: 0,
+            ongoingPercentage: 0,
+            failedPercentage: 0
+        };
+
+        procurementsStats.forEach(item => {
+            if (item._id === _procuredStatus.received) {
+                records.completed = item.count;
+            } else if (item._id === _procuredStatus.pending) {
+                records.ongoing = item.count;
+            } else if (item._id === _procuredStatus.failed) {
+                records.failed = item.count;
+            }
+            records.total += item.count;
+        });
+
+        if (records.total > 0) {
+            records.completedPercentage = ((records.completed / records.total) * 100).toFixed(2) + '%';
+            records.ongoingPercentage = ((records.ongoing / records.total) * 100).toFixed(2) + '%';
+            records.failedPercentage = ((records.failed / records.total) * 100).toFixed(2) + '%';
+        }
+
+        return res.send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Procured Stats") }));
+
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+}
+
+
 
 module.exports.getProcurementsStats = async (req, res) => {
 
