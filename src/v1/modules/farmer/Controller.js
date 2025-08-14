@@ -25,6 +25,7 @@ const {
   insertNewHaryanaFarmerRecord,
   insertNewHaryanaRelatedRecords,
   getCommodityIdByName,
+  excelDateToDDMMYYYY,
 } = require("@src/v1/utils/helpers/farmer_module");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
@@ -2000,7 +2001,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const name = rec["NAME*"];
       const father_name = rec["FATHER NAME*"];
       const mother_name = rec["MOTHER NAME"] ? rec["MOTHER NAME"] : null;
-      const date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)*"];
+      let date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)*"];
       const farmer_category = rec["FARMER CATEGORY"]
         ? rec["FARMER CATEGORY"]
         : null;
