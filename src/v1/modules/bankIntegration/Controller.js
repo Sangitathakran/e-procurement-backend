@@ -127,6 +127,9 @@ module.exports.paymentStatus = async (req, res) => {
             paymentId: tracking_id,
             amount: amountToBePaid,
             date: Date.now(),
+          },
+          action: {
+            proceedToPay: true
           }
         });
 
