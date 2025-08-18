@@ -91,6 +91,7 @@ const { verfiyfarmer } = require('@src/v1/models/app/farmerDetails/verfiyFarmer'
 const logger = require('@common/logger/logger');
 const { VerificationType } = require('@common/enum');
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 module.exports.sendOTP = async (req, res) => {
   try {
@@ -853,7 +854,7 @@ module.exports.getBoFarmer = async (req, res) => {
     // const user = await Branches.findById(user_id);
 
     const { portalId, user_id } = req;
-    const { page = 1, limit = 10, search = "", sortBy } = req.query;
+    let { page = 1, limit = 10, search = "", associate, state, district, sortBy } = req.query;
     // const user = await Branches.findById(user_id);
     const user = await Branches.findOne({ _id: portalId });
 
@@ -861,20 +862,32 @@ module.exports.getBoFarmer = async (req, res) => {
       return res.status(404).send({ message: "User not found." });
     }
 
-    const { state } = user;
-    if (!state) {
-      return res
-        .status(400)
-        .send({ message: "User's state information is missing." });
-    }
-    const stateData = await getStateId(state);
-    if (!stateData || !stateData.stateId) {
-      return res
-        .status(400)
-        .send({ message: "State ID not found for the user's state." });
-    }
+    state  = state ? state : user?.state_id;
+    // console.log('?>>>>>>>>>>>>>>>>>>>>>>>>', user)
+    // if (!state) {
+    //   return res
+    //     .status(400)
+    //     .send({ message: "User's state information is missing." });
+    // }
+    // const stateData = await getStateId(state);
+    // if (!stateData || !stateData.stateId) {
+    //   return res
+    //     .status(400)
+    //     .send({ message: "State ID not found for the user's state." });
+    // }
 
-    let query = { "address.state_id": stateData.stateId };
+    let query = { };
+
+    if(state){
+      query['address.state_id'] = convertToObjecId(state);
+    }
+    if(district){
+      query['address.district_id'] = convertToObjecId(district);
+    }
+    if(associate){
+      query['associate_id'] = convertToObjecId(associate);
+    }
+    
     if (search) {
       query.name = { $regex: search, $options: "i" };
     }

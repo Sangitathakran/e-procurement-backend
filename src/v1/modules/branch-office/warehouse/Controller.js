@@ -13,6 +13,7 @@ const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrd
 const { TrackOrder } = require("@src/v1/models/app/warehouse/TrackOrder");
 const { Truck } = require("@src/v1/models/app/warehouse/Truck");
 const { _trackOrderStatus } = require("@src/v1/utils/constants");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 module.exports.warehousedata = async (req, res) => {
     try {
@@ -143,7 +144,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
             query["warehouseOwner.ownerDetails.name"] = { $regex: ownerName, $options: "i" };
         }
         if (state) {
-            query["addressDetails.state.state_name"] = { $regex: state, $options: "i" };
+            query["addressDetails.state.state_id"] = convertToObjecId(state);
         }
 
         if (city) {
@@ -389,7 +390,7 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
             {
                 $match: {
                     ...(commodity ? { "request.product.commodity_id": new mongoose.Types.ObjectId(commodity) } : {}),
-                    ...(associateName ? { "user.basic_details.associate_details.associate_name": { $regex: associateName, $options: "i" } } : {}),
+                    ...(associateName ? { "user._id": convertToObjecId(associateName) } : {}),
                     ...(qcStatus ? { "final_quality_check.status": { $regex: qcStatus, $options: "i" } } : {})
                 }
             },

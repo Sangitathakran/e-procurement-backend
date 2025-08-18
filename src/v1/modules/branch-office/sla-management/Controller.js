@@ -9,6 +9,7 @@ const {
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { mongoose } = require("mongoose");
 const { dumpJSONToExcel } = require("@src/v1/utils/helpers");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
   try {
@@ -130,11 +131,11 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     let matchQuery = {
       sla_id: { $exists: true },
       deletedAt: null,
-      "schemes.branch": { $in: [portalObjectId, userObjectId] },
+    //  "schemes.branch": { $in: [portalObjectId, userObjectId] },
     };
     //   if (bo_id) matchQuery.bo_id = new ObjectId(bo_id);
 
-    if (scheme_id) matchQuery.scheme_id = new ObjectId(scheme_id);
+    if (scheme_id) matchQuery.scheme_id = convertToObjecId(scheme_id);
     let aggregationPipeline = [
       { $match: matchQuery }, // Match `bo_id`, `ho_id`, `scheme_id`
       { $addFields: { sla_id: { $toObjectId: "$sla_id" } } },
@@ -151,7 +152,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
     if (state) {
       aggregationPipeline.push({
         $match: {
-          "sla_details.address.state": { $regex: state, $options: "i" },
+          "sla_details.address.state_id": convertToObjecId(state),
         },
       });
     }
@@ -188,6 +189,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
         },
         poc: { $first: "$sla_details.point_of_contact.name" },
         branch: { $first: "$sla_details.schemes.branch" },
+        state_id: { $first :'$sla_details.address.state_id'},
       },
     });
 
@@ -251,7 +253,7 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
       }
     : { deletedAt: null };
 
-  if (state) matchQuery["address.state"] = { $regex: state, $options: "i" };
+  if (state) matchQuery["address.state_id"] = convertToObjecId(state);
 
   let aggregationPipeline = [
     {
@@ -260,6 +262,17 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
         "schemes.branch": { $in: [portalObjectId, userObjectId] },
       },
     },
+    {
+      $lookup: {
+        from: "schemeassigns",
+        localField: "_id",
+        foreignField: "sla_id",
+        as: "assignSchemes",
+        pipeline: [ { $project: { scheme_id: 1} }]
+      },
+    },
+    { $unwind: "$assignSchemes"},
+   // { $match: { "assignSchemes.schemes.branch": { $in: [portalObjectId, userObjectId] } } },
     //   { $match: matchQuery },
     {
       $project: {
@@ -288,6 +301,8 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
         status: 1,
         poc: "$point_of_contact.name",
         branch: "$schemes.branch",
+        scheme_id: "$assignSchemes.scheme_id",
+        state_id: "$address.state_id",
       },
     },
   ];
