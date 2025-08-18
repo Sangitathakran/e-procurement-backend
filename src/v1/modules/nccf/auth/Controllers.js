@@ -53,7 +53,7 @@ module.exports.createNccf = async (req, res) => {
     try {
         const { nccf_name, email, phone } = req.body
 
-        // const pwd = "procurement123@";
+        // const pwd = "Shivam@123";
         // const hashedpwd = await bcrypt.hash(pwd, 10);
         // console.log(hashedpwd);
         // return false;
@@ -73,7 +73,7 @@ module.exports.createNccf = async (req, res) => {
         }
 
         // const password = generateRandomPassword();
-        const password = "Coop123@";
+        const password = "Shivam@123";
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const nccfData = new NccfAdmin({

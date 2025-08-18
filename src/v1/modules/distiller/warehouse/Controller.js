@@ -95,6 +95,8 @@ module.exports.warehouseList = async (req, res) => {
           advancePayment: { $literal: branch.paymentInfo?.advancePayment ?? null },
           balancePayment: { $literal: branch.paymentInfo?.balancePayment ?? null },
           mandiTax: { $literal: branch.paymentInfo?.mandiTax ?? null },
+          token: { $literal: branch.paymentInfo?.token ?? null },
+          totalAmount: { $literal: branch.paymentInfo?.totalAmount ?? null },
           poQuantity: { $literal: branch.purchasedOrder?.poQuantity ?? null },
           branch_id: { $literal: branch.branch_id },
           orderId: { $literal: order_id }
@@ -130,6 +132,8 @@ module.exports.warehouseList = async (req, res) => {
           advancePayment: 1,
           balancePayment: 1,
           mandiTax: 1,
+          token: 1,
+          totalAmount: 1,
           poQuantity: 1,
         },
       },
