@@ -33,7 +33,7 @@ const {
 const { User } = require("@src/v1/models/app/auth/User");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
-
+const { isValidObjectId, Types } = require("mongoose");
 module.exports.getProcurement = async (req, res) => {
   try {
     const { user_id } = req;
@@ -48,8 +48,30 @@ module.exports.getProcurement = async (req, res) => {
       search = "",
       status,
     } = req.query;
-    const stateObjectId = state_id ? new mongoose.Types.ObjectId(state_id) : null;
-    const commodityObjectId = commodity_id ? new mongoose.Types.ObjectId(commodity_id) : null;
+    let stateObjectId = null;
+    if (state_id) {
+      if (!isValidObjectId(state_id)) {
+        return res.status(400).send(
+          new serviceResponse({
+            status: 400,
+            message: "Invalid state_id format",
+          })
+        );
+      }
+      stateObjectId = new Types.ObjectId(state_id);
+    }
+    let commodityObjectId = null;
+      if (commodity_id) {
+        if (!isValidObjectId(commodity_id)) {
+          return res.status(400).send(
+            new serviceResponse({
+              status: 400,
+              message: "Invalid commodity_id format",
+            })
+          );
+        }
+        commodityObjectId = new Types.ObjectId(commodity_id);
+      }
     let query = search
       ? {
           $or: [
