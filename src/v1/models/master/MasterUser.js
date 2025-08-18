@@ -101,6 +101,10 @@ userSchema.pre('save', async function (next) {
         }
         
     })
+    // Ensure history is always an array
+    if (!Array.isArray(this.history)) {
+        this.history = [];
+    }
 
 
     const historyEntry = { ...this.toObject() };
