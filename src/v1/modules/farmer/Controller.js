@@ -25,6 +25,8 @@ const {
   insertNewHaryanaFarmerRecord,
   insertNewHaryanaRelatedRecords,
   getCommodityIdByName,
+  excelDateToDDMMYYYY,
+  isExponential,
 } = require("@src/v1/utils/helpers/farmer_module");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { Land } = require("@src/v1/models/app/farmerDetails/Land");
@@ -2021,7 +2023,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const name = rec["NAME*"];
       const father_name = rec["FATHER NAME*"];
       const mother_name = rec["MOTHER NAME"] ? rec["MOTHER NAME"] : null;
-      const date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)*"];
+      let date_of_birth = rec["DATE OF BIRTH(DD-MM-YYYY)*"];
       const farmer_category = rec["FARMER CATEGORY"]
         ? rec["FARMER CATEGORY"]
         : null;
@@ -2174,9 +2176,6 @@ module.exports.bulkUploadFarmers = async (req, res) => {
       const branch_name = rec["BRANCH NAME*"];
       const ifsc_code = rec["IFSC CODE*"];
       const account_holder_name = rec["ACCOUNT HOLDER NAME*"];
-      if (!isNaN(date_of_birth)) {
-        date_of_birth = excelDateToDDMMYYYY(Number(date_of_birth));
-      }
       const requiredFields = [
         { field: "NAME*", label: "NAME" },
         { field: "FATHER NAME*", label: "FATHER NAME" },
@@ -2230,9 +2229,22 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           error: `Required fields missing: ${missingFields.join(", ")}`,
         });
       }
-      if (!/^\d{12}$/.test(aadhar_no)) {
-        errors.push({ record: rec, error: "Invalid Aadhar Number" });
+    if (!isNaN(date_of_birth)) {
+        date_of_birth = excelDateToDDMMYYYY(Math.floor(Number(date_of_birth)));
+      } 
+      else if (/^\d{2}-\d{2}-\d{4}$/.test(String(date_of_birth).trim())) {
+        date_of_birth = String(date_of_birth).trim();
+      } 
+      else {
+        errors.push({
+          record: rec,
+          error: "Invalid Date of Birth: Must be in DD-MM-YYYY format or a valid Excel date."
+        });
       }
+
+      if (isExponential(aadhar_no) || !/^\d{12}$/.test(String(aadhar_no))) {
+      errors.push({ record: rec, error: "Invalid Aadhar Number: Must be 12 digits, numeric, and not in exponential format" });
+    }
       if (!/^\d{6,20}$/.test(account_no)) {
         errors.push({
           record: rec,
@@ -2252,9 +2264,25 @@ module.exports.bulkUploadFarmers = async (req, res) => {
         });
       }
       if (sowingdate && harvestingdate) {
-        const sowing = new Date(sowingdate.split("-").reverse().join("-"));
+        const mmYYYYRegex = /^(0[1-9]|1[0-2])-\d{4}$/;
+
+        const sowingStr = String(sowingdate).trim();
+        const harvestingStr = String(harvestingdate).trim();
+
+        if (!mmYYYYRegex.test(sowingStr)) {
+          errors.push({
+            record: rec,
+            error: "Invalid Sowing Date format (Expected MM-YYYY)",
+          });
+        } else if (!mmYYYYRegex.test(harvestingStr)) {
+          errors.push({
+            record: rec,
+            error: "Invalid Harvesting Date format (Expected MM-YYYY)",
+          });
+        } else {
+        const sowing = new Date(sowingStr.split("-").reverse().join("-"));
         const harvesting = new Date(
-          harvestingdate.split("-").reverse().join("-")
+          harvestingStr.split("-").reverse().join("-")
         );
         if (sowing > harvesting) {
           errors.push({
@@ -2264,6 +2292,7 @@ module.exports.bulkUploadFarmers = async (req, res) => {
           });
         }
       }
+    }
       if (!Object.values(_maritalStatus).includes(marital_status)) {
         errors.push({
           record: rec,
