@@ -230,7 +230,7 @@ module.exports.verifyOTP = async (req, res) => {
 
     // Prepare the response data
     const resp = {
-      token: await generateJwtToken({ mobile_no: mobileNumber ,user_type: _userType.farmer}),
+      token: await generateJwtToken({ mobile_no: mobileNumber, user_type: _userType.farmer }),
       ...JSON.parse(JSON.stringify(individualFormerData)), // Use individualFormerData (existing or newly saved)
     };
 
@@ -3031,6 +3031,7 @@ module.exports.getAllFarmers = async (req, res) => {
       sortBy = "_id",
       search = "",
       paginate = 1,
+      verified = ""
     } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -3050,6 +3051,24 @@ module.exports.getAllFarmers = async (req, res) => {
       const searchCondition = { name: { $regex: search, $options: "i" } };
       associatedQuery = { ...associatedQuery, ...searchCondition };
       localQuery = { ...localQuery, ...searchCondition };
+    }
+
+    if (verified === "true") {
+      // both must be true
+      associatedQuery["proof.is_verified"] = true;
+      associatedQuery["bank_details.is_verified"] = true;
+      localQuery["proof.is_verified"] = true;
+      localQuery["bank_details.is_verified"] = true;
+    } else if (verified === "false") {
+      // at least one false
+      associatedQuery.$or = [
+        { "proof.is_verified": { $ne: true } },
+        { "bank_details.is_verified": { $ne: true } }
+      ];
+      localQuery.$or = [
+        { "proof.is_verified": { $ne: true } },
+        { "bank_details.is_verified": { $ne: true } }
+      ];
     }
 
     const records = {
