@@ -12,6 +12,7 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const moment = require("moment");
 const { dumpJSONToExcel } = require("@src/v1/utils/helpers");
 const mongoose = require("mongoose");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 
 module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
@@ -53,25 +54,20 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     }
 
     if (schemeName) {
-        const scheme = await Scheme.findOne({ schemeName: { $regex: schemeName, $options: 'i' } }).select('_id');
-        if (scheme) {
-            query["product.schemeId"] = new mongoose.Types.ObjectId(scheme._id);
-        }
+            query["product.schemeId"] = convertToObjecId(schemeName);
     }
 
     if (slaName) {
-        const sla = await SLAManagement.findOne({ "basic_details.name": { $regex: slaName, $options: 'i' } }).select('_id');
-        if (sla) {
-            query["sla_id"] = sla._id;
-        }
+            query["sla_id"] = convertToObjecId(slaName);
+
     }
 
     if (commodity) {
-        query["product.name"] = { $regex: commodity, $options: 'i' };
+        query["product.commodity_id"] = convertToObjecId(commodity);
     }
 
     if (state) {
-        query["address.state"] = { $regex: state, $options: 'i' };
+        query["address.state_id"] = convertToObjecId(state);
     }
 
     query.branch_id = { $in: [user_id, portalId] };
@@ -80,7 +76,7 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     const selectValues = "reqNo product quotedPrice createdAt expectedProcurementDate deliveryDate address";
 
     records.rows = paginate == 1 ? await RequestModel.find(query).select(selectValues)
-        .populate({ path: "branch_id", select: "_id branchName branchId" })
+        .populate({ path: "branch_id", select: "_id branchName branchId state_id" })
         .populate({ path: "head_office_id", select: "_id company_details.name" })
         .populate({ path: "product.schemeId", select: "_id schemeId schemeName season status period" })
         .populate({ path: "product.commodity_id", select: "_id name" })

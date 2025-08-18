@@ -56,6 +56,27 @@ const { Types } = require("mongoose");
 const _individual_farmer_onboarding_steps = require("@src/v1/utils/constants");
 const fs = require("fs");
 const axios = require("axios");
+// Joi schema for get aadhar details query params
+const Joi = require("joi");
+const getAadharDetailsQuerySchema = Joi.object({
+  uidai_aadharNo: Joi.string()
+    .pattern(/^\d{12}$/)
+    .message("Aadhaar number must be a 12-digit number")
+    .required()
+    .messages({
+      "any.required": "Aadhaar number is required"
+    }),
+  mobile: Joi.string()
+    .pattern(/^\d{10}$/)
+    .message("Mobile number must be a 10-digit number")
+    .required()
+    .messages({
+      "any.required": "Mobile number is required"
+    })
+}).unknown(true);
+
+
+
 const {
   getVerifiedAadharInfo,
   getAgristackFarmerByAadhar,
@@ -4618,6 +4639,39 @@ module.exports.getVerifiedAdharDetails = async (req, res) => {
     _handleCatchErrors(err, res);
   }
 };
+
+module.exports.getAadharDetails = async (req, res) => {
+  const { uidai_aadharNo, mobile } = req.query;
+
+  //  Validate input
+  const { error } = getAadharDetailsQuerySchema.validate(req.query, { abortEarly: false });
+  if (error) {
+    return res.status(400).send({
+      status: 400,
+      message: "Validation Error",
+      errors: error.details.map(err => err.message)
+    });
+  }
+
+  try {
+    const farmer_record = await farmer.findOne({'proof.aadhar_no': uidai_aadharNo, mobile_no: mobile}).lean();
+
+    if (!farmer_record) {
+      return res.status(200).send({
+        status: 200,
+        message: ""
+      });
+    }
+
+    let aadhaar_details = await verfiyfarmer.findOne({ farmer_id: farmer_record?._id}, {aadhaar_details: 1, is_verify_aadhaar: 1, _id:0 });
+    delete aadhaar_details?.aadhaar_details?.photo_base64;
+   return sendResponse( { res, status: 200, message: _query.get('aadhar_details'), data: { aadhaar_details}} );
+  } catch (err) {
+    console.error(err);
+    _handleCatchErrors(err, res);
+  }
+};
+
 
 module.exports.getStatesByPincode = async (req, res) => {
   try {

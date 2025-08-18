@@ -9,6 +9,7 @@ const { _status } = require("@src/v1/utils/constants");
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { mongoose } = require("mongoose");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
   try {
@@ -75,10 +76,10 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
     // Apply filters for schemeName, commodity, season, status, sla
     const filterConditions = {};
     if (scheme) {
-      filterConditions["schemeDetails.schemeName"] = scheme;
+      filterConditions["schemeDetails._id"] = convertToObjecId(scheme);
     }
     if (commodity) {
-      filterConditions["commodityDetails.name"] = commodity;
+      filterConditions["commodityDetails._id"] = convertToObjecId(commodity);
     }
     if (season) {
       filterConditions["schemeDetails.season"] = season;
@@ -88,7 +89,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
     }
 
     if (sla) {
-      filterConditions["slaDetails.basic_details.name"] = { $regex: new RegExp(sla.trim(), 'i') };
+      filterConditions["slaDetails._id"] = convertToObjecId(sla);
     }
 
     if (Object.keys(filterConditions).length > 0) {
@@ -141,6 +142,10 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
         schemeId: "$schemeDetails.schemeId",
         schemeName: 1,
         scheme_id: "$schemeDetails._id",
+        commodity: "$commodityDetails.name",
+        commodity_id: "$commodityDetails._id",
+        sla_name: "$slaDetails.basic_details.name",
+        sla_id: "$slaDetails._id",
         status: "$schemeDetails.status",
         createdAt: "$schemeDetails.createdAt",
       },
