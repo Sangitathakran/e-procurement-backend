@@ -70,7 +70,8 @@ module.exports.amountCalculation = asyncErrorHandler(async (req, res) => {
     return res.status(500).send(
       new serviceResponse({
         status: 500,
-        errors: [{ message: "Internal server error during amount calculation" }],
+        // errors: [{ message: `Amount calculation error: ${err.message}` }],
+        errors: [{ message: err.message }],
       })
     );
   }
