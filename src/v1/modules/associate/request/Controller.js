@@ -41,15 +41,14 @@ module.exports.getProcurement = async (req, res) => {
       page = 1,
       limit = 10,
       commodity = "",
-      state = "",
+      state_id = "",
       skip = 0,
       paginate = 1,
       sortBy,
       search = "",
       status,
     } = req.query;
-    // Build query for search
-   
+    const stateObjectId = state_id ? new mongoose.Types.ObjectId(state_id) : null;
     let query = search
       ? {
           $or: [
@@ -65,7 +64,6 @@ module.exports.getProcurement = async (req, res) => {
       const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
       query["product.name"] = { $in: commodityArray };
     }
-
 
     if (status) {
       // Handle status-based filtering
@@ -87,7 +85,6 @@ module.exports.getProcurement = async (req, res) => {
           }
         );
       }
-
       const pipeline = [
         { $match: query },
         {
@@ -143,7 +140,7 @@ module.exports.getProcurement = async (req, res) => {
               {
                 $project: {
                   _id: 0,
-                  address: 1, // adjust based on what fields you need
+                  address: 1, 
                 },
               },
             ],
@@ -153,9 +150,18 @@ module.exports.getProcurement = async (req, res) => {
         {
           $unwind: {
             path: "$associateUserDetails",
-            preserveNullAndEmptyArrays: true,
+            preserveNullAndEmptyArrays: false,
           },
         },
+        ...(stateObjectId
+                  ? [
+                      {
+                        $match: {
+                          "associateUserDetails.address.registered.state_id": stateObjectId,
+                        },
+                      },
+                    ]
+                  : []),
 
         ...conditionPipeline,
         { $unwind: "$myoffer" },
@@ -189,13 +195,6 @@ module.exports.getProcurement = async (req, res) => {
               : {}),
           },
         },
-          ...(state ? [{
-        $match: {
-          "associateUserDetails.address.registered.state": {
-            $in: Array.isArray(state) ? state : [state]
-          }
-        }
-      }] : []),
         // Lookup Head Office details
         {
           $lookup: {
@@ -356,8 +355,6 @@ module.exports.getProcurement = async (req, res) => {
         { $skip: parseInt((page - 1) * limit) || 0 },
         { $limit: parseInt(limit) || 10 },
       ];
-
-      // Use pipeline for fetching rows and counting
       const countPipeline = [...pipeline.slice(0, -2), { $count: "count" }];
       const countResult = await RequestModel.aggregate(countPipeline);
       const records = {
@@ -380,59 +377,191 @@ module.exports.getProcurement = async (req, res) => {
         })
       );
     } else {
-      // Handle requests with no offers or open status
-      query.status = {
-        $in: [_requestStatus.open, _requestStatus.partially_fulfulled],
-      };
-      // query.quoteExpiry = { $gte: new Date() };
+    let baseQueryNoStatus = { ...query };
+      baseQueryNoStatus.status = { $in: [_requestStatus.open, _requestStatus.partially_fulfulled] };
 
-      const rows =
-        paginate === 1
-          ? await RequestModel.find(query)
-              .populate({
-                path: "head_office_id",
-                select: "company_details.name",
-              })
-              .populate({ path: "sla_id", select: "_id basic_details.name" })
-              .populate({ path: "branch_id", select: "branchName" })
-              .populate({
-                path: "product.schemeId",
-                // select: "schemeName procurementDuration",
-                select: "schemeName procurementDuration season period commodity_id",
-                populate: {
-                path: "commodity_id",
-                model: "Commodity",
-                select: "name",
+      const pipelineNoStatus = [
+        { $match: baseQueryNoStatus },
+
+        {
+          $lookup: {
+            from: "payments",
+            let: { reqId: "$_id" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$req_id", "$$reqId"] } } },
+              { $sort: { createdAt: -1 } },
+              { $limit: 1 },
+              { $project: { _id: 0, associate_id: 1 } },
+            ],
+            as: "payments",
+          },
+        },
+        { $unwind: { path: "$payments", preserveNullAndEmptyArrays: true } },
+
+        {
+          $lookup: {
+            from: "users",
+            let: { associateId: "$payments.associate_id" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$_id", "$$associateId"] } } },
+              { $project: { _id: 0, address: 1 } },
+            ],
+            as: "associateUserDetails",
+          },
+        },
+        { $unwind: { path: "$associateUserDetails", preserveNullAndEmptyArrays: true } },
+
+        ...(stateObjectId
+          ? [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ["$associateUserDetails.address.registered.state_id", stateObjectId],
+                  },
+                },
               },
-              })
-              .sort(sortBy || { createdAt: -1 })
-              .skip(parseInt(skip))
-              .limit(parseInt(limit))
-          : await RequestModel.find(query).sort(sortBy || { createdAt: -1 });
+            ]
+          : []),
 
-      const count = await RequestModel.countDocuments(query);
-      const mappedRows = rows.map((item) => {
-        const scheme = item?.product?.schemeId || {};
-        const commodityName = scheme?.commodity_id?.name || "";
-        const schemeName = [scheme.schemeName, commodityName, scheme.season, scheme.period]
-        .filter(Boolean)
-        .join("")
-        .replace(/\s+/g, "")
-        .trim();
-        return {
-          ...item._doc,
-          schemeName: schemeName || "N/A",
-        };
-      });
+        {
+          $lookup: {
+            from: "headoffices",
+            let: { head_office_id: "$head_office_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", { $toObjectId: "$$head_office_id" }] },
+                },
+              },
+              { $project: { headOfficesName: "$company_details.name", _id: 0 } },
+            ],
+            as: "headOfficeDetails",
+          },
+        },
+        { $unwind: { path: "$headOfficeDetails", preserveNullAndEmptyArrays: true } },
 
-      const records = { rows: mappedRows, count };
+        {
+          $lookup: {
+            from: "slas",
+            let: { sla_id: "$sla_id" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$_id", "$$sla_id"] } } },
+              { $project: { slaName: "$basic_details.name", _id: 0 } },
+            ],
+            as: "slaDetails",
+          },
+        },
+        { $unwind: { path: "$slaDetails", preserveNullAndEmptyArrays: true } },
+
+        {
+          $lookup: {
+            from: "schemes",
+            let: { schemeId: "$product.schemeId" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$_id", "$$schemeId"] } } },
+              {
+                $project: {
+                  schemeName: 1,
+                  season: 1,
+                  period: 1,
+                  _id: 0,
+                  commodity_id: 1,
+                  procurementDuration: 1,
+                },
+              },
+            ],
+            as: "schemeDetails",
+          },
+        },
+        { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+
+        {
+          $lookup: {
+            from: "commodities",
+            let: { commodityId: "$schemeDetails.commodity_id" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$_id", "$$commodityId"] } } },
+              { $project: { name: 1, category: 1, unit: 1, _id: 0 } },
+            ],
+            as: "commodityDetails",
+          },
+        },
+        { $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true } },
+
+        ...(commodity
+          ? [
+              {
+                $match: {
+                  "commodityDetails.name": {
+                    $in: Array.isArray(commodity) ? commodity : [commodity],
+                  },
+                },
+              },
+            ]
+          : []),
+
+        {
+          $lookup: {
+            from: "branches",
+            let: { branch_id: "$branch_id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$_id", { $toObjectId: "$$branch_id" }] },
+                },
+              },
+              { $project: { branchName: 1, _id: 0 } },
+            ],
+            as: "branchDetails",
+          },
+        },
+        { $unwind: { path: "$branchDetails", preserveNullAndEmptyArrays: true } },
+
+        {
+          $addFields: {
+            schemeName: {
+              $trim: {
+                input: {
+                  $concat: [
+                    { $ifNull: ["$schemeDetails.schemeName", ""] },
+                    " ",
+                    { $ifNull: ["$commodityDetails.name", ""] },
+                    " ",
+                    { $ifNull: ["$schemeDetails.season", ""] },
+                    " ",
+                    { $ifNull: ["$schemeDetails.period", ""] },
+                  ],
+                },
+              },
+            },
+            slaName: { $ifNull: ["$slaDetails.slaName", "N/A"] },
+            headOfficesName: { $ifNull: ["$headOfficeDetails.headOfficesName", "N/A"] },
+            branchName: { $ifNull: ["$branchDetails.branchName", "N/A"] },
+            commodityName: { $ifNull: ["$commodityDetails.name", "N/A"] },
+            procurementDuration: { $ifNull: ["$schemeDetails.procurementDuration", "N/A"] },
+          },
+        },
+        { $sort: sortBy || { createdAt: -1 } },
+        { $skip: parseInt((page - 1) * limit) || 0 },
+        { $limit: parseInt(limit) || 10 },
+      ];
+
+      const countPipeline = [...pipelineNoStatus.slice(0, -3), { $count: "count" }];
+
+      const countResult = await RequestModel.aggregate(countPipeline);
+      const rows = await RequestModel.aggregate(pipelineNoStatus);
+
+      let records = {
+        rows,
+        count: countResult.length > 0 ? countResult[0].count : 0,
+      };
+
       if (paginate === 1) {
-        records.page = parseInt(page);
-        records.limit = parseInt(limit);
-        records.pages =
-        records.limit !== 0 ? Math.ceil(records.count / records.limit) : 0;
-      }
-
+            records.page = parseInt(page);
+            records.limit = parseInt(limit);
+            records.pages =
+            records.limit !== 0 ? Math.ceil(records.count / records.limit) : 0;
+          }
       return res.status(200).send(
         new serviceResponse({
           status: 200,

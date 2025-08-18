@@ -104,20 +104,14 @@ module.exports.paymentStatus = async (req, res) => {
         const amountToBePaid = handleDecimal(amount);
         record.payment.date = Date.now();
 
-        let paymentRecord = {
-          "paymentGatewayDetails.transactionId": tracking_id,
-          "paymentGatewayDetails.paymentStatus": "Success",
-          payment: {
-            status: _poBatchPaymentStatus.paid,
-            amount: amountToBePaid,
-            date: Date.now(),
-          }
-        };
-        logger.info("paymentRecord==>", paymentRecord);
-
         let purchaseOrderRecordUpdate = await PurchaseOrderModel.findByIdAndUpdate(
           { _id: record?.orderId },
-          paymentRecord
+          {
+            "paymentInfo.paidAmount": handleDecimal(purchaseOrderRecord.paymentInfo.paidAmount + amountToBePaid),
+            "paymentInfo.balancePayment": handleDecimal(purchaseOrderRecord.paymentInfo.balancePayment - amountToBePaid),
+            "paymentInfo.balancePaymentDate": Date.now(),
+            "fulfilledQty": purchaseOrderRecord.fulfilledQty + record.quantityRequired
+          }
         );
 
         if (!purchaseOrderRecordUpdate) {
@@ -133,6 +127,9 @@ module.exports.paymentStatus = async (req, res) => {
             paymentId: tracking_id,
             amount: amountToBePaid,
             date: Date.now(),
+          },
+          action: {
+            proceedToPay: true
           }
         });
 

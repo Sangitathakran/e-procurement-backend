@@ -316,6 +316,11 @@ exports.excelDateToDDMMYYYY = function (serial) {
   const year = date.getFullYear();
   return `${day}-${month}-${year}`;
 };
+exports.isExponential = (val) => {
+  if (typeof val === "number" && val.toString().includes("e")) return true;
+  if (typeof val === "string" && val.toLowerCase().includes("e")) return true;
+  return false;
+};
 exports.getCommodityIdByName = async (commodityName) => {
   try {
     const commodity = await Commodity.findOne({

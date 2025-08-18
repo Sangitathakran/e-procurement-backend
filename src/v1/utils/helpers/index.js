@@ -601,3 +601,10 @@ exports.dumpLargeJSONToExcelStream = async (
     });
   }
 };
+
+exports.getPercentage = (part, total, precision = 2) => {
+  if (typeof part !== 'number' || typeof total !== 'number' || total === 0) {
+    return 0; // Avoid NaN / division by zero
+  }
+  return parseFloat(((part / total) * 100).toFixed(precision));
+}
