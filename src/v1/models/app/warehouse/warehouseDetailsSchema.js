@@ -32,12 +32,14 @@ const warehouseDetailsSchema = new mongoose.Schema(
       long: { type: String },
       state: {
         state_name: { type: String },
+        state_id: { type: mongoose.Schema.Types.ObjectId},
         lat: { type: String },
         long: { type: String },
         locationUrl: { type: String },
       },
       district: {
         district_name: { type: String },
+        district_id: { type: mongoose.Schema.Types.ObjectId},
         lat: { type: String },
         long: { type: String },
         locationUrl: { type: String },

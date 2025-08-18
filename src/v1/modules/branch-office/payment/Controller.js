@@ -18,6 +18,7 @@ const { _collectionName } = require('@src/v1/utils/constants');
 const SLA = require("@src/v1/models/app/auth/SLAManagement");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches")
 const { Scheme } = require("@src/v1/models/master/Scheme");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 
 const validateMobileNumber = async (mobile) => {
@@ -1413,7 +1414,14 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
                 { "product.name": { $regex: search, $options: 'i' } }
             ];
         }
-        if (commodity) baseMatch["product.name"] = { $regex: commodity, $options: 'i' };
+        if (commodity) baseMatch["product.commodity_id"] = convertToObjecId(commodity);
+        if(scheme){
+            baseMatch["product.schemeId"] = convertToObjecId(scheme);
+        }
+        if(branchName){
+            baseMatch['branch_id'] = convertToObjecId(branchName)
+        }
+
 
         // Step 3: Get filtered requests with basic info
         let requests = await RequestModel.find(baseMatch)
@@ -1423,7 +1431,7 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
             .lean();
 
         const requestIds = requests.map(r => r._id);
-
+        
         // Step 4: Fetch all batches in bulk
         const batches = await Batch.find({ req_id: { $in: requestIds } }, {
             _id: 1, req_id: 1, qty: 1, totalPrice: 1, batchId: 1, bo_approve_status: 1
