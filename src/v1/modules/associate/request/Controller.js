@@ -33,14 +33,14 @@ const {
 const { User } = require("@src/v1/models/app/auth/User");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
-
+const { isValidObjectId, Types } = require("mongoose");
 module.exports.getProcurement = async (req, res) => {
   try {
     const { user_id } = req;
     const {
       page = 1,
       limit = 10,
-      commodity = "",
+      commodity_id = "",
       state_id = "",
       skip = 0,
       paginate = 1,
@@ -48,7 +48,40 @@ module.exports.getProcurement = async (req, res) => {
       search = "",
       status,
     } = req.query;
-    const stateObjectId = state_id ? new mongoose.Types.ObjectId(state_id) : null;
+    let stateObjectId = [];
+    if (state_id) {
+      const stateIds = Array.isArray(state_id)
+        ? state_id
+        : state_id.split(",").map((id) => id.trim());
+      for (const id of stateIds) {  
+      if (!isValidObjectId(id)) {
+        return res.status(400).send(
+          new serviceResponse({
+            status: 400,
+            message: `Invalid state_id format: ${id}`,
+          })
+        );
+      }
+      stateObjectId.push(new Types.ObjectId(id));
+    }
+  }
+    let commodityObjectId = [];
+     if (commodity_id) {
+    const commodityIds = Array.isArray(commodity_id)
+        ? commodity_id
+        : commodity_id.split(",").map((id) => id.trim());
+      for (const id of commodityIds) {
+        if (!isValidObjectId(id)) {
+          return res.status(400).send(
+            new serviceResponse({
+              status: 400,
+              message: `Invalid commodity_id format: ${id}`,
+            })
+          );
+        }
+        commodityObjectId.push(new Types.ObjectId(id));
+      }
+    }
     let query = search
       ? {
           $or: [
@@ -60,11 +93,9 @@ module.exports.getProcurement = async (req, res) => {
         }
       : {};
 
-    if (commodity) {
-      const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
-      query["product.name"] = { $in: commodityArray };
+    if (commodityObjectId.length > 0) {
+      query["product.commodity_id"] = { $in: commodityObjectId };
     }
-
     if (status) {
       // Handle status-based filtering
       const conditionPipeline = [];
@@ -153,11 +184,11 @@ module.exports.getProcurement = async (req, res) => {
             preserveNullAndEmptyArrays: false,
           },
         },
-        ...(stateObjectId
+        ...(stateObjectId.length > 0
                   ? [
                       {
                         $match: {
-                          "associateUserDetails.address.registered.state_id": stateObjectId,
+                          "associateUserDetails.address.registered.state_id": { $in: stateObjectId }
                         },
                       },
                     ]
@@ -282,7 +313,7 @@ module.exports.getProcurement = async (req, res) => {
                   name: 1,
                   category: 1,
                   unit: 1,
-                  _id: 0,
+                  _id: 1,
                 },
               },
             ],
@@ -295,13 +326,16 @@ module.exports.getProcurement = async (req, res) => {
             preserveNullAndEmptyArrays: true,
           },
         },
-       ...(commodity ? [{
-      $match: {
-        "commodityDetails.name": {
-          $in: Array.isArray(commodity) ? commodity : [commodity]
-        }
-      }
-    }] : []),
+        ...(commodityObjectId.length > 0
+        ? [
+            {
+              $match: {
+                "commodityDetails._id": { $in: commodityObjectId },
+              },
+            },
+          ]
+        : []),
+
         {
           $lookup: {
             from: "branches",
@@ -411,16 +445,14 @@ module.exports.getProcurement = async (req, res) => {
         },
         { $unwind: { path: "$associateUserDetails", preserveNullAndEmptyArrays: true } },
 
-        ...(stateObjectId
-          ? [
-              {
-                $match: {
-                  $expr: {
-                    $eq: ["$associateUserDetails.address.registered.state_id", stateObjectId],
-                  },
-                },
-              },
-            ]
+        ...(stateObjectId.length > 0
+                  ? [
+                      {
+                        $match: {
+                          "associateUserDetails.address.registered.state_id": { $in: stateObjectId },
+                        },
+                      },
+                  ]
           : []),
 
         {
@@ -481,24 +513,22 @@ module.exports.getProcurement = async (req, res) => {
             let: { commodityId: "$schemeDetails.commodity_id" },
             pipeline: [
               { $match: { $expr: { $eq: ["$_id", "$$commodityId"] } } },
-              { $project: { name: 1, category: 1, unit: 1, _id: 0 } },
+              { $project: { name: 1, category: 1, unit: 1, _id: 1 } },
             ],
             as: "commodityDetails",
           },
         },
         { $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true } },
 
-        ...(commodity
-          ? [
-              {
-                $match: {
-                  "commodityDetails.name": {
-                    $in: Array.isArray(commodity) ? commodity : [commodity],
-                  },
-                },
+          ...(commodityObjectId.length > 0
+        ? [
+            {
+              $match: {
+                "commodityDetails._id": { $in: commodityObjectId },
               },
-            ]
-          : []),
+            },
+          ]
+        : []),
 
         {
           $lookup: {
