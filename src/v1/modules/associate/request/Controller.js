@@ -48,30 +48,40 @@ module.exports.getProcurement = async (req, res) => {
       search = "",
       status,
     } = req.query;
-    let stateObjectId = null;
+    let stateObjectId = [];
     if (state_id) {
-      if (!isValidObjectId(state_id)) {
+      const stateIds = Array.isArray(state_id)
+        ? state_id
+        : state_id.split(",").map((id) => id.trim());
+      for (const id of stateIds) {  
+      if (!isValidObjectId(id)) {
         return res.status(400).send(
           new serviceResponse({
             status: 400,
-            message: "Invalid state_id format",
+            message: `Invalid state_id format: ${id}`,
           })
         );
       }
-      stateObjectId = new Types.ObjectId(state_id);
+      stateObjectId.push(new Types.ObjectId(id));
     }
-    let commodityObjectId = null;
-      if (commodity_id) {
-        if (!isValidObjectId(commodity_id)) {
+  }
+    let commodityObjectId = [];
+     if (commodity_id) {
+    const commodityIds = Array.isArray(commodity_id)
+        ? commodity_id
+        : commodity_id.split(",").map((id) => id.trim());
+      for (const id of commodityIds) {
+        if (!isValidObjectId(id)) {
           return res.status(400).send(
             new serviceResponse({
               status: 400,
-              message: "Invalid commodity_id format",
+              message: `Invalid commodity_id format: ${id}`,
             })
           );
         }
-        commodityObjectId = new Types.ObjectId(commodity_id);
+        commodityObjectId.push(new Types.ObjectId(id));
       }
+    }
     let query = search
       ? {
           $or: [
@@ -83,10 +93,9 @@ module.exports.getProcurement = async (req, res) => {
         }
       : {};
 
-    if (commodityObjectId) {
-      query["product.commodity_id"] = commodityObjectId;
+    if (commodityObjectId.length > 0) {
+      query["product.commodity_id"] = { $in: commodityObjectId };
     }
-
     if (status) {
       // Handle status-based filtering
       const conditionPipeline = [];
@@ -175,11 +184,11 @@ module.exports.getProcurement = async (req, res) => {
             preserveNullAndEmptyArrays: false,
           },
         },
-        ...(stateObjectId
+        ...(stateObjectId.length > 0
                   ? [
                       {
                         $match: {
-                          "associateUserDetails.address.registered.state_id": stateObjectId,
+                          "associateUserDetails.address.registered.state_id": { $in: stateObjectId }
                         },
                       },
                     ]
@@ -317,11 +326,16 @@ module.exports.getProcurement = async (req, res) => {
             preserveNullAndEmptyArrays: true,
           },
         },
-         ...(commodity_id ? [{
-        $match: {
-          "commodityDetails._id": new mongoose.Types.ObjectId(commodity_id)
-        }
-      }] : []),
+        ...(commodityObjectId.length > 0
+        ? [
+            {
+              $match: {
+                "commodityDetails._id": { $in: commodityObjectId },
+              },
+            },
+          ]
+        : []),
+
         {
           $lookup: {
             from: "branches",
@@ -431,16 +445,14 @@ module.exports.getProcurement = async (req, res) => {
         },
         { $unwind: { path: "$associateUserDetails", preserveNullAndEmptyArrays: true } },
 
-        ...(stateObjectId
-          ? [
-              {
-                $match: {
-                  $expr: {
-                    $eq: ["$associateUserDetails.address.registered.state_id", stateObjectId],
-                  },
-                },
-              },
-            ]
+        ...(stateObjectId.length > 0
+                  ? [
+                      {
+                        $match: {
+                          "associateUserDetails.address.registered.state_id": { $in: stateObjectId },
+                        },
+                      },
+                  ]
           : []),
 
         {
@@ -508,11 +520,15 @@ module.exports.getProcurement = async (req, res) => {
         },
         { $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true } },
 
-          ...(commodity_id ? [{
-            $match: {
-              "commodityDetails._id": new mongoose.Types.ObjectId(commodity_id)
-            }
-          }] : []),
+          ...(commodityObjectId.length > 0
+        ? [
+            {
+              $match: {
+                "commodityDetails._id": { $in: commodityObjectId },
+              },
+            },
+          ]
+        : []),
 
         {
           $lookup: {
