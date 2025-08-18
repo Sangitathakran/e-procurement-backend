@@ -40,7 +40,7 @@ module.exports.getProcurement = async (req, res) => {
     const {
       page = 1,
       limit = 10,
-      commodity = "",
+      commodity_id = "",
       state_id = "",
       skip = 0,
       paginate = 1,
@@ -49,6 +49,7 @@ module.exports.getProcurement = async (req, res) => {
       status,
     } = req.query;
     const stateObjectId = state_id ? new mongoose.Types.ObjectId(state_id) : null;
+    const commodityObjectId = commodity_id ? new mongoose.Types.ObjectId(commodity_id) : null;
     let query = search
       ? {
           $or: [
@@ -60,9 +61,8 @@ module.exports.getProcurement = async (req, res) => {
         }
       : {};
 
-    if (commodity) {
-      const commodityArray = Array.isArray(commodity) ? commodity : [commodity];
-      query["product.name"] = { $in: commodityArray };
+    if (commodityObjectId) {
+      query["product.commodity_id"] = commodityObjectId;
     }
 
     if (status) {
@@ -282,7 +282,7 @@ module.exports.getProcurement = async (req, res) => {
                   name: 1,
                   category: 1,
                   unit: 1,
-                  _id: 0,
+                  _id: 1,
                 },
               },
             ],
@@ -295,13 +295,11 @@ module.exports.getProcurement = async (req, res) => {
             preserveNullAndEmptyArrays: true,
           },
         },
-       ...(commodity ? [{
-      $match: {
-        "commodityDetails.name": {
-          $in: Array.isArray(commodity) ? commodity : [commodity]
+         ...(commodity_id ? [{
+        $match: {
+          "commodityDetails._id": new mongoose.Types.ObjectId(commodity_id)
         }
-      }
-    }] : []),
+      }] : []),
         {
           $lookup: {
             from: "branches",
@@ -481,24 +479,18 @@ module.exports.getProcurement = async (req, res) => {
             let: { commodityId: "$schemeDetails.commodity_id" },
             pipeline: [
               { $match: { $expr: { $eq: ["$_id", "$$commodityId"] } } },
-              { $project: { name: 1, category: 1, unit: 1, _id: 0 } },
+              { $project: { name: 1, category: 1, unit: 1, _id: 1 } },
             ],
             as: "commodityDetails",
           },
         },
         { $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true } },
 
-        ...(commodity
-          ? [
-              {
-                $match: {
-                  "commodityDetails.name": {
-                    $in: Array.isArray(commodity) ? commodity : [commodity],
-                  },
-                },
-              },
-            ]
-          : []),
+          ...(commodity_id ? [{
+            $match: {
+              "commodityDetails._id": new mongoose.Types.ObjectId(commodity_id)
+            }
+          }] : []),
 
         {
           $lookup: {
