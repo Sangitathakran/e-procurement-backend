@@ -3,7 +3,7 @@ const {
   _response_message,
   _middleware,
 } = require("@src/v1/utils/constants/messages");
-const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const { _handleCatchErrors, handleDecimal } = require("@src/v1/utils/helpers");
 require("dotenv").config();
 const crypto = require("crypto");
 // const { postReqCCAvenue } = require("./ccAvenueToolkit/ccavRequestHandler");
@@ -11,20 +11,23 @@ var ccav = require("./ccAvenueToolkit/ccavutil.js");
 const {
   CCAvenueResponse,
 } = require("@src/v1/models/app/payment/ccAvenuePayments.js");
-const { _paymentmethod } = require("@src/v1/utils/constants/index.js");
-
 const {
-  MERCHANT_ID,
-  ACCESS_CODE,
-  WORKING_KEY,
-  REDIRECT_URL,
-  PG_ENV,
-  CANCEL_URL,
-} = process.env;
+  _paymentmethod,
+  _poAdvancePaymentStatus,
+  _poBatchPaymentStatus,
+  _penaltypaymentStatus,
+} = require("@src/v1/utils/constants/index.js");
+const {
+  PurchaseOrderModel,
+} = require("@src/v1/models/app/distiller/purchaseOrder.js");
+const {
+  BatchOrderProcess,
+} = require("@src/v1/models/app/distiller/batchOrderProcess.js");
 
-const FRONTEND_SUCCESS_URL = "https://testing.distiller.khetisauda.com";
-const FRONTEND_FAILURE_URL = "https://testing.distiller.khetisauda.com";
+const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 
+const { REDIRECT_URL, APP_URL, SCCUESS_URL, CANCEL_URL, PG_ENV, MERCHANT_ID, ACCESS_CODE, WORKING_KEY, } = require("@config/index.js");
+const logger = require("@src/common/logger/logger.js");
 var workingKey = WORKING_KEY, //Put in the 32-Bit key shared by CCAvenues.
   accessCode = ACCESS_CODE, //Put in the Access Code shared by CCAvenues.
   encRequest = "";
@@ -39,22 +42,22 @@ var ivBase64 = Buffer.from([
   0x0d, 0x0e, 0x0f,
 ]).toString("base64");
 
+
 module.exports.sendRequest = async (req, res) => {
   try {
-    const { order_id, currency, cancel_url, amount } = req.body;
-    const paymentData = `merchant_id=${MERCHANT_ID}&order_id=${order_id}&currency=${currency}&amount=${amount}&redirect_url=${REDIRECT_URL}&cancel_url=${cancel_url}&access_code=${accessCode}&language=EN`;
+    let { order_id, currency, cancel_url, amount, paymentSection } = req.body;
+    cancel_url = cancel_url ? `${APP_URL}${cancel_url}` : CANCEL_URL
+    const paymentData = `merchant_id=${MERCHANT_ID}&order_id=${order_id}&currency=${currency}&amount=${amount}&redirect_url=${REDIRECT_URL}&cancel_url=${cancel_url}&access_code=${accessCode}&language=EN&merchant_param1=${paymentSection}`;
     // CCAvenue Encryption
     encRequest = ccav.encrypt(paymentData, keyBase64, ivBase64);
     console.log("myEncryption", encRequest);
 
     if (!encRequest)
       return res.status(400).json({ error: "Failed to encrypt request" });
-
     const paymentUrl = `https://${PG_ENV}.ccavenue.com/transaction/transaction.do?command=initiateTransaction&encRequest=${encRequest}&access_code=${accessCode}&language=EN`;
-    // const ccAvEnc =
-    //   "5bb30500d8b938f0ffba082f12fe14243cb9671212892c80c1221907e7dde74d336dc5e0361d1c01e30c2ff40a62c4461f6755b6d83d4aa1df3b439da66fb1b4f7530b78201a3e6e3f2495299fabbbe8638a8b1b3dd2956813a09ff068c98c6f56ea975c486b172e23f83a3d1778940db8f61fe6db3e6d09cc1aecaf5bd2f9fbc6ee7a4512488dfda1038f7abb6701574aeaa5dccb41c6f9f3325081df097125982aef609ad0348ab132392cc7e5730c85d61dcbc6731d613b4584ce5a0b5da832c0b29d0693fef0888f3546242a8d31962dbeae5a2d943260bec349f234d260c0c2a695f847d8bba261a781bcdd711cf2c3d8209fe7a3b8c01268b3bf722ca30e6328604e42bdfb23a23bd1821d743c";
-    const decrypted = ccav.decrypt(encRequest, keyBase64, ivBase64);
-    console.log("decrypted response myEnc=>", decrypted);
+
+    // const decrypted = ccav.decrypt(encRequest, keyBase64, ivBase64);
+    // console.log("decrypted response myEnc=>", decrypted);
 
     return res.json({ paymentUrl, status: 200 });
   } catch (error) {
@@ -68,35 +71,103 @@ module.exports.paymentStatus = async (req, res) => {
   try {
     if (!encResp)
       return res.status(400).json({ error: "Missing encrypted response" });
-    // Decrypt the response
+
     const decrypted = ccav.decrypt(encResp, keyBase64, ivBase64);
-    // console.log("decryptedResponse==>", decrypted);
-    // Convert the response
+
     const responseParams = Object.fromEntries(new URLSearchParams(decrypted));
-
-    console.log("CCAvenue Payment Response:", responseParams);
-
-    const paymentStatus = responseParams?.order_status || "Unknown";
-
-    await CCAvenueResponse.create({
-      order_status: paymentStatus,
-      details: responseParams,
-      order_id: orderNo,
-      // created_at: Date.now(),
-      payment_method: _paymentmethod.bank_transfer,
-    });
-
+    const paymentStatus = responseParams?.order_status || "Not Found";
+    // const paymentStatus = responseParams?.order_status || "Success";
     const {
       tracking_id = "",
       bank_ref_no = "",
       payment_mode = "",
       order_id = "",
       amount = "",
+      merchant_param1: paymentSection = "",
+      cancel_url = FRONTEND_URL,
     } = responseParams;
 
+    if (paymentStatus === "Success") {
+      if (paymentSection && paymentSection === "myorders") {
+        const record = await BatchOrderProcess.findOne({ _id: order_id });
+
+        let purchaseOrderRecord = await PurchaseOrderModel.findOne({ _id: record?.orderId }).lean();
+        logger.info("purchaseOrderRecord==>", purchaseOrderRecord);
+        if (!purchaseOrderRecord) {
+          return sendResponse({
+            res,
+            status: 404,
+            message: "Purchase Order not found"
+          });
+        }
+
+        const amountToBePaid = handleDecimal(amount);
+        record.payment.date = Date.now();
+
+        let purchaseOrderRecordUpdate = await PurchaseOrderModel.findByIdAndUpdate(
+          { _id: record?.orderId },
+          {
+            "paymentInfo.paidAmount": handleDecimal(purchaseOrderRecord.paymentInfo.paidAmount + amountToBePaid),
+            "paymentInfo.balancePayment": handleDecimal(purchaseOrderRecord.paymentInfo.balancePayment - amountToBePaid),
+            "paymentInfo.balancePaymentDate": Date.now(),
+            "fulfilledQty": purchaseOrderRecord.fulfilledQty + record.quantityRequired
+          }
+        );
+
+        if (!purchaseOrderRecordUpdate) {
+          return sendResponse({
+            res,
+            status: 404,
+            message: "Purchase Order not found"
+          });
+        }
+        await BatchOrderProcess.findByIdAndUpdate({ _id: order_id }, {
+          payment: {
+            status: _poBatchPaymentStatus.paid,
+            paymentId: tracking_id,
+            amount: amountToBePaid,
+            date: Date.now(),
+          },
+          action: {
+            proceedToPay: true
+          }
+        });
+
+      } else if (paymentSection && paymentSection === "penalty") {
+        const record = await BatchOrderProcess.findOne({ _id: order_id });
+        const amountToBePaid = handleDecimal(amount);
+        record.penaltyDetails.penaltypaymentStatus = _penaltypaymentStatus.paid;
+        record.penaltyDetails.penaltyAmount = amountToBePaid;
+        await record.save();
+
+      } else {
+        const record = await PurchaseOrderModel.findOne({
+          _id: order_id,
+        }).populate("branch_id");
+
+        if (record) {
+          const totalPaid = record.paymentInfo?.advancePayment;
+          record.paymentInfo.advancePaymentStatus = _poAdvancePaymentStatus.paid;
+          record.paymentInfo.paidAmount = handleDecimal(totalPaid);
+          record.paymentInfo.advancePaymentDate = Date.now();
+          record.paymentGatewayDetails.transactionId = tracking_id;
+          record.paymentGatewayDetails.paymentStatus = "Success";
+
+          await record.save();
+        }
+      }
+    }
+
+    await CCAvenueResponse.create({
+      order_status: paymentStatus,
+      details: responseParams,
+      order_id: orderNo,
+      payment_method: payment_mode || _paymentmethod.bank_transfer,
+      payment_section: paymentSection || "purchase_order",
+    });
+
     // Determine the frontend redirect URL
-    let redirectUrlFE =
-      paymentStatus === "Success" ? FRONTEND_SUCCESS_URL : FRONTEND_FAILURE_URL;
+    let redirectUrlFE = SCCUESS_URL;
 
     res.send(`
                 <!DOCTYPE html>
@@ -122,11 +193,10 @@ module.exports.paymentStatus = async (req, res) => {
                             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
                         }
                         h2 {
-                            color: ${
-                              paymentStatus === "Success"
-                                ? "#28a745"
-                                : "#dc3545"
-                            };
+                            color: ${paymentStatus === "Success"
+        ? "#28a745"
+        : "#dc3545"
+      };
                         }
                         p {
                             font-size: 16px;
@@ -138,43 +208,37 @@ module.exports.paymentStatus = async (req, res) => {
                             padding: 10px 20px;
                             font-size: 16px;
                             color: #fff;
-                            background-color: ${
-                              paymentStatus === "Success"
-                                ? "#28a745"
-                                : "#dc3545"
-                            };
+                            background-color: ${paymentStatus === "Success"
+        ? "#28a745"
+        : "#dc3545"
+      };
                             text-decoration: none;
                             border-radius: 5px;
                         }
                         .btn:hover {
-                            background-color: ${
-                              paymentStatus === "Success"
-                                ? "#218838"
-                                : "#c82333"
-                            };
+                            background-color: ${paymentStatus === "Success"
+        ? "#218838"
+        : "#c82333"
+      };
                         }
                     </style>
                 </head>
                 <body>
                     <div class="container">
-                        <h2>${
-                          paymentStatus === "Success"
-                            ? "🎉 Payment Successful!"
-                            : "❌ Payment Failed"
-                        }</h2>
+                        <h2>${paymentStatus === "Success"
+        ? "🎉 Payment Successful!"
+        : "❌ Payment Failed"
+      }</h2>
                         <p><strong>Order ID:</strong> ${order_id}</p>
                         <p><strong>Amount:</strong> ₹${amount}</p>
                         <p><strong>Status:</strong> ${paymentStatus}</p>
-                        <p><strong>Tracking ID:</strong> ${
-                          tracking_id || "N/A"
-                        }</p>
-                        <p><strong>Payment Mode:</strong> ${
-                          payment_mode || "N/A"
-                        }</p>
-                        <p><strong>Bank Ref No:</strong> ${
-                          bank_ref_no || "N/A"
-                        }</p>
-                        <a class="btn" href="${CANCEL_URL}?order_id=${order_id}&status=${paymentStatus}">Go Back</a>
+                        <p><strong>Tracking ID:</strong> ${tracking_id || "N/A"
+      }</p>
+                        <p><strong>Payment Mode:</strong> ${payment_mode || "N/A"
+      }</p>
+                        <p><strong>Bank Ref No:</strong> ${bank_ref_no || "N/A"
+      }</p>
+                        <a class="btn" href="${redirectUrlFE}?order_id=${order_id}&status=${paymentStatus}">Go Back</a>
                     </div>
                 </body>
                 </html>
@@ -182,5 +246,22 @@ module.exports.paymentStatus = async (req, res) => {
   } catch (error) {
     console.error("Internal Error:", error);
     res.status(500).json({ error: "Internal Server Error", errorLog: error });
+  }
+};
+
+module.exports.decryptEncryption = async (req, res) => {
+  const { encResp } = req.body;
+  try {
+    if (!encResp)
+      return res.status(400).json({ error: "Missing encrypted response" });
+    // Decrypt the response
+    const decrypted = ccav.decrypt(encResp, keyBase64, ivBase64);
+    console.log("decryptedResponse==>", decrypted);
+    // Convert the response
+    const responseParams = Object.fromEntries(new URLSearchParams(decrypted));
+
+    res.status(200).json({ decrytedData: responseParams });
+  } catch (error) {
+    res.status(500).json({ error: error });
   }
 };

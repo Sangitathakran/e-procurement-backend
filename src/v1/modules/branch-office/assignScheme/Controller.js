@@ -1,4 +1,4 @@
-const { _handleCatchErrors } = require("@src/v1/utils/helpers");
+const { _handleCatchErrors, dumpJSONToExcel } = require("@src/v1/utils/helpers");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
 const { _response_message } = require("@src/v1/utils/constants/messages");
 const {
@@ -9,42 +9,37 @@ const { _status } = require("@src/v1/utils/constants");
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { mongoose } = require("mongoose");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
   try {
-    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, commodity, season, isExport = 0 } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      paginate = 1,
+      sortBy,
+      search = '',
+      scheme,
+      status,
+      commodity,
+      season,
+      sla,
+      isExport = 0,
+    } = req.query;
 
-    const { user_id, portalId } = req;
+    const { portalId } = req;
 
-    // Initialize matchQuery
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
     let matchQuery = {
       bo_id: new mongoose.Types.ObjectId(portalId),
       deletedAt: null,
     };
-    if (search) {
-      matchQuery.schemeId = { $regex: search, $options: "i" };
-    }
-  /*  if (schemeName) {
-      matchQuery["schemeDetails.schemeName"] = { $regex: schemeName, $options: "i" };
-    }
 
-    // console.log("schemeName", schemeName)
-    // Commodity filter
-    if (commodity) {
-      matchQuery["commodityDetails.name"] = { $regex: commodity, $options: "i" };
-    }
+    const aggregationPipeline = [
+      { $match: matchQuery },
 
-    // Season filter
-    if (season) {
-      matchQuery["schemeDetails.season"] = { $regex: season, $options: "i" };
-    }
-
-    // Status filter
-    if (status) {
-      matchQuery["schemeDetails.status"] = status;
-    }
-*/
-    let aggregationPipeline = [
+      // Join with Scheme
       {
         $lookup: {
           from: "schemes",
@@ -55,7 +50,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
       },
       { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
 
-      // Add schemeName field before filtering
+      // Join with Commodity
       {
         $lookup: {
           from: "commodities",
@@ -65,58 +60,106 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
         },
       },
       { $unwind: { path: "$commodityDetails", preserveNullAndEmptyArrays: true } },
-      { $match: matchQuery },
+
+      // Join with SLA
       {
-        $addFields: {
-          schemeName: {
-            $concat: [
-              "$schemeDetails.schemeName",
-              " ",
-              { $ifNull: ["$commodityDetails.name", ""] },
-              " ",
-              { $ifNull: ["$schemeDetails.season", ""] },
-              " ",
-              { $ifNull: ["$schemeDetails.period", ""] },
-            ],
-          },
-          schemeSeason: "$schemeDetails.season",
-          schemeStatus: "$schemeDetails.status",
-          commodityName: '$commodityDetails.name',
-          commodity_id: '$schemeDetails.commodity_id',
-          scheme_id: 1,
-          status: 1,
-          createdAt:1
+        $lookup: {
+          from: "slas",
+          localField: "sla_id",
+          foreignField: "_id",
+          as: "slaDetails",
         },
       },
+      { $unwind: { path: "$slaDetails", preserveNullAndEmptyArrays: true } },
     ];
 
+    // Apply filters for schemeName, commodity, season, status, sla
+    const filterConditions = {};
+    if (scheme) {
+      filterConditions["schemeDetails._id"] = convertToObjecId(scheme);
+    }
+    if (commodity) {
+      filterConditions["commodityDetails._id"] = convertToObjecId(commodity);
+    }
+    if (season) {
+      filterConditions["schemeDetails.season"] = season;
+    }
+    if (status) {
+      filterConditions["schemeDetails.status"] = status;
+    }
+
+    if (sla) {
+      filterConditions["slaDetails._id"] = convertToObjecId(sla);
+    }
+
+    if (Object.keys(filterConditions).length > 0) {
+      aggregationPipeline.push({ $match: filterConditions });
+    }
+
+    // Add fields to simplify output
+    aggregationPipeline.push({
+      $addFields: {
+        schemeName: {
+          $concat: [
+            "$schemeDetails.schemeName",
+            " ",
+            { $ifNull: ["$commodityDetails.name", ""] },
+            " ",
+            { $ifNull: ["$schemeDetails.season", ""] },
+            " ",
+            { $ifNull: ["$schemeDetails.period", ""] },
+          ],
+        },
+        schemeSeason: "$schemeDetails.season",
+        schemeStatus: "$schemeDetails.status",
+        commodityName: "$commodityDetails.name",
+        commodity_id: "$schemeDetails.commodity_id",
+        scheme_id: 1,
+        status: 1,
+        createdAt: 1,
+      },
+    });
+
+    // Search by schemeId or schemeName
     if (search?.trim()) {
+      const searchRegex = new RegExp(search.trim(), "i");
       aggregationPipeline.push({
         $match: {
           $or: [
-            { "schemeDetails.schemeId": { $regex: search, $options: "i" } },
-            { schemeName: { $regex: search, $options: "i" } },
+            { "schemeDetails.schemeId": { $regex: searchRegex } },
+            { "schemeDetails.schemeName": { $regex: searchRegex } },
+            { schemeName: { $regex: searchRegex } },
           ],
         },
       });
     }
 
+    // Final projection
     aggregationPipeline.push({
       $project: {
         _id: 1,
-        // procurementTarget: "$schemeDetails.procurement",
         procurementTarget: "$assignQty",
         schemeId: "$schemeDetails.schemeId",
         schemeName: 1,
         scheme_id: "$schemeDetails._id",
+        commodity: "$commodityDetails.name",
+        commodity_id: "$commodityDetails._id",
+        sla_name: "$slaDetails.basic_details.name",
+        sla_id: "$slaDetails._id",
         status: "$schemeDetails.status",
-        createdAt: "$schemeDetails.createdAt"
+        createdAt: "$schemeDetails.createdAt",
       },
     });
 
-    if (paginate == 1) {
+    // Count for pagination
+    const countPipeline = [...aggregationPipeline, { $count: "total" }];
+    const countResult = await SchemeAssign.aggregate(countPipeline);
+    const count = countResult[0]?.total || 0;
+
+    // Pagination or Sorting
+    if (paginate == 1 && isExport != 1) {
       aggregationPipeline.push(
-        { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } }, // Secondary sort by _id for stability
+        { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
         { $skip: parseInt(skip) },
         { $limit: parseInt(limit) }
       );
@@ -125,32 +168,21 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
         $sort: { [sortBy || "createdAt"]: -1, _id: -1 },
       });
     }
+
     const rows = await SchemeAssign.aggregate(aggregationPipeline);
-    const countPipeline = [
-      ...aggregationPipeline.slice(0, -1),
-      { $count: "total" },
-    ]; //[{ $match: matchQuery }, { $count: "total" }];
-    const countResult = await SchemeAssign.aggregate(countPipeline);
-    const count = countResult[0]?.total || 0;
-    const records = { rows, count };
-    if (paginate == 1) {
-      records.page = parseInt(page);
-      records.limit = parseInt(limit);
-      records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
-    }
+
+    // Excel export
     if (isExport == 1) {
-      const record = rows.map((item) => {
-        return {
-          "Scheme Id": item?.schemeId || "NA",
-          "scheme Name": item?.schemeName || "NA",
-          SchemeCommodity: item?.commodity || "NA",
-          season: item?.season || "NA",
-          period: item?.period || "NA",
-          procurement: item?.procurement || "NA",
-        };
-      });
+      const record = rows.map((item) => ({
+        "Scheme Id": item?.schemeId || "NA",
+        "Scheme": item?.schemeName || "NA",
+        "Procurement Target (in MT)": item?.procurementTarget || 0,
+        "Scheme Created On": item?.createdAt || "NA",
+        "Status": item?.status || "NA",
+      }));
+
       if (record.length > 0) {
-        dumpJSONToExcel(req, res, {
+        return dumpJSONToExcel(req, res, {
           data: record,
           fileName: `Scheme-record.xlsx`,
           worksheetName: `Scheme-record`,
@@ -159,12 +191,22 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
         return res.status(200).send(
           new serviceResponse({
             status: 200,
-            data: records,
+            data: { rows, count },
             message: _response_message.notFound("Scheme"),
           })
         );
       }
     } else {
+      const records = {
+        rows,
+        count,
+        ...(paginate == 1 && {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages: limit != 0 ? Math.ceil(count / limit) : 0,
+        }),
+      };
+
       return res.status(200).send(
         new serviceResponse({
           status: 200,
@@ -328,7 +370,7 @@ module.exports.getslaByBo = asyncErrorHandler(async (req, res) => {
 
     const records = {
       rows: modifiedRows,
-     // schemeDetails,
+      // schemeDetails,
       count,
       page: parseInt(page),
       limit: parseInt(limit),

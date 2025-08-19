@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
     },
     email : { 
         type: String, 
-        required: true
+        // required: true  // commented it due to warehouse portal because it is email is non mendatory 
     },
     userId : { 
         type: String,
@@ -101,6 +101,10 @@ userSchema.pre('save', async function (next) {
         }
         
     })
+    // Ensure history is always an array
+    if (!Array.isArray(this.history)) {
+        this.history = [];
+    }
 
 
     const historyEntry = { ...this.toObject() };

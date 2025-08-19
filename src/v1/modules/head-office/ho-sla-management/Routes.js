@@ -10,11 +10,11 @@ slaRoute.get("/states", getUniqueStates);
 slaRoute.get("/filterOption", getUniqueHOBOScheme);
 slaRoute.post("/", createSLA);
 slaRoute.get("/", getSLAList);
+
 slaRoute.get("/:slaId", getSLAById);
 slaRoute.put("/:slaId", updateSLA);
 slaRoute.patch("/:slaId", updateSLAStatus);
 slaRoute.post("/:slaId/add-scheme", addSchemeToSLA);
 slaRoute.delete("/:slaId", deleteSLA);
-
 
 module.exports = { slaRoute };

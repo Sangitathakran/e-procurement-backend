@@ -179,3 +179,55 @@ module.exports.getCommodity = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
+module.exports.commodityFilter = async (req, res) => {
+    try {
+        const requests = await RequestModel.aggregate([
+            {
+                $lookup: {
+                    from: "schemes",
+                    localField: "product.schemeId",
+                    foreignField: "_id",
+                    as: "schemeDetails"
+                }
+            },
+            { $unwind: "$schemeDetails" },
+
+            {
+                $lookup: {
+                    from: "commodities",
+                    localField: "schemeDetails.commodity_id",
+                    foreignField: "_id",
+                    as: "commoditiDetails"
+                }
+            },
+            { $unwind: "$commoditiDetails" },
+
+            {
+                $group: {
+                    _id: "$commoditiDetails._id", 
+                    commodity_name: { $first: "$commoditiDetails.name" }
+                }
+            },
+             {
+                $project: {
+                    _id: 0,
+                    value: "$_id",
+                    label: "$commodity_name"
+                }
+            }
+            
+        ]);
+
+        sendResponse({
+            res,
+            status: 200,
+            message: _response_message.found("Commodity"),
+            data: requests
+        });
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
+
+

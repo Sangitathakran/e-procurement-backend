@@ -32,12 +32,14 @@ const warehouseDetailsSchema = new mongoose.Schema(
       long: { type: String },
       state: {
         state_name: { type: String },
+        state_id: { type: mongoose.Schema.Types.ObjectId},
         lat: { type: String },
         long: { type: String },
         locationUrl: { type: String },
       },
       district: {
         district_name: { type: String },
+        district_id: { type: mongoose.Schema.Types.ObjectId},
         lat: { type: String },
         long: { type: String },
         locationUrl: { type: String },
@@ -109,6 +111,9 @@ const warehouseDetailsSchema = new mongoose.Schema(
     active: { type: Boolean, default: true },
     procurement_partner: { type: String, enum: ["Radiant", "Youkta", "Beam", "Agribid", "Supplyvalid", "NEML", "Others"], default: "Radiant" },
     wareHouse_code: { type: String, unique: true },
+    source_by: { type: String, default: "NCCF" },
+    third_party_client :  { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.ClientToken },
+    ..._commonKeys,
   },
   { timestamps: true }
 );

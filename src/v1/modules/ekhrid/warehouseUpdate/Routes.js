@@ -7,7 +7,7 @@ const warehouseRoutes = express.Router();
 warehouseRoutes.get("/warehouseTest", warehouseTest);
 // warehouseRoutes.get("/updateWarehouseByGatePassId", updateWarehouseDetailsBulk);
 
-warehouseRoutes.get("/getBatchesIds", getBatchesIds);
-warehouseRoutes.get("/updateBatchWarehouseBulks", updateBatchWarehouseBulks);
+warehouseRoutes.post("/getBatchesIds", getBatchesIds);
+warehouseRoutes.post("/updateBatchWarehouseBulks", updateBatchWarehouseBulks);
 
 module.exports = { warehouseRoutes }; 

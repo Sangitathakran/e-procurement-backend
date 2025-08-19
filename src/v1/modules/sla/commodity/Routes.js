@@ -9,7 +9,7 @@ commodityRoutes.get("/commodityDropdown", Auth, commodityDropdown);
 commodityRoutes.get("/standardList", Auth, getStandard);
 commodityRoutes.get("/", Auth, getCommodity);
 commodityRoutes.get("/:id", getCommodityById);
-commodityRoutes.post("/", createCommodity);
+commodityRoutes.post("/",Auth, createCommodity);
 commodityRoutes.put("/", Auth, updateCommodity);
 commodityRoutes.delete("/:id", Auth, deleteCommodity);
 commodityRoutes.patch("/", Auth, statusUpdateCommodity);

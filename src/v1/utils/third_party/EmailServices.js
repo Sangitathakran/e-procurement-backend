@@ -3,10 +3,13 @@ const fs = require("fs");
 const path = require("path");
 const { sendMail } = require('@src/v1/utils/helpers/node_mailer');
 const OTPModel = require('@src/v1/models/app/auth/OTP');
+const { FRONTEND_URLS } = require("@config/index");
+const { _query } = require("../constants/messages");
+const logger = require("@src/common/logger/logger");
 process.env.SMS_SEND_API_KEY;
 APP_URL = process.env.APP_URL;
 const LOGO_URL = process.env.LOGO_URL;
-const FRONTEND_URL = process.env.FRONTEND_URL;
+let FRONTEND_URL = process.env.FRONTEND_URL;
 
 class EmailService {
     constructor() {
@@ -40,19 +43,44 @@ class EmailService {
     }
 
     async sendForgotPasswordEmail(emailPaylod) {
+       // console.log(emailPaylod);
+        if(!Object.keys(FRONTEND_URLS).includes(emailPaylod.portal_type)){
+            throw new Error(_query.invalid('portal_type'));
+        }
+        FRONTEND_URL = FRONTEND_URLS[emailPaylod.portal_type];
         try {
+       
+            FRONTEND_URL = FRONTEND_URLS[emailPaylod.portal_type];
             const template = await this.loadTemplate("forgotPassword");
-            const resetPasswordLink = `${FRONTEND_URL}/${emailPaylod.portal_type}/reset-password/${emailPaylod.resetToken}`;
+            let portalName 
+            if(emailPaylod.portal_type == "admin") {
+                portalName = "agent"
+            }else if(emailPaylod.portal_type == "Nccfadmin") {
+                portalName = "nccf-distiller"
+            }else{
+                portalName = emailPaylod.portal_type
+            }
+
+
+            const resetPasswordLink = `${FRONTEND_URL}/${portalName}/reset-password/${emailPaylod.resetToken}`;
+            console.log("Reset Password Link:", resetPasswordLink);
             const html = template
                 .replace("{{resetPasswordLink}}", resetPasswordLink)
                 .replace("{{app_url}}", FRONTEND_URL)
                 .replace("{{logo_url}}", LOGO_URL);
 
-            await sendMail(emailPaylod.email, '', 'Reset Your Password', html);
+           let mailData = await sendMail(emailPaylod.email, '', 'Reset Your Password', html);
+          // console.log('mailData', mailData);
+            logger.info('Forgot Password Link Send successfully', emailPaylod);
+            if(!mailData?.success){
+                logger.warn('Mail not sent, something went wrong');
+                return { message: 'Mail not sent, something went wrong'}
+            }
             return { message: 'Forgot Password Link Send successfully' };
         } catch (error) {
             console.error("Error sending forgot password email:", error);
-            // throw error;
+            logger.error("Error sending forgot password email:", error);
+             throw new Error(error.message);
         }
     }
 

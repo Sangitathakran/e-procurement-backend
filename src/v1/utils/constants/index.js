@@ -1,5 +1,5 @@
 const { NA } = require("xlsx-populate/lib/FormulaError")
-
+const { FRONTEND_URLS } = require("@config/index")
 
 const _collectionName = {
      statewisemanditax:"statewisemanditax",
@@ -29,6 +29,8 @@ const _collectionName = {
     StateDistrictCity: "StateDistrictCity",
     Batch: "Batch",
     Payment: "Payment",
+    Whr: "Whr",
+    WhrDetail: "WhrDetail",
     Branch: "Branch",
     DummyWarehouse: "DummyWarehouse",
     Warehouse: "WarehouseV2",
@@ -57,14 +59,32 @@ const _collectionName = {
     ExternalBatch: "ExternalBatch",
     ExternalOrder: "ExternalOrder",
     Scheme: "Scheme",
-    SLA: "SLA",
     commodityStandard: "commodityStandard",
     SchemeAssign: "SchemeAssign",
+    ClientToken: "ClientToken",
+    Scheme: "Scheme",
+    SLA: "SLA",
     CCAvenueResponse: "CCAvenueResponse",
     PaymentLogsHistory: "PaymentLogsHistory",
-    eKharidHaryana: "ekharidprocurements",
+    eKharidHaryana : "ekharidprocurements",
+    states: "states",
+    // eKharidHaryana: "ekharidprocurements",
+    agristackLog: "agristackLog",
+    commodityStandard: "commodityStandard",
+    SchemeAssign: "SchemeAssign",
+    ClientToken: "ClientToken",
+    centerProjection: "centerProjection",
+    statewisemanditax: "statewisemanditax",
+    AgristackFarmerDetail: 'AgristackFarmerDetails',
+    LoginHistory: "loginhistory",
+    loginAttempt: "loginAttempt",
+    forgetHistory: "forgetHistory",
     agristackLog:"agristackLog",
     verfiyFarmer: "verfiyfarmer",
+    associateMandiName: "associateMandiName",
+    eKharidHaryana: "ekhridnewprocs",
+    nafedstatshistory: "nafedstatshistory",
+    nafedstats: "nafedstats",
 }
 
 const _userType_Feature_Collection = {
@@ -85,7 +105,8 @@ const _featureType = {
     agency: "Agency",
     associate: "Associate",
     distiller: "Distiller",
-    SLA:"SLA"
+    SLA: "SLA",
+    warehouse: "Warehouse"
 }
 
 const _status = {
@@ -203,6 +224,7 @@ const _userType = {
     distiller: "8",
     nccf: "9",
     admin: "10",
+    ministry: "11"
 }
 
 const _userStatus = {
@@ -375,6 +397,7 @@ const _batchStatus = {
 const _paymentmethod = {
     bank_transfer: "Bank Transfer",
     cheque: "Cheque",
+    net_banking:"Net Banking",
 }
 
 const _paymentstatus = {
@@ -460,6 +483,18 @@ const _statusType = {
     inactive: 'inactive'
 }
 
+const _whr_status = {
+    active: "active",
+    inactive: "inactive",
+    approved: 'approved',
+    rejected: 'rejected',
+    pending: 'pending',
+    archived: "archived",
+    deleted: "deleted",
+    created: "created",
+    completed: "completed",
+}
+
 const _frontendLoginRoutes = {
     // agent: "/agent/sign-in",
     // ho: "/head-office/sign-in",
@@ -479,7 +514,7 @@ const _userTypeFrontendRouteMapping = {
     "branch-office": "3",
     "NccfAdmin": "9",
     "admin": "10",
-
+    "ministry": "11"
 }
 
 const _poRequestStatus = {
@@ -592,7 +627,7 @@ const _ccAvenuePaymentStatus = {
     UNKNOWN: "Unknown",
     FAILURE: "Failure"
 }
-  
+
 
 const _statesAndUTs = [
     { name: "Andaman and Nicobar Islands", code: "AN" },
@@ -631,9 +666,51 @@ const _statesAndUTs = [
     { name: "Uttar Pradesh", code: "UP" },
     { name: "Uttarakhand", code: "UK" },
     { name: "West Bengal", code: "WB" }
-  ];
+];
+
+const _verificationStatus = {
+    pending: 1,
+    succeed: 2,
+    failed: 3
+};
+
+const dateRanges = ['currentMonth', 'lastMonth', 'last3Months', 'last6Months', 'custom'];
+const dateRangesObj = {
+    currentMonth: "currentMonth",
+    lastMonth: "lastMonth",
+    last3Months: "last3Months",
+    last6Months:"last6Months",
+    custom: "custom"
+};
+const mailProviders = {
+    mailtrap: "mailtrap",
+    ses: "ses"
+};
+
+const userTypeToURL = {
+    [_userType.ho]: `${FRONTEND_URLS["head-office"]}`,
+    [_userType.bo]: FRONTEND_URLS["branch-office"],
+    [_userType.admin]: FRONTEND_URLS.admin,
+    [_userType.distiller]: FRONTEND_URLS.distiller,
+    [_userType.nccf]: FRONTEND_URLS.Nccfadmin,
+    [_userType.warehouse]: FRONTEND_URLS.warehouse,
+    [_userType.farmer]: FRONTEND_URLS.farmer,
+    [_userType.agent]: FRONTEND_URLS.agent,
+    [_userType.associate]: FRONTEND_URLS.associate,
+};
+
+const redisKeys = {
+    STATES_DATA: "statesData",
+    DISTRICTS_BY_STATE: "districtsByState"
+}
+
+
+const allowedEmailDomains = ['navankur', 'radiantinfonet'];
 
 module.exports = {
+    redisKeys,
+    mailProviders,
+    allowedEmailDomains,
     _userAction,
     _farmerType,
     _collectionName,
@@ -697,6 +774,7 @@ module.exports = {
     _penaltypaymentStatus,
     _poBatchPaymentStatus,
     _trackOrderStatus,
+    _whr_status,
     _commodityType,
     _gradeType,
     _qualityType,
@@ -706,5 +784,9 @@ module.exports = {
     _schemeName,
     _verfiycationStatus,
     _ccAvenuePaymentStatus,
-    _statesAndUTs
+    _statesAndUTs,
+    _verificationStatus,
+    dateRanges,
+    dateRangesObj,
+    userTypeToURL
 }

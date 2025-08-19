@@ -1,6 +1,6 @@
 const { _handleCatchErrors, dumpJSONToCSV, dumpJSONToExcel, handleDecimal, dumpJSONToPdf } = require("@src/v1/utils/helpers");
 const { sendResponse } = require("@src/v1/utils/helpers/api_response");
-const { _response_message } = require("@src/v1/utils/constants/messages");
+const { _response_message, _query } = require("@src/v1/utils/constants/messages");
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
@@ -8,14 +8,14 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _status } = require("@src/v1/utils/constants");
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
-const { mongoose } = require("mongoose");
+const { mongoose, isValidObjectId } = require("mongoose");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 module.exports.getScheme = asyncErrorHandler(async (req, res) => {
   const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', schemeName, status, isExport = 0 } = req.query;
   const { user_id, portalId } = req;
 
   const Ids = (await SchemeAssign.find({ ho_id: new mongoose.Types.ObjectId(portalId) })).map(i => i.scheme_id);
-
   // Initialize matchQuery
   let matchQuery = {
     // _id: { $in: Ids },
@@ -23,18 +23,9 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
     deletedAt: null,
   };
 
-  // if (search) {
-  //   matchQuery.$or = [
-  //     { schemeId: { $regex: search, $options: "i" } },
-  //     { schemeName: { $regex: search, $options: "i" } }  // Search by commodity name
-  //   ];
-  // }
 
-  if (schemeName) {
-    matchQuery.schemeName = { $regex: schemeName.trim().replace(/\s+/g, ".*"), $options: "i" };
-  }
-  if (status) {
-    matchQuery.status = status.toLowerCase();
+  if(schemeName && !isValidObjectId(schemeName)){
+    return sendResponse( { res, status: 400, message: _query.invalid(schemeName) } );
   }
 
 
@@ -49,6 +40,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     },
     { $unwind: { path: "$schemeDetails", preserveNullAndEmptyArrays: true } },
+    ...( status ? [ { $match:  { "schemeDetails.status": status}  } ] : []),
     {
       $lookup: {
         from: 'commodities',
@@ -58,6 +50,19 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     },
     { $unwind: { path: '$commodityDetails', preserveNullAndEmptyArrays: true } },
+    
+
+     // 💥 Unique filtering based on scheme_id
+     {
+      $group: {
+        _id: "$scheme_id",
+        doc: { $first: "$$ROOT" }
+      }
+    },
+    {
+      $replaceRoot: { newRoot: "$doc" }
+    },
+
     {
       $addFields: {
         schemeName: {
@@ -75,16 +80,7 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     },
 
-    // 💥 Unique filtering based on scheme_id
-    {
-      $group: {
-        _id: "$scheme_id",
-        doc: { $first: "$$ROOT" }
-      }
-    },
-    {
-      $replaceRoot: { newRoot: "$doc" }
-    },
+   
   ];
 
   if (search.trim()) {
@@ -94,6 +90,15 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       }
     });
   }
+
+  if (schemeName) {
+    aggregationPipeline.push({
+      $match: {
+        scheme_id: convertToObjecId(schemeName)
+      }
+    });
+  }
+  
   aggregationPipeline.push(
     {
       $project: {
@@ -110,6 +115,8 @@ module.exports.getScheme = asyncErrorHandler(async (req, res) => {
       },
     }
   );
+
+ 
 
   if (paginate == 1 && isExport != 1 ) {
     aggregationPipeline.push(

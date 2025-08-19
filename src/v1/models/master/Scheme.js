@@ -17,7 +17,7 @@ const SchemeSchema = new mongoose.Schema(
       required: true,
     },
     procurementDuration: { type: String, required: true },
-    schemeApprovalLetter: { type: String },
+    schemeApprovalLetter: { type: String ,default: null },
     status: { type: String, enum: Object.values(_status), default: _status.active },
     ..._commonKeys,
   },

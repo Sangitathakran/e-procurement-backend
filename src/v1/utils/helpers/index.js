@@ -1,6 +1,7 @@
 const { errorLogger } = require("@config/logger")
 const { sendResponse } = require("./api_response")
 const fs = require('fs');
+const path = require('path');
 const { Parser } = require('json2csv');
 const { v4: uuidv4 } = require('uuid');
 const xlsx = require('xlsx');
@@ -13,6 +14,7 @@ const ExcelJS = require('exceljs');
 const { Console } = require("console");
 const PDFDocument = require('pdfkit');
 const FileCounter = require("@src/v1/models/app/payment/fileCounter");
+
 /**
  * 
  * @param {any} error 
@@ -20,15 +22,20 @@ const FileCounter = require("@src/v1/models/app/payment/fileCounter");
  * @param {import("express").NextFunction} next 
  */
 exports._handleCatchErrors = async (error, res, next) => {
-  console.log('error', error)
-  //  errorLogger.error({ message: error.message, stack: error.stack }) 
-  return res.status(500).json({ status: 500, errors: [{ message: error.message, stack: error.stack }] })
-}
-exports._advancePayment = () => {
-  const percentage = 10;
-  return percentage;
-}
+  const isProd = process.env.NODE_ENV === 'production';
 
+  console.log('error', error); // You can keep this for logs
+
+  return res.status(500).json({
+    status: 500,
+    errors: [
+      {
+        message: isProd ? 'Internal server error' : error.message,
+        ...(isProd ? {} : { stack: error.stack }),
+      },
+    ],
+  });
+};
 
 exports.dumpJSONToCSV = (req, res, config = {
   data: [],
@@ -191,15 +198,31 @@ const farmerIdGenerator = async (obj) => {
 
 exports.generateFarmerId = async (obj) => {
   let farmerId;
-
-  while (true) {
-    farmerId = await farmerIdGenerator(obj);
-    const existingFarmer = await farmer.findOne({ farmer_id: farmerId });
-    if (!existingFarmer) {
-      return farmerId;
-    }
+ try{ while (true) {
+  farmerId = await farmerIdGenerator(obj);
+  const existingFarmer = await farmer.findOne({ farmer_id: farmerId });
+  if (!existingFarmer) {
+    return farmerId;
   }
+}}catch(err){
+  console.log('ERROR IN GENERATE FARMER ID', err);
+}
 };
+
+// exports.generateFarmerId = async obj => {
+//   let farmerId;
+//   try {
+//     while (true) {
+//       farmerId = await farmerIdGenerator(obj);
+//       const existingFarmer = await farmer.find({}, { farmer_id: 1});
+//       if (!existingFarmer.includes(farmerId)) {
+//         return farmerId;
+//       }
+//     }
+//   } catch (err) {
+//     console.log('ERROR IN GENERATE FARMER ID', err);
+//   }
+// };
 
 exports.generateFileName = async (clientCode) => {
 
@@ -383,8 +406,12 @@ const myAddress = new Map()
 
 exports.getStateId = async (stateName) => {
   try {
+    if (!stateName || typeof stateName !== 'string') {
+      return { success: false, error: "Invalid or missing state name" };
+    }
     if (myAddress.get(stateName)) {
-      return myAddress.get(stateName)
+      // return myAddress.get(stateName)
+       return { success: true, stateId: myAddress.get(stateName) };
     }
     const stateDoc = await StateDistrictCity.findOne({
       'states.state_title': stateName
@@ -392,39 +419,45 @@ exports.getStateId = async (stateName) => {
     if (stateDoc) {
       const state = stateDoc.states.find(state => state.state_title == stateName);
       // console.log('state', state._id);
-      if (state) {
+      if (state && state._id) {
         myAddress.set(stateName, state._id);
-        return state._id;
+        // return state._id;
+        return { success: true, stateId: state._id };
       }
     }
-    throw new Error(`Farmer State Name Not Found: ${stateName}`);
+    // throw new Error(`Farmer State Name Not Found: ${stateName}`);
+    return { success: false, error: `Farmer State Name Not Found: ${stateName}` };
   } catch (error) {
-    throw new Error(`Error fetching state ID: ${error.message}`);
+    return { success: false, error: `Error fetching state ID: ${error.message}` };
+    // throw new Error(`Error fetching state ID: ${error.message}`);
   }
 };
 
 exports.getDistrictId = async (districtName) => {
   try {
+     if (!districtName || typeof districtName !== 'string') {
+      return { success: false, error: "Invalid or missing district name" };
+    }
     if (myAddress.get(districtName)) {
-      return myAddress.get(districtName)
+      // return myAddress.get(districtName)
+      return { success: true, districtId: myAddress.get(districtName) };
     }
     const stateDoc = await StateDistrictCity.findOne({
-      'states.districts.district_title': districtName
+      'states.districts.district_title': { $regex: `^${districtName}$`, $options: 'i' }
     });
 
     if (stateDoc) {
       for (const state of stateDoc.states) {
         const district = state.districts.find(district => district.district_title === districtName);
-        // console.log('state', district._id);
         if (district) {
           myAddress.set(districtName, district._id)
-          return district._id;
+          return { success: true, districtId: district._id };
         }
       }
     }
-    throw new Error(`Farmer District Name Not Found: ${districtName}`);
+     return { success: false, error: `Farmer District Name Not Found: ${districtName}` };
   } catch (error) {
-    throw new Error(`Error fetching district ID: ${error.message}`);
+    return { success: false, error: `Error fetching district ID: ${error.message}` };
   }
 };
 
@@ -458,6 +491,14 @@ exports.handleDecimal = (value) => {
   return parseFloat(value) < 0 ? 0 : parseFloat(parseFloat(value).toFixed(3));
 }
 
+exports.handleAmountDecimal = (value) => {
+  return parseFloat(value) < 0 ? 0 : parseFloat(parseFloat(value).toFixed(2));
+}
+
+exports.handleQuantityDecimal = (value) => {
+  return parseFloat(value) < 0 ? 0 : parseFloat(parseFloat(value).toFixed(3));
+}
+
 exports._taxValue = () => {
   const tax = 0;
   return tax;
@@ -467,8 +508,9 @@ exports._distillerMsp = () => {
   const msp = 24470;
   return msp;
 }
+
 exports._mandiTax = (amount) => {
-  
+
  const tax =  (amount * 1.2) / 100;
   return tax;
 }
@@ -484,15 +526,85 @@ exports.formatDate = (timestamp, format = "DD/MM/YYYY") => {
 
   return `${day}/${month}/${year}`;
 }
-exports.makeSearchQuery = (searchFields,search) => ({
+exports.makeSearchQuery = (searchFields, search) => ({
   $or: searchFields.map(item => ({
-      [item]: { $regex: search, $options: 'i' }
+    [item]: { $regex: search, $options: 'i' }
   }))
 });
 
+exports._advancePayment = () => {
+  const percentage = 10;
+  return percentage;
+}
+exports.dumpLargeJSONToExcelStream = async (
+  res,
+  config = {
+    dataGenerator: async function* () {
+      yield* [];
+    }, // async generator
+    fileName: 'LargeExport.xlsx',
+    sheetName: 'Sheet1',
+  }
+) => {
+  try {
+    const { dataGenerator, fileName, sheetName } = config;
 
-// exports.removeSpaces = (str) => ({
-//     return str.replace(/\s+/g, '').toString();
-// })
+    const tempFilePath = path.join(__dirname, `../../temp/${fileName}`);
 
-// module.exports={removeSpaces }
+    // Ensure temp folder exists
+    fs.mkdirSync(path.dirname(tempFilePath), { recursive: true });
+
+    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+      filename: tempFilePath,
+    });
+
+    const worksheet = workbook.addWorksheet(sheetName);
+
+    let isFirstRow = true;
+    for await (const row of dataGenerator()) {
+      // Set header row only once
+      if (isFirstRow) {
+        worksheet.addRow(Object.keys(row)).commit();
+        isFirstRow = false;
+      }
+
+      worksheet.addRow(Object.values(row)).commit();
+    }
+
+    await workbook.commit();
+
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+
+    const stream = fs.createReadStream(tempFilePath);
+    stream.pipe(res);
+
+    stream.on('end', () => {
+      fs.unlink(tempFilePath, () => {}); // clean up
+    });
+
+    stream.on('error', err => {
+      console.error('Stream error:', err);
+      return res
+        .status(500)
+        .send({ message: 'Error while streaming Excel file.' });
+    });
+  } catch (error) {
+    console.error('Excel export error:', error);
+    return res.status(500).send({
+      status: 500,
+      errors: [{ message: `${error.message}` }],
+    });
+  }
+};
+
+exports.getPercentage = (part, total, precision = 2) => {
+  if (typeof part !== 'number' || typeof total !== 'number' || total === 0) {
+    return 0; // Avoid NaN / division by zero
+  }
+  return parseFloat(((part / total) * 100).toFixed(precision));
+}

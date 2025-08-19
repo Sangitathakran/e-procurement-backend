@@ -7,6 +7,9 @@ const PaymentSchema = new mongoose.Schema({
     farmer_order_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.farmers, required: true },
     ho_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.HeadOffice, required: true },
     bo_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Branch, required: true },
+    sla_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.SLA },
+    sla_approve_status: { type: String, enum: Object.values(_paymentApproval), default: _paymentApproval.pending },
+    sla_approve_by: { type: mongoose.Schema.Types.ObjectId, default: null },
     associate_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.Users },
     sla_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.SLA },
     associateOffers_id: { type: mongoose.Schema.Types.ObjectId, ref: _collectionName.AssociateOffers, index: true  },
@@ -27,6 +30,7 @@ const PaymentSchema = new mongoose.Schema({
     transaction_id: { type: String, default: null },
     payment_method: { type: String, enum: Object.values(_paymentmethod) },
     ekhrid_payment: { type: Boolean, default: false },
+    jformID:{type:Number,default:null},
 }, { timestamps: true });
 
 const Payment = mongoose.model(_collectionName.Payment, PaymentSchema);

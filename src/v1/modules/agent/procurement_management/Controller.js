@@ -28,6 +28,8 @@ module.exports.createProcurementCenter = async (req, res) => {
         const record = await ProcurementCenter.create({
             center_name: center_name,
             center_code: center_code,
+            center_email: email,
+            center_mobile: mobile,
             user_id: user_id,
             center_type: center_type,
             address: { line1, line2, country: 'India', state, district, city, postalCode, lat, long },
@@ -290,7 +292,7 @@ module.exports.getProcurementCenter = async (req, res) => {
 //             }
 //         }
 
-//         // ✅ Return Paginated Response
+//         // Return Paginated Response
 //         return res.status(200).json({
 //             status: 200,
 //             data: {

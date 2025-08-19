@@ -9,6 +9,7 @@ const {
 const { mongoose } = require("mongoose");
 const { ObjectId } = require("mongoose").Types;
 const {dumpJSONToExcel} = require("@src/v1/utils/helpers");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 module.exports.createSLA = asyncErrorHandler(async (req, res) => {
   try {
@@ -110,14 +111,336 @@ module.exports.createSLA = asyncErrorHandler(async (req, res) => {
   }
 });
 
+// module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
+//   const {
+//     page = 1,
+//     limit = 10,
+//     skip = 0,
+//     paginate = 1,
+//     sortBy,
+//     search = "",
+//     isExport = 0,
+//     bo_id,
+//     ho_id,
+//     scheme_id,
+//     state,
+//   } = req.query;
+
+//   const { portalId, user_id } = req;
+
+// const portalObjectId = new mongoose.Types.ObjectId(portalId);
+// const userObjectId = new mongoose.Types.ObjectId(user_id);
+
+//   // if (bo_id || scheme_id) {
+//   //   let matchQuery = {
+//   //     sla_id: { $exists: true },
+//   //     deletedAt: null,
+//   //     "schemes.cna": { $in: [portalObjectId, userObjectId] }
+//   //   };
+
+//   //   if (bo_id) matchQuery.bo_id = new ObjectId(bo_id);
+
+//   //   if (scheme_id) matchQuery.scheme_id = new ObjectId(scheme_id);
+//   //   let aggregationPipeline = [
+//   //     { $match: matchQuery }, // Match `bo_id`, `ho_id`, `scheme_id`
+//   //     { $addFields: { sla_id: { $toObjectId: "$sla_id" } } },
+//   //     {
+//   //       $lookup: {
+//   //         from: "slas",
+//   //         localField: "sla_id",
+//   //         foreignField: "_id",
+//   //         as: "sla_details",
+//   //       },
+//   //     },
+//   //     { $unwind: { path: "$sla_details", preserveNullAndEmptyArrays: true } },
+//   //   ];
+//   //   if (state) {
+//   //     aggregationPipeline.push({
+//   //       $match: {
+//   //         "sla_details.address.state": { $regex: state, $options: "i" },
+//   //       },
+//   //     });
+//   //   }
+
+//   //   aggregationPipeline.push({
+//   //     $group: {
+//   //       _id: "$sla_id",
+//   //       bo_id: { $first: "$bo_id" },
+
+//   //       scheme_id: { $first: "$scheme_id" },
+//   //       assignQty: { $first: "$assignQty" },
+//   //       status: { $first: "$status" },
+//   //       slaId: { $first: "$sla_details.slaId" },
+//   //       associate_count: { $first: { $size: "$sla_details.associatOrder_id" } },
+//   //       sla_name: { $first: "$sla_details.basic_details.name" },
+//   //       sla_email: { $first: "$sla_details.basic_details.email" },
+//   //       sla_mobile: { $first: "$sla_details.basic_details.mobile" },
+//   //       address: {
+//   //         $first: {
+//   //           $concat: [
+//   //             "$sla_details.address.line1",
+//   //             ", ",
+//   //             { $ifNull: ["$sla_details.address.line2", ""] },
+//   //             ", ",
+//   //             "$sla_details.address.city",
+//   //             ", ",
+//   //             "$sla_details.address.district",
+//   //             ", ",
+//   //             "$sla_details.address.state",
+//   //             ", ",
+//   //             "$sla_details.address.pinCode",
+//   //             ", ",
+//   //             { $ifNull: ["$sla_details.address.country", ""] },
+//   //           ],
+//   //         },
+//   //       },
+//   //       poc: { $first: "$sla_details.point_of_contact.name" },
+//   //       branch: { $first: "$sla_details.schemes.branch" },
+//   //     },
+//   //   });
+
+//   //   aggregationPipeline.push({
+//   //     $sort: { [sortBy || "createdAt"]: -1, _id: -1 },
+//   //   });
+
+//   //   if (paginate == 1)
+//   //     aggregationPipeline.push(
+//   //       { $skip: parseInt(skip) },
+//   //       { $limit: parseInt(limit) }
+//   //     );
+
+//   //   const rows = await SchemeAssign.aggregate(aggregationPipeline);
+//   //   const countResult = await SchemeAssign.aggregate([
+//   //     { $match: matchQuery },
+//   //     { $count: "total" },
+//   //   ]);
+//   //   const count = countResult[0]?.total || 0;
+
+//   //   const records = { rows, count };
+//   //   if (paginate == 1) {
+//   //     records.page = parseInt(page);
+//   //     records.limit = parseInt(limit);
+//   //     records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
+//   //   }
+
+//   //   // if (isExport == 1) {
+//   //   //   return dumpJSONToExcel(req, res, {
+//   //   //     data: rows.map((item) => ({
+//   //   //       "Scheme Id": item?.schemeId || "NA",
+//   //   //       "Scheme Name": item?.schemeName || "NA",
+//   //   //       "Scheme Commodity": item?.Schemecommodity || "NA",
+//   //   //       season: item?.season || "NA",
+//   //   //       period: item?.period || "NA",
+//   //   //       procurement: item?.procurement || "NA",
+//   //   //     })),
+//   //   //     fileName: "Scheme-Assignments.xlsx",
+//   //   //     worksheetName: "Scheme Assignments",
+//   //   //   });
+//   //   // }
+//   //   return res.status(200).send(
+//   //     new serviceResponse({
+//   //       status: 200,
+//   //       data: records,
+//   //       message: _response_message.found("Scheme Assignments"),
+//   //     })
+//   //   );
+//   // }
+
+//   let matchQuery = search
+//     ? {
+//       $or: [
+//         { "slaId": { $regex: search, $options: "i" } }, 
+//         { "basic_details.name": { $regex: search, $options: "i" } },
+//         { "basic_details.email": { $regex: search, $options: "i" } },
+//         { "basic_details.mobile": { $regex: search, $options: "i" } },
+//       ],
+//       deletedAt: null,
+//     }
+//     : { deletedAt: null };
+
+//   if (state) matchQuery["address.state_id"] = convertToObjecId(state);
+
+//   let aggregationPipeline = [
+//     {
+//       $match: {
+//         ...matchQuery,
+//        "schemes.cna": { $in: [portalObjectId, userObjectId] }
+//       },
+//     },
+//     {
+//       $lookup: {
+//         from: "requests",
+//         localField: "schemes.cna",
+//         foreignField: "head_office_id",
+//         as: "requests",
+//         pipeline: [{$project: { _id: 1} }]
+
+//       }
+//     },
+//       { $unwind: { path: "$requests", preserveNullAndEmptyArrays: true } },
+
+//     {
+//        $lookup: {
+//         from: "batches",
+//         localField: "requests._id",
+//         foreignField: "req_id",
+//         as: "batches",
+//         pipeline: [{$project: { seller_id: 1} }]
+
+//       }
+//     },
+//       { $unwind: { path: "$batches", preserveNullAndEmptyArrays: true } },
+
+   
+//     //   { $match: matchQuery },
+//     {
+//       $lookup: {
+//         from: "schemeassigns",
+//         localField: "_id",
+//         foreignField: "sla_id",
+//         as: "schemeassigns",
+//         pipeline: [ { $match: {ho_id: convertToObjecId(portalId) } },  {$project: { bo_id: 1, scheme_id: 1, ho_id: 1} }]
+
+//       }
+//     },
+//     { $unwind: '$schemeassigns'},
+//     {
+//     $group: {
+//       _id: "$_id",
+//       slaId: { $first: "$slaId" },
+//       email: { $first: "$basic_details.email" },
+//       sla_name: { $first: "$basic_details.name" },
+//       address: { $first: "$address" },
+//       status: { $first: "$status" },
+//       poc: { $first: "$point_of_contact.name" },
+//       branch: { $first: "$schemes.branch" },
+//       sellerIds: { $addToSet: "$batches.seller_id" },
+//       schemeassigns: { $addToSet: "$schemeassigns" }
+
+//     }
+//   },
+//     {
+//       // $project: {
+//       //   _id: 1,
+//       //   slaId: 1,
+//       //   email: "$basic_details.email",
+//       //   sla_name: "$basic_details.name",
+//       //   associate_count: {$addToSet: "$batches.seller_id"}, //{ $size: "$associatOrder_id" },
+//       //   address: {
+//       //     $concat: [
+//       //       "$address.line1",
+//       //       ", ",
+//       //       { $ifNull: ["$address.line2", ""] },
+//       //       ", ",
+//       //       "$address.city",
+//       //       ", ",
+//       //       "$address.district",
+//       //       ", ",
+//       //       "$address.state",
+//       //       ", ",
+//       //       "$address.pinCode",
+//       //       ", ",
+//       //       { $ifNull: ["$address.country", ""] },
+//       //     ],
+//       //   },
+//       //   status: 1,
+//       //   poc: "$point_of_contact.name",
+//       //   branch: "$schemes.branch",
+//       // },
+
+//       $project: {
+//       _id: 1,
+//       slaId: 1,
+//       email: 1,
+//       sla_name: 1,
+//       associate_count: { $size: { $setDifference: ["$sellerIds", [null]] } }, // filter out nulls if any
+//       address: {
+//         $concat: [
+//           "$address.line1",
+//           ", ",
+//           { $ifNull: ["$address.line2", ""] },
+//           ", ",
+//           "$address.city",
+//           ", ",
+//           "$address.district",
+//           ", ",
+//           "$address.state",
+//           ", ",
+//           "$address.pinCode",
+//           ", ",
+//           { $ifNull: ["$address.country", ""] },
+//         ],
+//       },
+//       state_id: "$address.state_id",
+//       status: 1,
+//       poc: 1,
+//       branch: 1,
+//       schemeassigns: 1
+//     }
+//     },
+//   ];
+
+//   if (paginate == 1 && isExport != 1)
+//     aggregationPipeline.push(
+//       { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
+//       { $skip: parseInt(skip) },
+//       { $limit: parseInt(limit) }
+//     );
+
+//   const rows = await SLAManagement.aggregate(aggregationPipeline);
+
+//   if (isExport == 1) {
+
+//     return dumpJSONToExcel(req, res, {
+//       data: rows.map((item) => ({
+//         "SLA ID": item?.slaId || "NA",
+//         "SLA Name": item?.sla_name || "NA",
+//         "POINT OF CONTACT": item?.poc || "NA",
+//         "ASSOCIATE COUNT": item?.associate_count || "NA",
+//         "Address": item?.address || "NA",
+//         "Status": item?.status || "NA",
+//         // season: item?.season || "NA",
+//         // period: item?.period || "NA",
+//         // procurement: item?.procurement || "NA",
+//       })),
+//       fileName: `HO-SLA-record.xlsx`,
+//         worksheetName: `HO-SLA-record`,
+//     });
+//   }
+
+//   const countResult = await SLAManagement.aggregate([
+//     {
+//       $match: {
+//         ...matchQuery,
+//        "schemes.cna": { $in: [portalObjectId, userObjectId] }
+//       },
+//     },
+//     { $count: "total" },
+//   ]);
+//   const count = countResult[0]?.total || 0;
+
+//   return res.status(200).send(
+//     new serviceResponse({
+//       status: 200,
+//       data: {
+//         rows,
+//         count,
+//         page,
+//         limit,
+//         pages: limit != 0 ? Math.ceil(count / limit) : 0,
+//       },
+//       message: _response_message.found("Scheme"),
+//     })
+//   );
+// });
+
 module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
   const {
     page = 1,
     limit = 10,
-    skip = 0,
     paginate = 1,
     sortBy,
-    search = "",
+    search = '',
     isExport = 0,
     bo_id,
     ho_id,
@@ -127,213 +450,145 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
 
   const { portalId, user_id } = req;
 
-  
-const portalObjectId = new mongoose.Types.ObjectId(portalId);
-const userObjectId = new mongoose.Types.ObjectId(user_id);
+  const portalObjectId = new mongoose.Types.ObjectId(portalId);
+  const userObjectId = new mongoose.Types.ObjectId(user_id);
 
-  if (bo_id || scheme_id) {
-    let matchQuery = {
-      sla_id: { $exists: true },
-      deletedAt: null,
-      "schemes.cna": { $in: [portalObjectId, userObjectId] }
-    };
-    if (bo_id) matchQuery.bo_id = new ObjectId(bo_id);
-
-    if (scheme_id) matchQuery.scheme_id = new ObjectId(scheme_id);
-    let aggregationPipeline = [
-      { $match: matchQuery }, // Match `bo_id`, `ho_id`, `scheme_id`
-      { $addFields: { sla_id: { $toObjectId: "$sla_id" } } },
-      {
-        $lookup: {
-          from: "slas",
-          localField: "sla_id",
-          foreignField: "_id",
-          as: "sla_details",
-        },
-      },
-      { $unwind: { path: "$sla_details", preserveNullAndEmptyArrays: true } },
-    ];
-    if (state) {
-      aggregationPipeline.push({
-        $match: {
-          "sla_details.address.state": { $regex: state, $options: "i" },
-        },
-      });
-    }
-
-    aggregationPipeline.push({
-      $group: {
-        _id: "$sla_id",
-        bo_id: { $first: "$bo_id" },
-
-        scheme_id: { $first: "$scheme_id" },
-        assignQty: { $first: "$assignQty" },
-        status: { $first: "$status" },
-        slaId: { $first: "$sla_details.slaId" },
-        associate_count: { $first: { $size: "$sla_details.associatOrder_id" } },
-        sla_name: { $first: "$sla_details.basic_details.name" },
-        sla_email: { $first: "$sla_details.basic_details.email" },
-        sla_mobile: { $first: "$sla_details.basic_details.mobile" },
-        address: {
-          $first: {
-            $concat: [
-              "$sla_details.address.line1",
-              ", ",
-              { $ifNull: ["$sla_details.address.line2", ""] },
-              ", ",
-              "$sla_details.address.city",
-              ", ",
-              "$sla_details.address.district",
-              ", ",
-              "$sla_details.address.state",
-              ", ",
-              "$sla_details.address.pinCode",
-              ", ",
-              { $ifNull: ["$sla_details.address.country", ""] },
-            ],
-          },
-        },
-        poc: { $first: "$sla_details.point_of_contact.name" },
-        branch: { $first: "$sla_details.schemes.branch" },
-      },
-    });
-
-    aggregationPipeline.push({
-      $sort: { [sortBy || "createdAt"]: -1, _id: -1 },
-    });
-
-    if (paginate == 1)
-      aggregationPipeline.push(
-        { $skip: parseInt(skip) },
-        { $limit: parseInt(limit) }
-      );
-
-    const rows = await SchemeAssign.aggregate(aggregationPipeline);
-    const countResult = await SchemeAssign.aggregate([
-      { $match: matchQuery },
-      { $count: "total" },
-    ]);
-    const count = countResult[0]?.total || 0;
-
-    const records = { rows, count };
-    if (paginate == 1) {
-      records.page = parseInt(page);
-      records.limit = parseInt(limit);
-      records.pages = limit != 0 ? Math.ceil(count / limit) : 0;
-    }
-
-    // if (isExport == 1) {
-    //   return dumpJSONToExcel(req, res, {
-    //     data: rows.map((item) => ({
-    //       "Scheme Id": item?.schemeId || "NA",
-    //       "Scheme Name": item?.schemeName || "NA",
-    //       "Scheme Commodity": item?.Schemecommodity || "NA",
-    //       season: item?.season || "NA",
-    //       period: item?.period || "NA",
-    //       procurement: item?.procurement || "NA",
-    //     })),
-    //     fileName: "Scheme-Assignments.xlsx",
-    //     worksheetName: "Scheme Assignments",
-    //   });
-    // }
-    return res.status(200).send(
-      new serviceResponse({
-        status: 200,
-        data: records,
-        message: _response_message.found("Scheme Assignments"),
-      })
-    );
-  }
-
+  // Build match query for SLA
   let matchQuery = search
     ? {
-      $or: [
-        { "basic_details.name": { $regex: search, $options: "i" } },
-        { "basic_details.email": { $regex: search, $options: "i" } },
-        { "basic_details.mobile": { $regex: search, $options: "i" } },
-      ],
-      deletedAt: null,
-    }
+        $or: [
+          { slaId: { $regex: search, $options: 'i' } },
+          { 'basic_details.name': { $regex: search, $options: 'i' } },
+          { 'basic_details.email': { $regex: search, $options: 'i' } },
+          { 'basic_details.mobile': { $regex: search, $options: 'i' } },
+        ],
+        deletedAt: null,
+      }
     : { deletedAt: null };
 
-  if (state) matchQuery["address.state"] = { $regex: state, $options: "i" };
+  if (state) matchQuery['address.state_id'] = convertToObjecId(state);
 
-  let aggregationPipeline = [
+  // Build SchemeAssign filter
+  const schemeAssignMatch = {};
+  if (ho_id) schemeAssignMatch.ho_id = convertToObjecId(ho_id);
+  else schemeAssignMatch.ho_id = portalObjectId; // default to portalId
+  if (bo_id) schemeAssignMatch.bo_id = convertToObjecId(bo_id);
+  if (scheme_id) schemeAssignMatch.scheme_id = convertToObjecId(scheme_id);
+
+  // Base aggregation pipeline (shared between rows and count)
+  const basePipeline = [
     {
       $match: {
         ...matchQuery,
-       "schemes.cna": { $in: [portalObjectId, userObjectId] }
+        'schemes.cna': { $in: [portalObjectId, userObjectId] },
       },
     },
-    //   { $match: matchQuery },
+    {
+      $lookup: {
+        from: 'requests',
+        localField: 'schemes.cna',
+        foreignField: 'head_office_id',
+        as: 'requests',
+        pipeline: [{ $project: { _id: 1 } }],
+      },
+    },
+    {
+      $lookup: {
+        from: 'batches',
+        let: { reqIds: '$requests._id' },
+        as: 'batches',
+        pipeline: [
+          { $match: { $expr: { $in: ['$req_id', '$$reqIds'] } } },
+          { $project: { seller_id: 1 } },
+        ],
+      },
+    },
+    {
+      $lookup: {
+        from: 'schemeassigns',
+        localField: '_id',
+        foreignField: 'sla_id',
+        as: 'schemeassigns',
+        pipeline: [
+          { $match: schemeAssignMatch },
+          { $project: { bo_id: 1, scheme_id: 1, ho_id: 1 } },
+        ],
+      },
+    },
+    { $match: { 'schemeassigns.0': { $exists: true } } },
+    {
+      $addFields: {
+        associate_count: {
+          $size: {
+            $setDifference: [
+              { $map: { input: '$batches', as: 'b', in: '$$b.seller_id' } },
+              [null],
+            ],
+          },
+        },
+        addressStr: {
+          $concat: [
+            '$address.line1', ', ',
+            { $ifNull: ['$address.line2', ''] }, ', ',
+            '$address.city', ', ',
+            '$address.district', ', ',
+            '$address.state', ', ',
+            '$address.pinCode', ', ',
+            { $ifNull: ['$address.country', ''] },
+          ],
+        },
+      },
+    },
     {
       $project: {
         _id: 1,
         slaId: 1,
-        email: "$basic_details.email",
-        sla_name: "$basic_details.name",
-        associate_count: { $size: "$associatOrder_id" },
-        address: {
-          $concat: [
-            "$address.line1",
-            ", ",
-            { $ifNull: ["$address.line2", ""] },
-            ", ",
-            "$address.city",
-            ", ",
-            "$address.district",
-            ", ",
-            "$address.state",
-            ", ",
-            "$address.pinCode",
-            ", ",
-            { $ifNull: ["$address.country", ""] },
-          ],
-        },
+        email: '$basic_details.email',
+        sla_name: '$basic_details.name',
+        associate_count: 1,
+        address: '$addressStr',
+        state_id: '$address.state_id',
         status: 1,
-        poc: "$point_of_contact.name",
-        branch: "$schemes.branch",
+        poc: '$point_of_contact.name',
+        branch: '$schemes.branch',
+        schemeassigns: 1,
+        createdAt: 1,
       },
     },
   ];
 
-  if (paginate == 1 && isExport != 1)
-    aggregationPipeline.push(
-      { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
-      { $skip: parseInt(skip) },
-      { $limit: parseInt(limit) }
-    );
+  // Rows pipeline with optional pagination
+  const rowsPipeline = [
+    ...basePipeline,
+    ...(paginate == 1 && isExport != 1
+      ? [
+          { $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },
+          { $skip: (page - 1) * parseInt(limit) },
+          { $limit: parseInt(limit) },
+        ]
+      : []),
+  ];
 
-  const rows = await SLAManagement.aggregate(aggregationPipeline);
+  const rows = await SLAManagement.aggregate(rowsPipeline);
 
   if (isExport == 1) {
-
     return dumpJSONToExcel(req, res, {
-      data: rows.map((item) => ({
-        "SLA ID": item?.slaId || "NA",
-        "SLA Name": item?.sla_name || "NA",
-        "POINT OF CONTACT": item?.poc || "NA",
-        "ASSOCIATE COUNT": item?.associate_count || "NA",
-        "Address": item?.address || "NA",
-        "Status": item?.status || "NA",
-        // season: item?.season || "NA",
-        // period: item?.period || "NA",
-        // procurement: item?.procurement || "NA",
+      data: rows.map(item => ({
+        'SLA ID': item?.slaId || 'NA',
+        'SLA Name': item?.sla_name || 'NA',
+        'POINT OF CONTACT': item?.poc || 'NA',
+        'ASSOCIATE COUNT': item?.associate_count || 'NA',
+        Address: item?.address || 'NA',
+        Status: item?.status || 'NA',
       })),
       fileName: `HO-SLA-record.xlsx`,
-        worksheetName: `HO-SLA-record`,
+      worksheetName: `HO-SLA-record`,
     });
   }
 
-  const countResult = await SLAManagement.aggregate([
-    {
-      $match: {
-        ...matchQuery,
-       "schemes.cna": { $in: [portalObjectId, userObjectId] }
-      },
-    },
-    { $count: "total" },
-  ]);
+  // Count pipeline (same filters, no pagination)
+  const countPipeline = [...basePipeline, { $count: 'total' }];
+  const countResult = await SLAManagement.aggregate(countPipeline);
   const count = countResult[0]?.total || 0;
 
   return res.status(200).send(
@@ -346,113 +601,11 @@ const userObjectId = new mongoose.Types.ObjectId(user_id);
         limit,
         pages: limit != 0 ? Math.ceil(count / limit) : 0,
       },
-      message: _response_message.found("Scheme"),
+      message: _response_message.found('Scheme'),
     })
   );
 });
 
-// module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
-
-//     try {
-//         const { page = 1, limit = 10, search = '', sortBy = 'createdAt', isExport = 0 } = req.query;
-//         const userID = req.user._id
-
-//         // Convert page & limit to numbers
-//         const pageNumber = parseInt(page, 10);
-//         const pageSize = parseInt(limit, 10);
-
-//         // Define search filter (if search is provided)
-//         const searchFilter = search ? {
-//             $or: [
-//                 // { "basic_details.name": { $regex: search, $options: "i" } },
-//                 // { "basic_details.email": { $regex: search, $options: "i" } },
-//                 // { "basic_details.mobile": { $regex: search, $options: "i" } }
-
-//                 { "basic_details.name": { $regex: search, $options: "i" } },
-//                 { slaId: { $regex: search, $options: "i" } },
-//             ]
-//         }
-//             : {};
-
-//         // Sorting logic (default is createdAt descending)
-//         const sortOptions = {};
-//         if (sortBy) {
-//             sortOptions[sortBy] = -1; // Sort by given field in descending order
-//         }
-// console.log("searcchh",searchFilter);
-
-//         let pipeline = [
-//             {
-//                 $match: {
-//                     ...searchFilter,
-//                     "schemes.cna": userID
-//                 }
-//             },
-//             {
-//                 $project: {
-//                     _id: 1,
-//                     slaId: 1,
-//                     sla_name: "$basic_details.name",
-//                     associate_count: { $size: "$associatOrder_id" }, // Count of associated orders
-//                     address: {
-//                         $concat: [
-//                             "$address.line1", ", ",
-//                             { $ifNull: ["$address.line2", ""] }, ", ",
-//                             "$address.city", ", ",
-//                             "$address.district", ", ",
-//                             "$address.state", ", ",
-//                             "$address.pinCode", ", ",
-//                             { $ifNull: ["$address.country", ""] }, ", ",
-//                         ]
-//                     },
-//                     status: 1,
-//                     poc: "$point_of_contact.name",
-//                     branch: "$schemes.branch"
-//                 }
-//             },
-//             { $sort: sortOptions }
-//         ]
-//         // Fetch SLA records with projection
-//         let slaRecordsQuery = SLAManagement.aggregate(pipeline);
-
-//         // If exporting, return all data
-//         if (isExport === 1) {
-//             const slaRecords = await slaRecordsQuery;
-//             return res.status(200).json({
-//                 status: 200,
-//                 data: slaRecords,
-//                 message: "SLA records exported successfully"
-//             });
-//         }
-
-//         // Pagination
-//         const slaRecords = await slaRecordsQuery
-//             .skip((pageNumber - 1) * pageSize)
-//             .limit(pageSize);
-
-//         // Count total records for pagination
-//         const totalRecords = await SLAManagement.countDocuments({
-//             ...searchFilter,
-//             "schemes.cna": userID
-//         });
-
-//         return res.status(200).json({
-//             status: 200,
-//             data: slaRecords,
-//             totalRecords,
-//             currentPage: pageNumber,
-//             totalPages: Math.ceil(totalRecords / pageSize),
-//             message: "SLA records fetched successfully"
-//         });
-
-//     } catch (error) {
-//         console.error("Error fetching SLA records:", error);
-//         return res.status(500).json({
-//             status: 500,
-//             error: "Internal Server Error"
-//         });
-//     }
-// });
 
 module.exports.deleteSLA = asyncErrorHandler(async (req, res) => {
   try {
@@ -633,7 +786,7 @@ const userObjectId = new mongoose.Types.ObjectId(user_id);
       { $or: [{ slaId }, { _id: slaId }],
        "schemes.cna": { $in: [portalObjectId, userObjectId] }
        },
-      { $set: { status: status } },
+       { $set: { status: status ? "active" : "inactive" } },
       { new: true }
     );
 
@@ -950,36 +1103,169 @@ module.exports.getUniqueStates = async (req, res) => {
   }
 };
 
+// module.exports.getUniqueHOBOScheme = async (req, res) => {
+//   try {
+//     const data = await SchemeAssign.aggregate([
+//       {
+//         $match: {
+//           sla_id: { $exists: true, $ne: null }, // Ensure sla_id exists
+//           deletedAt: null, // Ensure deletedAt is null
+//         },
+//       },
+//       {
+//         $lookup: {
+//           from: "branches", // Reference Branch collection
+//           localField: "bo_id",
+//           foreignField: "_id",
+//           as: "boDetails",
+//         },
+//       },
+
+//       {
+//         $lookup: {
+//           from: "schemes", // Reference Scheme collection
+//           localField: "scheme_id",
+//           foreignField: "_id",
+//           as: "schemeDetails",
+//         },
+//       },
+//       // Unwind schemeDetails first
+
+// // Now lookup commodityDetails using the unwound schemeDetails.commodity_id
+// {
+//   $lookup: {
+//     from: 'commodities',
+//     localField: 'schemeDetails.commodity_id',
+//     foreignField: '_id',
+//     as: 'commodityDetails',
+//   },
+// },
+// {
+//   $unwind: {
+//     path: '$commodityDetails',
+//     preserveNullAndEmptyArrays: true,
+//   },
+// },
+
+//       {
+//         $group: {
+//           _id: null,
+
+//           bo: {
+//             $addToSet: {
+//               name: { $arrayElemAt: ["$boDetails.branchName", 0] },
+//               id: "$bo_id",
+//             },
+//           },
+//           scheme: {
+//             $addToSet: {
+//               id: "$scheme_id",
+//               name: {
+//                 $concat: [
+//                   {
+//                     $ifNull: [
+//                       { $arrayElemAt: ["$schemeDetails.schemeName", 0] },
+//                       "",
+//                     ],
+//                   },
+//                   "  ",
+//                   {
+//                     $ifNull: [
+//                       { $arrayElemAt: ["$commodityDetails.name", 0] },
+//                       "",
+//                     ],
+//                   },
+//                   "  ",
+//                   {
+//                     $ifNull: [
+//                       { $arrayElemAt: ["$schemeDetails.season", 0] },
+//                       "",
+//                     ],
+//                   },
+//                   "  ",
+//                   {
+//                     $ifNull: [
+//                       { $arrayElemAt: ["$schemeDetails.period", 0] },
+//                       "",
+//                     ],
+//                   },
+//                 ],
+//               },
+//             },
+//           },
+
+
+//           //  name: {
+//           //  $arrayElemAt: ["$schemeDetails.schemeName", 0] } }
+//           //  },
+//         },
+//       },
+//       {
+//         $project: { _id: 0, ho: 1, bo: 1, scheme: 1 },
+//       },
+//     ]);
+
+//     return res.status(200).json({
+//       status: 200,
+//       data: data.length > 0 ? data[0] : { ho: [], bo: [], scheme: [] },
+//     });
+//   } catch (error) {
+//     console.error("Aggregation Error:", error);
+//     return res
+//       .status(500)
+//       .json({ status: 500, message: "Internal Server Error" });
+//   }
+// };
+
+
 module.exports.getUniqueHOBOScheme = async (req, res) => {
   try {
     const data = await SchemeAssign.aggregate([
       {
         $match: {
-          sla_id: { $exists: true, $ne: null }, // Ensure sla_id exists
-          deletedAt: null, // Ensure deletedAt is null
+          sla_id: { $exists: true, $ne: null },
+          deletedAt: null,
         },
       },
       {
         $lookup: {
-          from: "branches", // Reference Branch collection
+          from: "branches",
           localField: "bo_id",
           foreignField: "_id",
           as: "boDetails",
         },
       },
-
       {
         $lookup: {
-          from: "schemes", // Reference Scheme collection
+          from: "schemes",
           localField: "scheme_id",
           foreignField: "_id",
           as: "schemeDetails",
         },
       },
       {
+        $unwind: {
+          path: "$schemeDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "commodities",
+          localField: "schemeDetails.commodity_id",
+          foreignField: "_id",
+          as: "commodityDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$commodityDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
         $group: {
           _id: null,
-
           bo: {
             $addToSet: {
               name: { $arrayElemAt: ["$boDetails.branchName", 0] },
@@ -991,39 +1277,26 @@ module.exports.getUniqueHOBOScheme = async (req, res) => {
               id: "$scheme_id",
               name: {
                 $concat: [
-                  {
-                    $ifNull: [
-                      { $arrayElemAt: ["$schemeDetails.schemeName", 0] },
-                      "",
-                    ],
-                  },
+                  { $ifNull: ["$schemeDetails.schemeName", ""] },
                   "  ",
-
-                  {
-                    $ifNull: [
-                      { $arrayElemAt: ["$schemeDetails.season", 0] },
-                      "",
-                    ],
-                  },
+                  { $ifNull: ["$commodityDetails.name", ""] },
                   "  ",
-                  {
-                    $ifNull: [
-                      { $arrayElemAt: ["$schemeDetails.period", 0] },
-                      "",
-                    ],
-                  },
+                  { $ifNull: ["$schemeDetails.season", ""] },
+                  "  ",
+                  { $ifNull: ["$schemeDetails.period", ""] },
                 ],
               },
             },
           },
-
-          //  name: {
-          //  $arrayElemAt: ["$schemeDetails.schemeName", 0] } }
-          //  },
         },
       },
       {
-        $project: { _id: 0, ho: 1, bo: 1, scheme: 1 },
+        $project: {
+          _id: 0,
+          ho: [],
+          bo: 1,
+          scheme: 1,
+        },
       },
     ]);
 
@@ -1032,7 +1305,7 @@ module.exports.getUniqueHOBOScheme = async (req, res) => {
       data: data.length > 0 ? data[0] : { ho: [], bo: [], scheme: [] },
     });
   } catch (error) {
-    console.error(error);
+    console.error("Aggregation Error:", error);
     return res
       .status(500)
       .json({ status: 500, message: "Internal Server Error" });

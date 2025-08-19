@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { handlePagination, handleRateLimit } = require("./middlewares/express_app");
+const { handlePagination } = require("./middlewares/express_app");
 const { helperRoutes } = require("./modules/api_helpers/Routes");
 const { S3Router } = require("./modules/aws/routes");
 const multer = require('multer');
@@ -22,36 +22,43 @@ const { bankIntegrationRoutes } = require("./modules/bankIntegration/Routes");
 const { dropDownRoutes } = require("./modules/dropDown/Routes");
 const { ekhridRoutes } = require("./modules/ekhrid/Routes");
 const { upagRoutes } = require("./modules/upag/Routes");
+const {commonAuth} = require("@middlewares/jwt")
 const { slaRoutes } = require("./modules/sla/Routes");
 // const { agristackchRoutes } = require("./modules/agristack/Routes");
 const { bulkImport } = require("./modules/importServices/Routes");
+const { nafedRoutes } = require("@modules/nafed-apis/routes");
+
 /* Define Your Routes */
 router.use(handlePagination)
-//router.use(handleRateLimit)
+//router.use(handleRateLimit)    //unnecessarily throws too many requests
 router.use(multer().any())
 
-router.use('/aws', S3Router)
-router.use("/master", masterRoutes);
+router.use('/aws', S3Router) 
+router.use("/master", masterRoutes); 
 router.use("/modules", FeatureRoutes)
 router.use("/agent", agentRoutes);
-router.use("/newsla", slaRoutes);
+router.use("/newsla", commonAuth ,slaRoutes);
 
-router.use('/helper', helperRoutes)
-router.use('/user', userManagementRoutes)
-router.use("/distiller", distillerRoutes);
-router.use("/associate", associateRoutes);
+router.use('/helper', helperRoutes) 
+router.use('/user', userManagementRoutes) 
+router.use("/distiller", distillerRoutes); 
+router.use("/associate", associateRoutes); 
 router.use("/farmer", farmerRoutes);
-router.use("/ho", headOfficeRoutes);
-router.use("/bo", branchOfficeoRoutes);
-router.use("/warehouse", wareHouseRoutes);
+router.use("/ho", headOfficeRoutes); 
+router.use("/bo", branchOfficeoRoutes); 
+router.use("/warehouse", wareHouseRoutes); 
 router.use("/auth", authRoutes)
-router.use("/nccf", nccfRoutes)
+router.use("/nccf", nccfRoutes) 
 router.use("/bank", bankIntegrationRoutes)
 router.use("/dropdown", dropDownRoutes);
-router.use("/ekhrid", ekhridRoutes);
+router.use("/ekhrid",commonAuth, ekhridRoutes);
 router.use("/upag", upagRoutes);
-//router.use("/agristack", agristackchRoutes);
+router.use("/distiler_visit", nafedRoutes);
 
 router.use('/', bulkImport)
+
+router.use("/dropdown", dropDownRoutes)
+router.use("/ekhrid", ekhridRoutes);
+router.use("/upag", upagRoutes);
 
 module.exports = { router };

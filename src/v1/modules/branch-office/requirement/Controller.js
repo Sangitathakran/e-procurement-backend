@@ -12,37 +12,62 @@ const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler")
 const moment = require("moment");
 const { dumpJSONToExcel } = require("@src/v1/utils/helpers");
 const mongoose = require("mongoose");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
+
 
 module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     const { user_id, portalId } = req;
     const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0, slaName, schemeName, commodity, state } = req.query;
 
-    let query = search ? {
-        $or: [
-            { "reqNo": { $regex: search, $options: 'i' } },
-            { "product.name": { $regex: search, $options: 'i' } },
-        ]
-    } : {};
-    if (schemeName) {
-        const scheme = await Scheme.findOne({ schemeName: { $regex: schemeName, $options: 'i' } }).select('_id');
-        if (scheme) {
-            query["product.schemeId"] = new mongoose.Types.ObjectId(scheme._id);
+    // let query = search ? {
+    //     $or: [
+    //         { "reqNo": { $regex: search, $options: 'i' } },
+    //         { "product.name": { $regex: search, $options: 'i' } },
+    //         { "product.schemeId.schemeName": { $regex: search, $options: 'i' } },
+    //     ]
+    // } : {};
+
+    let query = {};
+
+    if (search) {
+        const searchRegex = { $regex: search, $options: 'i' };
+
+        // Search for matching schemes based on search string
+        const matchingSchemes = await Scheme.find({
+            $or: [
+                { schemeName: searchRegex },
+                { schemeId: searchRegex }
+            ]
+        }).select('_id');
+
+        const matchingSchemeIds = matchingSchemes.map(s => s._id);
+
+        query.$or = [
+            { "reqNo": searchRegex },
+            { "product.name": searchRegex },
+        ];
+
+        // If any matching schemeIds found, include schemeId search
+        if (matchingSchemeIds.length > 0) {
+            query.$or.push({ "product.schemeId": { $in: matchingSchemeIds } });
         }
     }
-    
+
+    if (schemeName) {
+            query["product.schemeId"] = convertToObjecId(schemeName);
+    }
+
     if (slaName) {
-        const sla = await SLAManagement.findOne({ "basic_details.name": { $regex: slaName, $options: 'i' } }).select('_id');
-        if (sla) {
-            query["sla_id"] = sla._id;
-        }
+            query["sla_id"] = convertToObjecId(slaName);
+
     }
 
     if (commodity) {
-        query["product.name"] = { $regex: commodity, $options: 'i' };
+        query["product.commodity_id"] = convertToObjecId(commodity);
     }
 
     if (state) {
-        query["address.state"] = { $regex: state, $options: 'i' };
+        query["address.state_id"] = convertToObjecId(state);
     }
 
     query.branch_id = { $in: [user_id, portalId] };
@@ -51,40 +76,53 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     const selectValues = "reqNo product quotedPrice createdAt expectedProcurementDate deliveryDate address";
 
     records.rows = paginate == 1 ? await RequestModel.find(query).select(selectValues)
-        .populate({ path: "branch_id", select: "_id branchName branchId" })
+        .populate({ path: "branch_id", select: "_id branchName branchId state_id" })
         .populate({ path: "head_office_id", select: "_id company_details.name" })
-        .populate({ path: "product.schemeId", select: "_id schemeId schemeName season status" })
+        .populate({ path: "product.schemeId", select: "_id schemeId schemeName season status period" })
         .populate({ path: "product.commodity_id", select: "_id name" })
         .populate({ path: "sla_id", select: "_id basic_details.name" })
         .sort(sortBy)
         .skip(skip)
         .limit(parseInt(limit)) : await RequestModel.find(query).select(selectValues).sort(sortBy);
 
+    records.rows = records.rows.map((doc) => {
+        const obj = doc.toObject();
+        const commdityName = obj?.product?.name || '';
+        const schemeName = obj?.product?.schemeId?.schemeName || '';
+        const season = obj?.product?.schemeId?.season || '';
+        const period = obj?.product?.schemeId?.period || '';
+        const slaName = obj?.sla_id?.basic_details?.name || '';
+        obj.scheme_name = `${schemeName} ${commdityName} ${season} ${period}`;
+        obj.sla_name = slaName;
+        return obj;
+    });
+
     records.count = records.rows.length;
 
-    if (paginate == 1) {
+    if (paginate == 1 & isExport != 1) {
         records.page = parseInt(page);
         records.limit = parseInt(limit);
         records.pages = limit !== 0 ? Math.ceil(records.count / limit) : 0;
     }
 
     if (isExport == 1) {
-        const record = rows.map((item) => ({
-            "Order ID": item.reqNo || "NA",
-            "Commodity": item["product.name"] || "NA",
-            "Quantity": item["product.quantity"] || "NA",
-            "MSP": item.quotedPrice || "NA",
-            "Created On": item.createdAt || "NA",
-            "Expected Procurement": item.expectedProcurementDate || "NA",
-            "Expected Delivery Date": item.deliveryDate || "NA",
-            "Delivery Location": item["address.deliveryLocation"] || "NA",
+        const record = records.rows.map((item) => ({
+            "Order ID": item?.reqNo || "NA",
+            "SLA": item?.sla_name || "NA",
+            "SCHEME": item?.scheme_name || "NA",
+            "Commodity": item?.product?.name || "NA",
+            "Quantity": item?.product?.quantity || "NA",
+            "MSP": item?.quotedPrice || "NA",
+            "EST DELIVERY": item?.deliveryDate || "NA",
+            "COMPLETION": item?.expectedProcurementDate || "NA",
+            "CREATED DATE": item?.createdAt || "NA",
         }));
 
         if (record.length > 0) {
             dumpJSONToExcel(req, res, {
                 data: record,
-                fileName: Requirement-record.xlsx,
-                worksheetName: Requirement-record,
+                fileName: `Requirement-record.xlsx`,
+                worksheetName: `Requirement-record`,
             });
         } else {
             return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("requirement") }));
@@ -94,88 +132,100 @@ module.exports.getRequirements = asyncErrorHandler(async (req, res) => {
     }
 });
 
-
-
 module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
-    const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy, search = '', req_id, isExport = 0 } = req.query;
+    const {
+        page = 1,
+        limit = 10,
+        skip = 0,
+        paginate = 1,
+        sortBy,
+        search = '',
+        req_id,
+        isExport = 0
+    } = req.query;
 
     let matchQuery = { req_id: new mongoose.Types.ObjectId(req_id) };
 
-    let aggregationPipeline = [
+    let basePipeline = [
         { $match: matchQuery },
 
-        // Lookup seller details
         {
             $lookup: {
-                from: "users", 
+                from: "users",
                 localField: "seller_id",
                 foreignField: "_id",
-                pipeline : [
-                    { $project : { "basic_details.associate_details.organization_name":1, "basic_details.associate_details.associate_name": 1 } }
+                pipeline: [
+                    {
+                        $project: {
+                            "basic_details.associate_details.organization_name": 1,
+                            "basic_details.associate_details.associate_name": 1
+                        }
+                    }
                 ],
-        
-                as: "seller_id",
-            },
+                as: "seller_id"
+            }
         },
         { $unwind: { path: "$seller_id", preserveNullAndEmptyArrays: true } },
 
-        // Lookup procurement center details
         {
             $lookup: {
-                from: "procurementcenters", 
+                from: "procurementcenters",
                 localField: "procurementCenter_id",
                 foreignField: "_id",
                 pipeline: [
-                    { $project: { center_name: 1}}
+                    { $project: { center_name: 1 } }
                 ],
-                as: "procurementCenter_id",
-            },
+                as: "procurementCenter_id"
+            }
         },
         { $unwind: { path: "$procurementCenter_id", preserveNullAndEmptyArrays: true } },
 
-        // Lookup request details
         {
             $lookup: {
-                from: "requests", 
+                from: "requests",
                 localField: "req_id",
                 foreignField: "_id",
-                pipeline : [
-                    { $project : { "address.deliveryLocation":1 } }
+                pipeline: [
+                    { $project: { "address.deliveryLocation": 1 } }
                 ],
-                as: "req_id",
-            },
+                as: "req_id"
+            }
         },
         { $unwind: { path: "$req_id", preserveNullAndEmptyArrays: true } },
 
-        // Add  searchable fields
         {
             $addFields: {
                 associateName: "$seller_id.basic_details.associate_details.associate_name",
+                organizationName: "$seller_id.basic_details.associate_details.organization_name",
                 procurementCenterName: "$procurementCenter_id.center_name",
-                deliveryLocation: "$req_id.address.deliveryLocation",
-            },
-        },
+                deliveryLocation: "$req_id.address.deliveryLocation"
+            }
+        }
     ];
 
-    // Apply search filter
     if (search.trim()) {
         const escapeRegex = (text) => text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
         const searchTerm = escapeRegex(search.trim());
 
-        aggregationPipeline.push({
+        basePipeline.push({
             $match: {
                 $or: [
                     { batchId: { $regex: searchTerm, $options: "i" } },
                     { associateName: { $regex: searchTerm, $options: "i" } },
+                    { organizationName: { $regex: searchTerm, $options: "i" } },
                     { procurementCenterName: { $regex: searchTerm, $options: "i" } },
-                   // { deliveryLocation: { $regex: searchTerm, $options: "i" } },
-                ],
-            },
+                    // { deliveryLocation: { $regex: searchTerm, $options: "i" } },
+                ]
+            }
         });
     }
 
-    // Final projection
-    aggregationPipeline.push({
+    // Clone basePipeline for count before adding pagination/sorting
+    const countPipeline = [...basePipeline, { $count: "total" }];
+
+    // Projection + Pagination
+    const aggregationPipeline = [...basePipeline,
+    {
         $project: {
             _id: 1,
             batchId: 1,
@@ -190,9 +240,9 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
             final_quality_check: 1,
             receiving_details: 1,
             seller_id: 1,
-            procurementCenter_id:1,
+            procurementCenter_id: 1,
             req_id: 1,
-            farmerOrderIds:1,
+            farmerOrderIds: 1,
             qty: 1,
             goodsPrice: 1,
             totalPrice: 1,
@@ -214,8 +264,9 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
             createdAt: 1,
             updatedAt: 1
         }
-    });
-    
+    }
+    ];
+
     if (paginate == 1) {
         aggregationPipeline.push(
             { $sort: { [sortBy || "createdAt"]: -1, _id: -1 } },
@@ -226,13 +277,12 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
         aggregationPipeline.push({ $sort: { [sortBy || "createdAt"]: -1, _id: -1 } });
     }
 
-    const rows = await Batch.aggregate(aggregationPipeline);
+    const [rows, countResult] = await Promise.all([
+        Batch.aggregate(aggregationPipeline),
+        Batch.aggregate(countPipeline)
+    ]);
 
-    // Count Query
-    const countPipeline = [...aggregationPipeline.slice(0, -1), { $count: "total" }];
-    const countResult = await Batch.aggregate(countPipeline);
     const count = countResult[0]?.total || 0;
-
     const records = { rows, count };
 
     if (paginate == 1) {
@@ -248,24 +298,30 @@ module.exports.getBatchByReq = asyncErrorHandler(async (req, res) => {
             "Procurement Center": item?.procurementCenterName || "NA",
             "Quantity Procured": item?.qty || "NA",
             "Delivered On": item?.delivered_at ?? "NA",
-            "Batch Status": item?.status ?? "NA",
+            "Batch Status": item?.status ?? "NA"
         }));
 
         if (record.length > 0) {
-            dumpJSONToExcel(req, res, {
+            return dumpJSONToExcel(req, res, {
                 data: record,
                 fileName: `Requirement-Batch-record.xlsx`,
-                worksheetName: `Requirement-Batch-record`,
+                worksheetName: `Requirement-Batch-record`
             });
         } else {
-            return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
+            return res.status(200).send(new serviceResponse({
+                status: 200,
+                data: records,
+                message: _response_message.found("requirement")
+            }));
         }
-    } else {
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("requirement") }));
     }
+
+    return res.status(200).send(new serviceResponse({
+        status: 200,
+        data: records,
+        message: _response_message.found("requirement")
+    }));
 });
-
-
 
 module.exports.uploadRecevingStatus = asyncErrorHandler(async (req, res) => {
 

@@ -4,8 +4,12 @@ const { _userType, _userStatus } = require('@src/v1/utils/constants');
 const { _response_message } = require('@src/v1/utils/constants/messages');
 const { serviceResponse } = require('@src/v1/utils/helpers/api_response');
 const { asyncErrorHandler } = require('@src/v1/utils/helpers/asyncErrorHandler');
+const {LoginHistory} = require('@src/v1/models/master/loginHistery');
+const {sendResponse} = require('@src/v1/utils/helpers/api_response');
+const { _auth_module } = require('@src/v1/utils/constants/messages');
 const jwt = require('jsonwebtoken');
 
+const { loginHistory } = require('@src/v1/models/master/loginHistery');
 const tokenBlacklist = [];
 
 
@@ -21,6 +25,7 @@ exports.verifyDistiller = asyncErrorHandler(async (req, res, next) => {
     }
 
     jwt.verify(token, JWT_SECRET_KEY, async function (err, decodedToken) {
+
         if (err) {
             if (err.name === 'TokenExpiredError') {
                 return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: "Token has expired" }] }));
@@ -29,8 +34,15 @@ exports.verifyDistiller = asyncErrorHandler(async (req, res, next) => {
 
         }
 
-        const userExist = await Distiller.findOne({ _id: decodedToken.user_id })
+        let loginHistory = await LoginHistory.findOne({ token: token, logged_out_at: null }).sort({ createdAt: -1 });
 
+        if (!loginHistory) {
+            return sendResponse({ res, status: 401, message: "error while decode not found", errors: _auth_module.tokenExpired });
+        }
+
+        // const userExist = await Distiller.findOne({ _id: decodedToken.organization_id })
+        const userExist = await Distiller.findOne({ _id: decodedToken.user.portalId })
+        //  const userExist = await Distiller.findOne({ _id: decodedToken.user_id })
         if (!userExist) {
             return res.status(200).send(new serviceResponse({ status: 401, errors: [{ message: _response_message.notFound("User") }] }));
         }
@@ -50,7 +62,7 @@ exports.verifyDistiller = asyncErrorHandler(async (req, res, next) => {
         })
         // req.headers = decodedToken;
         // if (req.url === '/onboarding' || req.url === '/onboarding-status' || req.url === '/find-user-status' || req.url === '/final-submit' || req.url === '/manfacturing-unit' || req.url === '/storage-facility') {
-        if (req.url === '/onboarding' || req.url === '/onboarding-status' || req.url === '/find-user-status' || req.url === '/final-submit' || req.url === '/manfacturing-unit' || req.url === '/storage-facility' || req.url.split("?")[0]==="/storage-facility" ||req.url.split("?")[0]==="/manfacturing-unit") {
+        if (req.url === '/onboarding' || req.url === '/onboarding-status' || req.url === '/find-user-status' || req.url === '/final-submit' || req.url === '/manfacturing-unit' || req.url === '/storage-facility' || req.url.split("?")[0] === "/storage-facility" || req.url.split("?")[0] === "/manfacturing-unit") {
             next();
         } else if (userExist.is_approved == _userStatus.approved) {
             if (decodedToken.user_type != _userType.distiller) {

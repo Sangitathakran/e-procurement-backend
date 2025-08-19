@@ -6,6 +6,21 @@ dotenv.config({
     path: path.resolve(__dirname, `../.env`)
 });
 
+
+const procurement_partners = {
+    Radiant: "Radiant",
+    Youkta: "Youkta",
+    Beam: "Beam",
+    Agribid: "Agribid",
+    Supplyvalid: "Supplyvalid",
+    NEML: "NEML",
+    Others: "Others"
+};
+const {
+    HEADOFFICE, BRANCHOFFICE, ADMIN, DISTILLER, NCCF_DISTILLER, WAREHOUSE, FARMER, SLA, ASSOCIATE
+} = process.env;
+
+
 module.exports = {
     // Server 
     NODE_ENV: process.env.NODE_ENV,
@@ -13,10 +28,19 @@ module.exports = {
     webSocketPort: process.env.WEBSOCKETPORT || 8080,
     rootDir: path.resolve('./'),
     apiVersion: process.env.API_VERSION,
+    APP_URL:process.env.APP_URL,
+    REDIRECT_URL :`${process.env.APP_URL}/v1/bank/payment-status`,
+    CANCEL_URL :`${process.env.DISTILLER}/distiller/penaltyorders`,
+    SCCUESS_URL :`${process.env.DISTILLER}/distiller/purchaseOrder/myorders`,
     // Default Secret Key For Auth Token
     JWT_SECRET_KEY: process.env.SECRET_KEY,
+    THIRD_PARTY_JWT_SECRET: process.env.THIRD_PARTY_JWT_SECRET,
+    THIRD_PARTY_API_KEY: process.env.THIRD_PARTY_API_KEY,
     connection_string: process.env.CONNECTION_STRING,
     platform_org: process.env.PLATFORM_ORG,
+    app_name: process.env.APP_NAME,
+    license_key: process.env.LICENSE_KEY,
+
     app_name: process.env.APP_NAME,
     license_key: process.env.LICENSE_KEY,
     mailer: {
@@ -39,8 +63,16 @@ module.exports = {
         bucketName: process.env.BUCKET_NAME
     },
     logEmails: 'imran@radiantinfonet.com , maneesh@radiantinfonet.com ,ayush@navankur.org , dileep@radiantinfonet.com',
-    AADHAR_SERVICE_PROVIDER_KEY : process.env.AADHAR_VERIFICATION_API_KEY,
-    AADHAR_SERVICE_PROVIDER : process.env.AADHAR_VERIFICATION_API_PROVIDER,
+    AADHAR_SERVICE_PROVIDER_KEY: process.env.AADHAR_VERIFICATION_API_KEY,
+    AADHAR_SERVICE_PROVIDER: process.env.AADHAR_VERIFICATION_API_PROVIDER,
+    PG_ENV:process.env.PG_ENV,
+    MERCHANT_ID:process.env.MERCHANT_ID,
+    ACCESS_CODE:process.env.ACCESS_CODE,
+    WORKING_KEY:process.env.WORKING_KEY,
+    BANK_VERIFICATION_API_KEY: process.env.BANK_VERIFICATION_API_KEY,
+    BANK_VERIFICATION_API_PROVIDER: process.env.BANK_VERIFICATION_API_PROVIDER,
+    ON_GRID_BASE_URL: process.env.ON_GRID_BASE_URL,
+    procurement_partners:procurement_partners,
     app_name: process.env.APP_NAME,
     license_key: process.env.LICENSE_KEY,
     UPAG_BASE_URL: process.env.UPAG_BASE_URL,
@@ -50,8 +82,33 @@ module.exports = {
     UPAG_PASSWORD: process.env.UPAG_PASSWORD,
      // adher servcies
     AADHAR_VERIFICATION_API_KEY:process.env.AADHAR_VERIFICATION_API_KEY,
-    BANK_VERIFICATION_API_KEY:process.env.BANK_VERIFICATION_API_KEY,
-    ON_GRID_BASE_URL:process.env.ON_GRID_BASE_URL,
-    VERFICATION:process.env.VERFICATION
+    VERFICATION:process.env.VERFICATION,
+
+     // AWS SES
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION,
+    sourceEmail: process.env.AWS_SOURCE_EMAIL,
+    mailProvider:  'mailtrap', 
+
+    // FRONTEND URLS
+    FRONTEND_URLS: {
+  'head-office': process.env.HEADOFFICE,
+  'branch-office': process.env.BRANCHOFFICE,
+  admin: process.env.ADMIN,
+  distiller: process.env.DISTILLER,
+  Nccfadmin: process.env.NCCF_DISTILLER,
+  warehouse: process.env.WAREHOUSE,
+  farmer: process.env.FARMER,
+  agent: process.env.SLA,
+  associate: process.env.ASSOCIATE,
+},
+
+REDIS_CRED: {
+REDIS_HOST: process.env.REDIS_HOST,
+REDIS_PORT: process.env.REDIS_PORT,
+REDIS_DB: process.env.REDIS_DB,
+REDIS_URL: process.env.REDIS_URL,
+},
 
 }

@@ -13,6 +13,7 @@ const { PurchaseOrderModel } = require("@src/v1/models/app/distiller/purchaseOrd
 const { TrackOrder } = require("@src/v1/models/app/warehouse/TrackOrder");
 const { Truck } = require("@src/v1/models/app/warehouse/Truck");
 const { _trackOrderStatus } = require("@src/v1/utils/constants");
+const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 
 module.exports.warehousedata = async (req, res) => {
     try {
@@ -126,6 +127,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         ownerName = '',
         state = '',
         city = '',
+        commodity,
         isExport = 0
     } = req.query;
 
@@ -137,13 +139,12 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                 [item]: { $regex: search, $options: 'i' }
             }))
         });
-
         const query = search ? makeSearchQuery(searchFields) : {};
         if (ownerName) {
             query["warehouseOwner.ownerDetails.name"] = { $regex: ownerName, $options: "i" };
         }
         if (state) {
-            query["addressDetails.state.state_name"] = { $regex: state, $options: "i" };
+            query["addressDetails.state.state_id"] = convertToObjecId(state);
         }
 
         if (city) {
@@ -186,9 +187,50 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                     ]
                 }
             },
+             {
+                $addFields: {
+                commodity: {
+                    $arrayElemAt: [
+                    {
+                        $map: {
+                        input: "$batches",
+                        as: "batch",
+                        in: "$$batch.requests.product.name"
+                        }
+                    },
+                    0
+                    ]
+                },
+                commodity_id: {
+                    $arrayElemAt: [
+                    {
+                        $map: {
+                        input: "$batches",
+                        as: "batch",
+                        in: "$$batch.requests.product.commodity_id"
+                        }
+                    },
+                    0
+                    ]
+                },
+                availableQty: {
+                    $round: [{ $sum: "$batches.available_qty" }, 3]
+                },
+                qty: {
+                    $round: [{ $sum: "$batches.qty" }, 3]
+                }
+                }
+             },
             { $unwind: { path: "$warehouseOwner", preserveNullAndEmptyArrays: true } },
             // { $unwind: { path: "$batches", preserveNullAndEmptyArrays: true } },
-            { $match: {...query,active:true} },
+          //  { $match: {...query,active:true} },
+            {
+                $match: {
+                ...(commodity ? { commodity_id: new mongoose.Types.ObjectId(commodity) } : {}),
+                active: true,
+                ...query
+                }
+            },
             {
                 $project: {
                     wareHouse_code: 1,
@@ -199,6 +241,11 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                     "batches.dispatched.qc_report.received_qc_status":1,
                     'batches.requests.product':1,
                     'batches.users.basic_details.associate_details.associate_name':1,
+                    availableQty: {
+                        $round: [{ $sum: '$batches.available_qty' }, 3]
+                    },
+                    commodity: 1,
+                    commodity_id: 1,
                     createdAt: 1
                 }
             },
@@ -206,6 +253,20 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
             { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) },
         ];
+        const sumPipeline = [
+        
+        ...pipeline.slice(0, -3),
+        {
+            $group: {
+            _id: null,
+            totalAvailableQty: { $sum: "$availableQty" },
+            totalCapacity: {$sum: "$basicDetails.warehouseCapacity"}
+            },
+           
+        }
+        ];
+
+
         if (isExport == 1) {
             const data = await wareHouseDetails.aggregate([...pipeline.slice(0, -2)]);
     
@@ -233,8 +294,13 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
             }
 
         }
-        const records = { count: 0, rows: [] };
+        const records = { count: 0, totalAvailableQty:0, totalCapacity: 0, rows: [] };
         records.rows = await wareHouseDetails.aggregate(pipeline);
+
+        const grandTotals = await wareHouseDetails.aggregate(sumPipeline);
+        records.totalAvailableQty = (grandTotals[0]?.totalAvailableQty ?? 0).toFixed(3);
+        records.totalCapacity = (grandTotals[0]?.totalCapacity ?? 0).toFixed(3);
+
 
         const countResult = await wareHouseDetails.aggregate([...pipeline.slice(0, -3), { $count: "count" }]);
         records.count = countResult?.[0]?.count ?? 0;
@@ -323,8 +389,8 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
             { $unwind: { path: "$procurementcenter", preserveNullAndEmptyArrays: true } },
             {
                 $match: {
-                    ...(commodity ? { "request.product.name": { $regex: commodity, $options: "i" } } : {}),
-                    ...(associateName ? { "user.basic_details.associate_details.associate_name": { $regex: associateName, $options: "i" } } : {}),
+                    ...(commodity ? { "request.product.commodity_id": new mongoose.Types.ObjectId(commodity) } : {}),
+                    ...(associateName ? { "user._id": convertToObjecId(associateName) } : {}),
                     ...(qcStatus ? { "final_quality_check.status": { $regex: qcStatus, $options: "i" } } : {})
                 }
             },
@@ -337,12 +403,27 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
                     "request.product": 1,
                     "user.basic_details.associate_details.associate_name": 1,
                     "procurementcenter.center_name": 1,
+                    available_qty: 1,
+                    qty: 1
                 }
             },
             { $sort: sortBy },
             { $skip: (page - 1) * limit },
             { $limit: parseInt(limit) },
         ]
+
+        const sumPipeline = [
+        
+        ...pipeline.slice(0, -3),
+        {
+            $group: {
+            _id: null,
+            totalAvailableQty: { $sum: "$available_qty" },
+            totalQty: { $sum: "$qty" }
+            }
+        }
+        ];
+
 
         if (isExport == 1) {
             const data = await Batch.aggregate([...pipeline.slice(0, -2)]);
@@ -373,9 +454,14 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
             }
 
         }
-        const records = { count: 0, rows: [] };
+        const records = { count: 0, totalQty:0, totalAvailableQty: 0, rows: [] };
         records.rows = await Batch.aggregate(pipeline)
+        const grandTotals = await Batch.aggregate(sumPipeline);
+        records.totalAvailableQty = (grandTotals[0]?.totalAvailableQty ?? 0).toFixed(3);
+        records.totalQty = (grandTotals[0]?.totalQty ?? 0).toFixed(3);
+
         const countResult = await Batch.aggregate([...pipeline.slice(0, -3), { $count: "count" }]);
+
         records.count = countResult?.[0]?.count ?? 0;
         records.page = page;
         records.limit = limit;

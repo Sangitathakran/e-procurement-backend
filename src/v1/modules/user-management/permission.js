@@ -2,20 +2,17 @@ const { FeatureList } = require("@src/v1/models/master/FeatureList")
 const { TypesModel } = require("@src/v1/models/master/Types")
 
 
-module.exports.getPermission = async (response) => { 
-
+module.exports.getPermission = async (response) => {
   const typeData = await TypesModel.find()
-  const type = typeData.reduce((acc, item)=>[...acc, item.featureType], [])
-  const user_type = typeData.find(item=>item.user_type===response.user_type)
-  const featureType = user_type.featureType 
-  if(!type.includes(featureType)){
-      throw new Error('Invalid feature type')
+  const type = typeData.reduce((acc, item) => [...acc, item.featureType], [])
+  const user_type = typeData.find(item => item.user_type === response.user_type)
+  const featureType = user_type.featureType
+  if (!type.includes(featureType)) {
+    throw new Error('Invalid feature type')
   }
-  const featureListDoc = await FeatureList.find({featureType:featureType})
+  const featureListDoc = await FeatureList.find({ featureType: featureType })
   const featureList = JSON.parse(JSON.stringify(featureListDoc))
   const resultArray = JSON.parse(JSON.stringify(response.userRole));
-  console.log("result ", resultArray);
-  
 
   const mergedResultsArray = [];
 
@@ -75,30 +72,30 @@ module.exports.getPermission = async (response) => {
   const arrayC = this.mergeArrays(featureList, mergedResultsArray);
 
 
-const generateFeatureCode = (featureName) => {
+  const generateFeatureCode = (featureName) => {
 
     const featureNameArray = featureName.split(" ")
-    const featureCode = featureNameArray.reduce((code, item)=> code.concat(item.trim().slice(0,2)), '')
-    
-    if(featureCode.length < 3){
-        const modifiedFeatureCode = featureCode.concat('FE')
-        return modifiedFeatureCode.toUpperCase()
-    }else{
-        return featureCode.toUpperCase()
+    const featureCode = featureNameArray.reduce((code, item) => code.concat(item.trim().slice(0, 2)), '')
+
+    if (featureCode.length < 3) {
+      const modifiedFeatureCode = featureCode.concat('FE')
+      return modifiedFeatureCode.toUpperCase()
+    } else {
+      return featureCode.toUpperCase()
     }
-}
-const generateSubFeatureCode = (subFeatureName) => {
+  }
+  const generateSubFeatureCode = (subFeatureName) => {
 
     const subFeatureNameArray = subFeatureName.split(" ")
-    const subFeatureCode = subFeatureNameArray.reduce((code, item)=> code.concat(item.trim().slice(0,2)), '')
-    
-    if(subFeatureCode.length < 3){
-        const modifiedSubFeatureCode = subFeatureCode.concat('SF')
-        return modifiedSubFeatureCode.toUpperCase()
-    }else{
-        return subFeatureCode.toUpperCase()
+    const subFeatureCode = subFeatureNameArray.reduce((code, item) => code.concat(item.trim().slice(0, 2)), '')
+
+    if (subFeatureCode.length < 3) {
+      const modifiedSubFeatureCode = subFeatureCode.concat('SF')
+      return modifiedSubFeatureCode.toUpperCase()
+    } else {
+      return subFeatureCode.toUpperCase()
     }
-}
+  }
 
   function convertPermissions(permissions) {
     const convertedPermissions = {};
@@ -162,68 +159,67 @@ const generateSubFeatureCode = (subFeatureName) => {
 }
 
 function mergeObjects(obj1, obj2) {
-    const merged = { ...obj1 };
-  
-  
-    for (const key in obj2) {
-      if (typeof obj2[key] === 'object' && !Array.isArray(obj2[key])) {
-        // console.log(obj1[key])
-        // console.log(obj2[key])
-        merged[key] = mergeObjects(obj1[key], obj2[key]);
-      } 
-      
-      else if (key === "subFeatures" && Array.isArray(obj1[key]) && Array.isArray(obj2[key])) 
-      {
-        const subFeatureNames = new Set();
-        
-        const mergedSubFeatures = obj1[key].map((subFeatureA) => {
-          const matchingSubFeatureB = obj2[key].find(
-            (subFeatureB) => subFeatureB.subFeatureName.toLowerCase() === subFeatureA.subFeatureName.toLowerCase()
-          );
-  
-          if (matchingSubFeatureB) {
-            subFeatureNames.add(subFeatureA.subFeatureName);
-            return mergeObjects(subFeatureA, matchingSubFeatureB);
-          } else {
-            return { ...subFeatureA };
-          }
-        });
-  
-        obj2[key].forEach((subFeatureB) => {
-          if (!subFeatureNames.has(subFeatureB.subFeatureName)) {
-            mergedSubFeatures.push({ ...subFeatureB });
-          }
-        });
-  
-        merged[key] = mergedSubFeatures;
-  
-      } else {
-        merged[key] = obj2[key];
-        // console.log(merged[key])
-      }
+  const merged = { ...obj1 };
+
+
+  for (const key in obj2) {
+    if (typeof obj2[key] === 'object' && !Array.isArray(obj2[key])) {
+      // console.log(obj1[key])
+      // console.log(obj2[key])
+      merged[key] = mergeObjects(obj1[key], obj2[key]);
     }
-  
-    return merged;
+
+    else if (key === "subFeatures" && Array.isArray(obj1[key]) && Array.isArray(obj2[key])) {
+      const subFeatureNames = new Set();
+
+      const mergedSubFeatures = obj1[key].map((subFeatureA) => {
+        const matchingSubFeatureB = obj2[key].find(
+          (subFeatureB) => subFeatureB.subFeatureName.toLowerCase() === subFeatureA.subFeatureName.toLowerCase()
+        );
+
+        if (matchingSubFeatureB) {
+          subFeatureNames.add(subFeatureA.subFeatureName);
+          return mergeObjects(subFeatureA, matchingSubFeatureB);
+        } else {
+          return { ...subFeatureA };
+        }
+      });
+
+      obj2[key].forEach((subFeatureB) => {
+        if (!subFeatureNames.has(subFeatureB.subFeatureName)) {
+          mergedSubFeatures.push({ ...subFeatureB });
+        }
+      });
+
+      merged[key] = mergedSubFeatures;
+
+    } else {
+      merged[key] = obj2[key];
+      // console.log(merged[key])
+    }
+  }
+
+  return merged;
 }
-  
+
 module.exports.mergeArrays = (arrayA, arrayB) => {
-      
-    const mergedArray = arrayA.map((itemA) => {
-        
-      const matchingItemB = arrayB.find((itemB) => itemB.featureName.toLowerCase() === itemA.featureName.toLowerCase());
-  
-      if (matchingItemB) {
-          return mergeObjects(itemA, matchingItemB);
-      } else {
-  
-        // console.log("itemA-->", itemA)
-        // console.log("{...itemA} --> ", { ...itemA})
-  
-        return { ...itemA };
-      
-      }
-  
-    });
-  
-    return mergedArray;
+
+  const mergedArray = arrayA.map((itemA) => {
+
+    const matchingItemB = arrayB.find((itemB) => itemB.featureName.toLowerCase() === itemA.featureName.toLowerCase());
+
+    if (matchingItemB) {
+      return mergeObjects(itemA, matchingItemB);
+    } else {
+
+      // console.log("itemA-->", itemA)
+      // console.log("{...itemA} --> ", { ...itemA})
+
+      return { ...itemA };
+
+    }
+
+  });
+
+  return mergedArray;
 }
