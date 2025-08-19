@@ -1,41 +1,27 @@
-// getting-started.js
 const mongoose = require('mongoose');
 const connection = mongoose.connection
 const { connection_string } = require('.');
 const redisService = require('@src/common/services/RedisService');
 const { cacheStatesData } = require('@src/v1/utils/helpers/redisCacheHelper');
 
-// const options = {
-//     maxPoolSize: 10,  // Adjust the pool size according to your needs
-//     serverSelectionTimeoutMS: 5000,  // Keep trying to send operations for 5 seconds
-//     socketTimeoutMS: 45000,  // Close sockets after 45 seconds of inactivity
-// };
 const options = {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    maxPoolSize: 50,  // Adjust the pool size according to your needs
-    serverSelectionTimeoutMS: 60000,  // Keep trying to send operations for 5 seconds
-    socketTimeoutMS: 60000,  // Close sockets after 45 seconds of inactivity
-    connectTimeoutMS: 1800000, // 30 minute
-
-    // connectTimeoutMS: 30000,     // 30 seconds
-    // socketTimeoutMS: 60000,      // 60 seconds
-    // serverSelectionTimeoutMS: 60000 // Server discovery
+    maxPoolSize: 50,  
+    serverSelectionTimeoutMS: 60000,  
+    socketTimeoutMS: 60000,  
+    connectTimeoutMS: 1800000, 
+     readPreference: "secondaryPreferred", 
+    
 };
 
 main().catch(err => console.log(err));
 
-// async function main() {
-//     await mongoose.connect(`${connection_string}`, options);
-// }
-
 async function main() {
     await mongoose.connect(`${connection_string}`);
 
-    // connect to redis
     await redisService.connect();
 
-    // Cache states data
     await cacheStatesData();
 }
 
@@ -52,10 +38,10 @@ async function fetchFromCollection(collectionName, query = {}, projection = {}) 
     try {
         const collection = connection.collection(collectionName);
         const results = await collection.find(query, { projection }).toArray();
-        return results || []; // Ensure it returns an array
+        return results || []; 
     } catch (error) {
-        console.error(`❌ Failed to fetch from ${collectionName}:`, error);
-        return []; // Return empty array on error to avoid crashing
+        console.error(` Failed to fetch from ${collectionName}:`, error);
+        return [];
     }
 }
 
