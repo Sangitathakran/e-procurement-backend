@@ -740,6 +740,18 @@ module.exports.batchApprove = async (req, res) => {
 
         await PaymentLogsHistory.insertMany(paymentLogs)
 
+        // Insert logs only for newly approved batches
+        const logs = batchIds.map(batchId => ({
+            entityType: _approvalEntityType.Batch,
+            entityId: batchId,
+            level: _approvalLevel.HO, // adjust dynamically if needed
+            action: _paymentApproval.approved,
+            approvedBy: portalId,
+            approvedAt: new Date(),
+        }));
+
+        await ApprovalLog.insertMany(logs);
+
         return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
 
     } catch (error) {
@@ -1415,10 +1427,10 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
             ];
         }
         if (commodity) baseMatch["product.commodity_id"] = convertToObjecId(commodity);
-        if(scheme){
+        if (scheme) {
             baseMatch["product.schemeId"] = convertToObjecId(scheme);
         }
-        if(branchName){
+        if (branchName) {
             baseMatch['branch_id'] = convertToObjecId(branchName)
         }
 
@@ -1431,7 +1443,7 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
             .lean();
 
         const requestIds = requests.map(r => r._id);
-        
+
         // Step 4: Fetch all batches in bulk
         const batches = await Batch.find({ req_id: { $in: requestIds } }, {
             _id: 1, req_id: 1, qty: 1, totalPrice: 1, batchId: 1, bo_approve_status: 1

@@ -2358,6 +2358,18 @@ module.exports.associateBillReject = async (req, res) => {
         },
       }
     );
+    
+    // Insert logs only for newly approved batches
+    const logs = fetchedBatchIds.map(batchId => ({
+      entityType: _approvalEntityType.Batch,
+      entityId: batchId,
+      level: _approvalLevel.Admin, // adjust dynamically if needed
+      action: _paymentApproval.rejected,
+      approvedBy: null,
+      approvedAt: null,
+    }));
+
+    await ApprovalLog.insertMany(logs);
 
     return res.status(200).send(
       new serviceResponse({
