@@ -3,7 +3,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType, _paymentstatus, _batchStatus, _associateOfferStatus, _paymentApproval, received_qc_status } = require('@src/v1/utils/constants');
+const { _userType, _paymentstatus, _batchStatus, _associateOfferStatus, _paymentApproval, received_qc_status,   _approvalLevel, _approvalEntityType } = require('@src/v1/utils/constants');
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
@@ -19,7 +19,7 @@ const SLA = require("@src/v1/models/app/auth/SLAManagement");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches")
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
-
+const { ApprovalLog } = require("@src/v1/models/app/procurement/ApprovalHistory");
 
 const validateMobileNumber = async (mobile) => {
     let pattern = /^[0-9]{10}$/;
@@ -726,6 +726,18 @@ module.exports.batchApprove = async (req, res) => {
         if (result.matchedCount === 0) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
         }
+         // Insert logs only for newly approved batches
+        const batchLogs = batchIds.map(batchId => ({
+            entityType: _approvalEntityType.Batch,
+            entityId: batchId,
+            level: _approvalLevel.BO, // adjust dynamically if needed
+            action: _paymentApproval.approved,
+            approvedBy: portalId,
+            approvedAt: new Date(),
+        }));
+
+        await ApprovalLog.insertMany(batchLogs);
+
         await Payment.updateMany(
             { batch_id: { $in: batchIds } },
             { $set: { bo_approve_status: _paymentApproval.approved, bo_approve_at: new Date(), bo_approve_by: portalId } }
@@ -741,16 +753,16 @@ module.exports.batchApprove = async (req, res) => {
         await PaymentLogsHistory.insertMany(paymentLogs)
 
         // Insert logs only for newly approved batches
-        const logs = batchIds.map(batchId => ({
-            entityType: _approvalEntityType.Batch,
+        const paymentLogs = batchIds.map(batchId => ({
+            entityType: _approvalEntityType.Payment,
             entityId: batchId,
-            level: _approvalLevel.HO, // adjust dynamically if needed
+            level: _approvalLevel.BO, // adjust dynamically if needed
             action: _paymentApproval.approved,
             approvedBy: portalId,
             approvedAt: new Date(),
         }));
 
-        await ApprovalLog.insertMany(logs);
+        await ApprovalLog.insertMany(paymentLogs);
 
         return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
 
