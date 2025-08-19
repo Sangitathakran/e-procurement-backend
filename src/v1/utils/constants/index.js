@@ -715,6 +715,7 @@ const _approvalEntityType = {
 
 const _approvalLevel = {
     SLA: "SLA",
+    Admin: "Admin",
     BO: "BO",
     HO: "HO"
 };
