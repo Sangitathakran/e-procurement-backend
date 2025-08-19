@@ -3,7 +3,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType, _paymentstatus, _batchStatus, _associateOfferStatus, _paymentApproval, received_qc_status,   _approvalLevel, _approvalEntityType } = require('@src/v1/utils/constants');
+const { _userType, _paymentstatus, _batchStatus, _associateOfferStatus, _paymentApproval, received_qc_status, _approvalLevel, _approvalEntityType } = require('@src/v1/utils/constants');
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
@@ -726,7 +726,7 @@ module.exports.batchApprove = async (req, res) => {
         if (result.matchedCount === 0) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
         }
-         // Insert logs only for newly approved batches
+        // Insert logs only for newly approved batches
         const batchLogs = batchIds.map(batchId => ({
             entityType: _approvalEntityType.Batch,
             entityId: batchId,
@@ -753,7 +753,7 @@ module.exports.batchApprove = async (req, res) => {
         await PaymentLogsHistory.insertMany(paymentLogs)
 
         // Insert logs only for newly approved batches
-        const paymentLogs = batchIds.map(batchId => ({
+        const paymentLogHistory = batchIds.map(batchId => ({
             entityType: _approvalEntityType.Payment,
             entityId: batchId,
             level: _approvalLevel.BO, // adjust dynamically if needed
@@ -762,7 +762,7 @@ module.exports.batchApprove = async (req, res) => {
             approvedAt: new Date(),
         }));
 
-        await ApprovalLog.insertMany(paymentLogs);
+        await ApprovalLog.insertMany(paymentLogHistory);
 
         return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
 
