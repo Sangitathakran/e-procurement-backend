@@ -126,7 +126,7 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
 
 module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit, skip, paginate = 1, sortBy, search = '', cna, scheme, commodity, branchName, sla, isExport = 0 } = req.query
+    const { page, limit, skip, paginate = 1, sortBy, search = '', ho_id, bo_id, schemeId, commodity, isExport = 0 } = req.query
     const { portalId, user_id } = req;
 
     let query = search ? {
@@ -139,36 +139,23 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
     query["sla_id"] = { $in: [portalId, user_id] };
 
-    if (scheme) {
-        query["product.schemeId"] = await Scheme.findOne({ schemeName: { $regex: scheme, $options: "i" } }).select("_id");
-    }
-
-    // Filter by commodity name
     if (commodity) {
-        query["product.name"] = { $regex: commodity, $options: "i" };
+        query["product.name"] = { $regex: commodity, $options: 'i' };
     }
 
-    // Filter by CNA (Head Office ID)
-    if (cna) {
-        query["head_office_id"] = cna; // Assuming `cna` is the ID of the head office
+    if (schemeId) {
+        const schemeIds = Array.isArray(schemeId) ? schemeId : schemeId.split(",");
+        query["product.schemeId"] = { $in: schemeIds.map(id => new mongoose.Types.ObjectId(id)) };
     }
 
-    // Filter by Branch Office Name
-    if (branchName) {
-        const branches = await Branches.find({
-            branchName: { $regex: branchName, $options: "i" }
-        }).select("_id");
-        if (branches.length > 0) {
-            const branchIds = branches.map(branch => branch._id);
-            query["branch_id"] = { $in: branchIds };
-        } else {
-            query["branch_id"] = null;
-        }
+    if (ho_id) {
+        const hoIds = Array.isArray(ho_id) ? ho_id : ho_id.split(",");
+        query["head_office_id"] = { $in: hoIds.map(id => new mongoose.Types.ObjectId(id)) };
     }
 
-    // Filter by SLA (Service Level Agreement) - Assuming SLA is stored in `status` field
-    if (sla) {
-        query["status"] = sla;
+    if (bo_id) {
+        const boIds = Array.isArray(bo_id) ? bo_id : bo_id.split(",");
+        query["branch_id"] = { $in: boIds.map(id => new mongoose.Types.ObjectId(id)) };
     }
 
     const records = { count: 0 };
@@ -192,8 +179,6 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
             .populate({ path: "warehouse_id", select: "addressDetails" })
             .populate({ path: "product.schemeId", select: "schemeName season period" })
     }
-
-
 
     records.rows = records.rows.map(item => {
         const scheme = item?.product?.schemeId;
