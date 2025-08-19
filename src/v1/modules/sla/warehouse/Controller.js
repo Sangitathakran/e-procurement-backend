@@ -117,7 +117,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         sortBy,
         isExport = 0,
         commodityName,
-        associateName,
+        associate_id,
         qcStatus
     } = req.query;
 
@@ -140,9 +140,10 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
             });
         }
 
-        if (associateName) {
+        if (associate_id) {
+            const associateIds = Array.isArray(associate_id) ? associate_id : associate_id.split(",");
             batchFilters.push({
-                "batches.users.basic_details.associate_details.associate_name": { $regex: associateName, $options: 'i' }
+                "batches.users._id": { $in: associateIds.map(id => new mongoose.Types.ObjectId(id)) }
             });
         }
 
@@ -246,7 +247,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                 }
             },
             { $unwind: { path: "$warehouseOwner", preserveNullAndEmptyArrays: true } },
-            { $match: query },  
+            { $match: query },
         ];
 
         // Batch Filters Handling (If any filter present, push to pipeline)
@@ -274,7 +275,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         );
         if (isExport == 1) {
             const data = await wareHouseDetails.aggregate([...pipeline.slice(0, -2)]);
-    
+
             const record = data?.map((item) => {
                 const { addressDetails } = item
                 const address = `${addressDetails?.addressLine1 || ""} ${addressDetails?.city || ""} ${addressDetails?.district?.district_name || ""} ${addressDetails?.pincode || ""} ${addressDetails?.state?.state_name || ""}`
@@ -284,11 +285,11 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                     "Owner": item?.warehouseOwner?.ownerDetails?.name || "NA",
                     "Capacity": item?.basicDetails?.warehouseCapacity || "NA",
                     "Address": address || "NA",
-                    "Status": item?.active ? "Active" : "InActive" ,
+                    "Status": item?.active ? "Active" : "InActive",
                 }
             })
             if (record.length > 0) {
-              return dumpJSONToExcel(req, res, {
+                return dumpJSONToExcel(req, res, {
                     data: record,
                     fileName: `Warehouse-list.xlsx`,
                     worksheetName: `Warehouse-record`
@@ -330,7 +331,7 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
         commodity,
         associateName,
         qcStatus,
-        isExport=0
+        isExport = 0
     } = req.query;
 
     try {
@@ -345,7 +346,7 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
             warehousedetails_id: new mongoose.Types.ObjectId(id),
             wareHouse_approve_status: 'Received'
         }
-        const searchField=['user.basic_details.associate_details.associate_name', 'batchId', 'warehouse.wareHouse_code']
+        const searchField = ['user.basic_details.associate_details.associate_name', 'batchId', 'warehouse.wareHouse_code']
 
         const pipeline = [
             { $match: query },
@@ -427,7 +428,7 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
         pipeline.push({ $limit: parseInt(limit) });
         if (isExport == 1) {
             const data = await Batch.aggregate([...pipeline.slice(0, -2)]);
-    
+
             const record = data?.map((item) => {
                 return {
                     "Batch ID": item?.batchId,
@@ -438,12 +439,12 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
                     "Procurement Center": item?.procurementcenter?.center_name,
                     "Quantity": `${item?.request?.product?.quantity} MT`,
                     "Received on": item?.receiving_details?.received_on,
-                    "QC Details": item?.final_quality_check?.qc_images?"Approve":"Pending",
+                    "QC Details": item?.final_quality_check?.qc_images ? "Approve" : "Pending",
                     "QC Status": item?.final_quality_check?.status
-                  }
+                }
             })
             if (record.length > 0) {
-              return dumpJSONToExcel(req, res, {
+                return dumpJSONToExcel(req, res, {
                     data: record,
                     fileName: `Inword-list.xlsx`,
                     worksheetName: `Warehouse-record`
@@ -534,7 +535,7 @@ module.exports.getWarehouseOutword = asyncErrorHandler(async (req, res) => {
         search = '',
         sortBy,
         id,
-        isExport=0
+        isExport = 0
     } = req.query;
 
     try {
@@ -580,7 +581,7 @@ module.exports.getWarehouseOutword = asyncErrorHandler(async (req, res) => {
         ]
         if (isExport == 1) {
             const data = await PurchaseOrderModel.aggregate([...pipeline.slice(0, -2)]);
-    
+
             const record = data?.map((item) => {
                 return {
                     "Order ID": item?.purchasedOrder?.poNo,
@@ -591,10 +592,10 @@ module.exports.getWarehouseOutword = asyncErrorHandler(async (req, res) => {
                     "Created on": item?.createdAt,
                     "Delivery Mode": "Self Pickup",
                     "Status": item?.poStatus
-                }    
+                }
             })
             if (record.length > 0) {
-              return dumpJSONToExcel(req, res, {
+                return dumpJSONToExcel(req, res, {
                     data: record,
                     fileName: `Outword-list.xlsx`,
                     worksheetName: `Warehouse-record`
@@ -631,7 +632,7 @@ module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
         search = '',
         sortBy,
         id,
-        isExport=0
+        isExport = 0
     } = req.query;
 
     try {
@@ -679,7 +680,7 @@ module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
         ]
         if (isExport == 1) {
             const data = await BatchOrderProcess.aggregate([...pipeline.slice(0, -2)]);
-    
+
             const record = data?.map((item) => {
                 return {
                     "Purchase ID": item?.purchaseId,
@@ -689,10 +690,10 @@ module.exports.getPurchaseOrder = asyncErrorHandler(async (req, res) => {
                     "Scheduled Pickup": item?.scheduledPickupDate,
                     "Actual Pickup": item?.actualPickupDate,
                     "Status": item?.status
-                  }    
+                }
             })
             if (record.length > 0) {
-              return dumpJSONToExcel(req, res, {
+                return dumpJSONToExcel(req, res, {
                     data: record,
                     fileName: `Purchase-list.xlsx`,
                     worksheetName: `Warehouse-record`
