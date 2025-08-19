@@ -13,12 +13,15 @@ const {
 } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
+
 const {
   _userType,
   _paymentApproval,
   _batchStatus,
   _associateOfferStatus,
   _paymentstatus,
+  _approvalLevel,
+  _approvalEntityType
 } = require("@src/v1/utils/constants");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
@@ -38,6 +41,8 @@ const {
 } = require("@src/v1/models/app/payment/associateInvoice");
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
 const { Commodity } = require("@src/v1/models/master/Commodity");
+const { ApprovalLog } = require("@src/v1/models/app/procurement/ApprovalHistory");
+
 
 module.exports.payment = async (req, res) => {
   try {
@@ -56,11 +61,11 @@ module.exports.payment = async (req, res) => {
     // limit = 5
     let query = search
       ? {
-          $or: [
-            { reqNo: { $regex: search, $options: "i" } },
-            { "product.name": { $regex: search, $options: "i" } },
-          ],
-        }
+        $or: [
+          { reqNo: { $regex: search, $options: "i" } },
+          { "product.name": { $regex: search, $options: "i" } },
+        ],
+      }
       : {};
 
     const { portalId, user_id } = req;
@@ -294,9 +299,8 @@ module.exports.payment = async (req, res) => {
           item.sellers?.[0]?.basic_details?.associate_details || {};
         const farmerDetails = item.farmer ? item.farmer[0] || {} : {};
         const farmerAddress = item.farmer?.address
-          ? `${farmerDetails.address.village || "NA"}, ${
-              farmerDetails.address.block || "NA"
-            }, 
+          ? `${farmerDetails.address.village || "NA"}, ${farmerDetails.address.block || "NA"
+          }, 
                        ${farmerDetails.address.country || "NA"}`
           : "NA";
         return {
@@ -399,21 +403,21 @@ module.exports.associateOrders = async (req, res) => {
     records.rows =
       paginate == 1
         ? await AssociateOffers.find(query)
-            .populate({
-              path: "seller_id",
-              select:
-                "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name",
-            })
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit))
+          .populate({
+            path: "seller_id",
+            select:
+              "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name",
+          })
+          .sort(sortBy)
+          .skip(skip)
+          .limit(parseInt(limit))
         : await AssociateOffers.find(query)
-            .populate({
-              path: "seller_id",
-              select:
-                "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name",
-            })
-            .sort(sortBy);
+          .populate({
+            path: "seller_id",
+            select:
+              "_id user_code basic_details.associate_details.associate_type basic_details.associate_details.associate_name basic_details.associate_details.organization_name",
+          })
+          .sort(sortBy);
 
     records.count = await AssociateOffers.countDocuments(query);
 
@@ -2134,12 +2138,74 @@ module.exports.AssociateTabGenrateBill = async (req, res) => {
   }
 };
 
+/*
 module.exports.associateBillApprove = async (req, res) => {
   try {
     const { batchIds = [] } = req.body;
     const { portalId } = req;
 
     // Start of Sangita code
+
+    const batchQuery = {
+      _id: { $in: batchIds },
+      // $or: [
+      //   { bo_approve_status: _paymentApproval.pending },
+      //   { ho_approve_status: _paymentApproval.pending },
+      // ],
+    };
+
+    const batchApprovalStatus = await Batch.find(batchQuery);
+
+    if (batchApprovalStatus.length < 0) {
+      return res.status(200).send(
+        new serviceResponse({
+          status: 400,
+          errors: [{ message: _response_message.notApproved("Payment") }],
+        })
+      );
+    }
+
+    await Batch.updateMany(
+      { _id: { $in: batchIds } },
+      {
+        $set: {
+          agent_approve_status: _paymentApproval.approved,
+          agent_approve_by: portalId,
+          agent_approve_at: new Date(),
+          sla_approve_status: _paymentApproval.approved,
+          sla_approve_by: portalId
+        }
+      }
+    );
+
+    const logs = batchIds.map((batchId) => ({
+      entityType: _approvalEntityType.Batch,
+      entityId: batchId,
+      level: _approvalLevel.HO, // adjust dynamically if needed
+      action: _paymentApproval.approved,
+      approvedBy: portalId,
+      approvedAt: new Date(),
+    }));
+
+    await ApprovalLog.insertMany(logs);
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: logs,
+        message: _response_message.updated("Approval"),
+      })
+    );
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+*/
+
+module.exports.associateBillApprove = async (req, res) => {
+  try {
+    const { batchIds = [] } = req.body;
+    const { portalId } = req;
 
     const batchQuery = {
       _id: { $in: batchIds },
@@ -2151,54 +2217,75 @@ module.exports.associateBillApprove = async (req, res) => {
 
     const batchApprovalStatus = await Batch.find(batchQuery);
 
-    if (batchApprovalStatus.length > 0) {
+    if (batchApprovalStatus.length < 0) {
       return res.status(200).send(
         new serviceResponse({
           status: 400,
-          errors: [{ message: _response_message.notApproved("Payment") }],
+          errors: [{ message: _response_message.notApproved("Batch") }],
         })
       );
     }
 
-    //End of sangita code
+    // Find batches that are already approved
+    const alreadyApprovedBatches = await Batch.find({
+      _id: { $in: batchIds },
+      agent_approve_status: _paymentApproval.approved,
+    }).select("_id");
 
-    const query = { batch_id: { $in: batchIds } };
+    const alreadyApprovedIds = alreadyApprovedBatches.map(b => b._id.toString());
 
-    const invoiceRecord = await AssociateInvoice.find(query);
+    // Filter out already approved ones
+    const pendingBatchIds = batchIds.filter(id => !alreadyApprovedIds.includes(id.toString()));
 
-    if (invoiceRecord.length != batchIds.length) {
-      return res.status(400).send(
+    if (pendingBatchIds.length === 0) {
+      return res.status(200).send(
         new serviceResponse({
-          status: 400,
-          errors: [{ message: _response_message.notFound("invoice") }],
+          status: 200,
+          message: "All selected batches are already approved. No new logs created.",
         })
       );
     }
 
-    const record = await AssociateInvoice.updateMany(query, {
-      $set: {
-        agent_approve_status: _paymentApproval.approved,
-        agent_approve_by: portalId,
-        agent_approve_at: new Date(),
-      },
-    });
-
+    // Approve only pending batches
     await Batch.updateMany(
-      { _id: { $in: batchIds } },
-      { $set: { agent_approve_status: _paymentApproval.approved } }
+      { _id: { $in: pendingBatchIds } },
+      {
+        $set: {
+          agent_approve_status: _paymentApproval.approved,
+          agent_approve_by: portalId,
+          agent_approve_at: new Date(),
+          sla_approve_status: _paymentApproval.approved,
+          sla_approve_by: portalId,
+        },
+      }
     );
+
+    // Insert logs only for newly approved batches
+    const logs = pendingBatchIds.map(batchId => ({
+      entityType: _approvalEntityType.Batch,
+      entityId: batchId,
+      level: _approvalLevel.HO, // adjust dynamically if needed
+      action: _paymentApproval.approved,
+      approvedBy: portalId,
+      approvedAt: new Date(),
+    }));
+
+    await ApprovalLog.insertMany(logs);
 
     return res.status(200).send(
       new serviceResponse({
         status: 200,
-        data: record,
-        message: _response_message.updated("invoice"),
+        data: logs,
+        message: `${logs.length} batch(es) approved and logs created.`,
       })
     );
   } catch (error) {
     _handleCatchErrors(error, res);
   }
 };
+
+
+//End of sangita code
 
 const updateAssociateLogs = async (batchIds) => {
   const invoiceRecord = await AssociateInvoice.find({
@@ -2328,12 +2415,12 @@ module.exports.agentPayments = async (req, res) => {
 
     let query = search
       ? {
-          $or: [
-            { reqNo: { $regex: search, $options: "i" } },
-            { branchId: { $regex: search, $options: "i" } },
-            { productName: { $regex: search, $options: "i" } },
-          ],
-        }
+        $or: [
+          { reqNo: { $regex: search, $options: "i" } },
+          { branchId: { $regex: search, $options: "i" } },
+          { productName: { $regex: search, $options: "i" } },
+        ],
+      }
       : {};
 
     const records = { count: 0 };
@@ -2341,24 +2428,24 @@ module.exports.agentPayments = async (req, res) => {
     records.rows =
       paginate == 1
         ? await AgentInvoice.find(query)
-            .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
-            .populate([
-              { path: "bo_id", select: "branchId" },
-              {
-                path: "req_id",
-                select: "product deliveryDate quotedPrice reqNo",
-              },
-            ])
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit))
+          .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
+          .populate([
+            { path: "bo_id", select: "branchId" },
+            {
+              path: "req_id",
+              select: "product deliveryDate quotedPrice reqNo",
+            },
+          ])
+          .sort(sortBy)
+          .skip(skip)
+          .limit(parseInt(limit))
         : await Batch.find(query)
-            .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
-            .populate([
-              { path: "bo_id", select: "branchId" },
-              { path: "req_id", select: "reqNo product.name" },
-            ])
-            .sort(sortBy);
+          .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
+          .populate([
+            { path: "bo_id", select: "branchId" },
+            { path: "req_id", select: "reqNo product.name" },
+          ])
+          .sort(sortBy);
     records.count = await AgentInvoice.countDocuments(query);
     if (isExport == 1) {
       const recordsdata = await AgentInvoice.find(query)
@@ -2929,8 +3016,8 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
 module.exports.proceedToPayPaymentExport = async (req, res) => {
   try {
-    let { payment_status,  dateFilterType,startDate,endDate,} = req.query;
-   
+    let { payment_status, dateFilterType, startDate, endDate, } = req.query;
+
     const { portalId, user_id } = req;
     const paymentIds = await Payment.distinct("req_id", {
       sla_id: { $in: [portalId, user_id] },
@@ -2941,7 +3028,7 @@ module.exports.proceedToPayPaymentExport = async (req, res) => {
     };
 
 
-        const today = new Date();
+    const today = new Date();
     let dateFilter = {};
 
     switch (dateFilterType) {
@@ -3011,10 +3098,10 @@ module.exports.proceedToPayPaymentExport = async (req, res) => {
         break;
     }
 
-      if (Object.keys(dateFilter).length) {
+    if (Object.keys(dateFilter).length) {
       query.createdAt = dateFilter;
     }
-    
+
     const validStatuses = [
       _paymentstatus.pending,
       _paymentstatus.inProgress,
@@ -3052,12 +3139,12 @@ module.exports.proceedToPayPaymentExport = async (req, res) => {
           pipeline: [
             ...(payment_status === "Completed"
               ? [
-                  {
-                    $match: {
-                      payment: { $ne: [] },
-                    },
+                {
+                  $match: {
+                    payment: { $ne: [] },
                   },
-                ]
+                },
+              ]
               : []),
             {
               $lookup: {
@@ -3068,12 +3155,12 @@ module.exports.proceedToPayPaymentExport = async (req, res) => {
                 pipeline: [
                   ...(payment_status === "Completed"
                     ? [
-                        {
-                          $match: {
-                            payment_status: "Completed",
-                          },
+                      {
+                        $match: {
+                          payment_status: "Completed",
                         },
-                      ]
+                      },
+                    ]
                     : []),
                   {
                     $lookup: {
@@ -3302,89 +3389,89 @@ module.exports.proceedToPayPaymentExport = async (req, res) => {
     ]);
     response.count = countResult?.[0]?.count ?? 0;
 
-  // if (isExport == 1) {
-      let record = [];
+    // if (isExport == 1) {
+    let record = [];
 
-      response.rows.forEach((item) => {
-        // const request = item.reqNo;
-        const product = item.product;
-        const branch = item.branchDetails?.[0] || {};
-        const schemeName = item.scheme?.schemeName || "NA";
+    response.rows.forEach((item) => {
+      // const request = item.reqNo;
+      const product = item.product;
+      const branch = item.branchDetails?.[0] || {};
+      const schemeName = item.scheme?.schemeName || "NA";
 
-        item.batches.forEach((batch) => {
-          const procurementCenter =
-            batch?.procurementCenterDetails?.address || {};
-          const request = batch?.requestsDetails || [];
-          batch.payment.forEach((payment) => {
-            const farmer = payment.farmerDetails || {};
-            const address = farmer.address || {};
-            const bank = farmer.bank_details || {};
-            const basic = farmer.basic_details || {};
-            const parents = farmer.parents || {};
-            const crops = payment?.crops?.crop_name || {};
+      item.batches.forEach((batch) => {
+        const procurementCenter =
+          batch?.procurementCenterDetails?.address || {};
+        const request = batch?.requestsDetails || [];
+        batch.payment.forEach((payment) => {
+          const farmer = payment.farmerDetails || {};
+          const address = farmer.address || {};
+          const bank = farmer.bank_details || {};
+          const basic = farmer.basic_details || {};
+          const parents = farmer.parents || {};
+          const crops = payment?.crops?.crop_name || {};
 
-            record.push({
-              "Order ID": item?.reqNo || "NA",
-              "BRANCH ID": branch.branchId || "NA",
-              "Farmer ID": farmer.farmer_id || "NA",
-              "Branch name": branch.branchName || "NA",
-              "SLA ": item.sla || "NA",
-              "Procurement center":
-                [
-                  procurementCenter?.line1,
-                  procurementCenter?.line2,
-                  procurementCenter?.city,
-                  procurementCenter?.district,
-                  procurementCenter?.state,
-                  procurementCenter?.country,
-                  procurementCenter?.postalCode,
-                ]
-                  .filter(Boolean)
-                  .join(", ") || "NA",
-              "Farmer Name": farmer.name || "NA",
-              "Father Name": parents.father_name || "NA",
-              Address: [
-                address.village,
-                address.block,
-                address.country,
-                address.pin_code,
+          record.push({
+            "Order ID": item?.reqNo || "NA",
+            "BRANCH ID": branch.branchId || "NA",
+            "Farmer ID": farmer.farmer_id || "NA",
+            "Branch name": branch.branchName || "NA",
+            "SLA ": item.sla || "NA",
+            "Procurement center":
+              [
+                procurementCenter?.line1,
+                procurementCenter?.line2,
+                procurementCenter?.city,
+                procurementCenter?.district,
+                procurementCenter?.state,
+                procurementCenter?.country,
+                procurementCenter?.postalCode,
               ]
                 .filter(Boolean)
-                .join(", "),
-              "Crop Name": crops || "NA",
-              "Quantity in MT": product.quantity || batch.qty || "NA",
-              "Rate (MSP)": request.quotedPrice || "NA",
-              "TOTAL AMOUNT": item?.amountPayable || "NA",
-              "Bank Name": bank.bank_name || "NA",
-              "Branch name ": bank.branch_name || "NA",
-              "Account No.": bank.account_no || "NA",
-              IFSC: bank.ifsc_code || "NA",
-              "Reference ID / UTR No.": payment._id?.toString() || "NA",
-              "Payment Status": payment.payment_status || "NA",
-              "Approval Date": batch.payement_approval_at || "NA",
-              // "Created At": request.createdAt || "NA",
-            });
+                .join(", ") || "NA",
+            "Farmer Name": farmer.name || "NA",
+            "Father Name": parents.father_name || "NA",
+            Address: [
+              address.village,
+              address.block,
+              address.country,
+              address.pin_code,
+            ]
+              .filter(Boolean)
+              .join(", "),
+            "Crop Name": crops || "NA",
+            "Quantity in MT": product.quantity || batch.qty || "NA",
+            "Rate (MSP)": request.quotedPrice || "NA",
+            "TOTAL AMOUNT": item?.amountPayable || "NA",
+            "Bank Name": bank.bank_name || "NA",
+            "Branch name ": bank.branch_name || "NA",
+            "Account No.": bank.account_no || "NA",
+            IFSC: bank.ifsc_code || "NA",
+            "Reference ID / UTR No.": payment._id?.toString() || "NA",
+            "Payment Status": payment.payment_status || "NA",
+            "Approval Date": batch.payement_approval_at || "NA",
+            // "Created At": request.createdAt || "NA",
           });
         });
       });
+    });
 
-      if (record.length > 0) {
-        dumpJSONToExcel(req, res, {
-          data: record,
-          fileName: `Farmer-Payment-records.xlsx`,
-          worksheetName: `Farmer-Payment-records`,
-        });
-      } else {
-        return res.status(200).send(
-          new serviceResponse({
-            status: 200,
-            data: response,
-            message: "No payments found",
-          })
-        );
-      }
- //  }
-   // else {
+    if (record.length > 0) {
+      dumpJSONToExcel(req, res, {
+        data: record,
+        fileName: `Farmer-Payment-records.xlsx`,
+        worksheetName: `Farmer-Payment-records`,
+      });
+    } else {
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: response,
+          message: "No payments found",
+        })
+      );
+    }
+    //  }
+    // else {
     // return res.status(200).send(
     //   new serviceResponse({
     //     status: 200,
@@ -3392,7 +3479,7 @@ module.exports.proceedToPayPaymentExport = async (req, res) => {
     //     message: "Payments found",
     //   })
     // );
-  //  }
+    //  }
   } catch (error) {
     _handleCatchErrors(error, res);
   }
@@ -3724,11 +3811,11 @@ module.exports.qcReport = async (req, res) => {
 };
 
 module.exports.agentDashboardAssociateList = async (req, res) => {
-    try {
-        const { sortBy = { createdAt: -1 } } = req.query;
-        const paymentIds = await Payment.distinct("req_id");
-        const query = { _id: { $in: paymentIds } };
-        const records = {};
+  try {
+    const { sortBy = { createdAt: -1 } } = req.query;
+    const paymentIds = await Payment.distinct("req_id");
+    const query = { _id: { $in: paymentIds } };
+    const records = {};
 
     const pipeline = [
       { $match: query },
@@ -3798,10 +3885,10 @@ module.exports.agentDashboardAssociateList = async (req, res) => {
 };
 
 module.exports.agentDashboardPaymentList = async (req, res) => {
-    try {
-        const { sortBy = { createdAt: -1 } } = req.query;
-        const paymentIds = await Payment.distinct("req_id");
-        const query = { req_id: { $in: paymentIds } };
+  try {
+    const { sortBy = { createdAt: -1 } } = req.query;
+    const paymentIds = await Payment.distinct("req_id");
+    const query = { req_id: { $in: paymentIds } };
 
     const records = {};
 
@@ -3871,11 +3958,11 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
     // Build search query
     const searchQuery = search
       ? {
-          $or: [
-            { reqNo: { $regex: search, $options: "i" } },
-            { "product.name": { $regex: search, $options: "i" } },
-          ],
-        }
+        $or: [
+          { reqNo: { $regex: search, $options: "i" } },
+          { "product.name": { $regex: search, $options: "i" } },
+        ],
+      }
       : {};
 
     // Final query
@@ -3945,8 +4032,8 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
       req.sla = req.sla_id || {};
       let commodityObj = req.product?.schemeId?.commodity_id
         ? await Commodity.findById(req.product?.schemeId?.commodity_id, {
-            name: 1,
-          })
+          name: 1,
+        })
         : {};
       req.scheme = req.product?.schemeId || {};
       req.scheme.commodity_name = commodityObj?.name || "";
@@ -3969,8 +4056,8 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
         "Branch ID": item?.branchDetails?.branchId || "NA",
         "SLA Name": item?.sla?.basic_details?.name || "NA",
         "Scheme": item?.scheme?.schemeName || "NA",
-         "Commodity": item?.product?.name || "NA",
-        "Quantity Purchased": item?.qtyPurchased ,
+        "Commodity": item?.product?.name || "NA",
+        "Quantity Purchased": item?.qtyPurchased,
         "Payment Status": item?.payment_status ?? "NA",
         "Approval Status": item?.approval_status ?? "NA",
       }));

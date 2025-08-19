@@ -2,7 +2,7 @@ const { NA } = require("xlsx-populate/lib/FormulaError")
 const { FRONTEND_URLS } = require("@config/index")
 
 const _collectionName = {
-     statewisemanditax:"statewisemanditax",
+    statewisemanditax: "statewisemanditax",
     emandi_orders: "emandi_orders",
     emandi_order_details: "emandi_order_details",
     farmers: "farmers",
@@ -66,7 +66,7 @@ const _collectionName = {
     SLA: "SLA",
     CCAvenueResponse: "CCAvenueResponse",
     PaymentLogsHistory: "PaymentLogsHistory",
-    eKharidHaryana : "ekharidprocurements",
+    eKharidHaryana: "ekharidprocurements",
     states: "states",
     // eKharidHaryana: "ekharidprocurements",
     agristackLog: "agristackLog",
@@ -79,12 +79,13 @@ const _collectionName = {
     LoginHistory: "loginhistory",
     loginAttempt: "loginAttempt",
     forgetHistory: "forgetHistory",
-    agristackLog:"agristackLog",
+    agristackLog: "agristackLog",
     verfiyFarmer: "verfiyfarmer",
     associateMandiName: "associateMandiName",
     eKharidHaryana: "ekhridnewprocs",
     nafedstatshistory: "nafedstatshistory",
     nafedstats: "nafedstats",
+    ApprovalLog: "approvalLog",
 }
 
 const _userType_Feature_Collection = {
@@ -397,7 +398,7 @@ const _batchStatus = {
 const _paymentmethod = {
     bank_transfer: "Bank Transfer",
     cheque: "Cheque",
-    net_banking:"Net Banking",
+    net_banking: "Net Banking",
 }
 
 const _paymentstatus = {
@@ -679,7 +680,7 @@ const dateRangesObj = {
     currentMonth: "currentMonth",
     lastMonth: "lastMonth",
     last3Months: "last3Months",
-    last6Months:"last6Months",
+    last6Months: "last6Months",
     custom: "custom"
 };
 const mailProviders = {
@@ -706,6 +707,17 @@ const redisKeys = {
 
 
 const allowedEmailDomains = ['navankur', 'radiantinfonet'];
+
+const _approvalEntityType = {
+    Batch: "Batch",
+    Payment: "Payment"
+};
+
+const _approvalLevel = {
+    SLA: "SLA",
+    BO: "BO",
+    HO: "HO"
+};
 
 module.exports = {
     redisKeys,
@@ -788,5 +800,7 @@ module.exports = {
     _verificationStatus,
     dateRanges,
     dateRangesObj,
-    userTypeToURL
+    userTypeToURL,
+    _approvalEntityType,
+    _approvalLevel
 }
