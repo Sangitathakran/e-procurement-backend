@@ -87,10 +87,18 @@ module.exports.Reports = async (req, res) => {
               {
                 $match: {
                   $expr: { $eq: ["$associateOffer_id", "$$offerId"] },
-                  status: "Payment Complete"
+                  status:{  $in: ["Payment Complete","Delivered"] } 
                 }
               },
-              { $project: { batchId: 1, farmerOrderIds: 1, qty: 1 } }
+              {
+                $lookup: {
+                    from: "warehousedetails",
+                    localField: "warehousedetails_id",
+                    foreignField: "_id",
+                    as: "warehouse"
+                }
+              },
+              { $project: { batchId: 1, farmerOrderIds: 1, qty: 1,warehouseName:{$arrayElemAt:["$warehouse.basicDetails.warehouseName",0]} } }
             ],
             as: "batches"
           }
@@ -99,31 +107,41 @@ module.exports.Reports = async (req, res) => {
       
         // --- Farmer Orders ---
         {
-          $lookup: {
-            from: "farmerorders",
-            let: {
-              farmerOrderIds: {
-                $ifNull: ["$batches.farmerOrderIds.farmerOrder_id", []]
-              }
-            },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $in: ["$_id", "$$farmerOrderIds"] }
+            $lookup: {
+              from: "farmerorders",
+              let: {
+                farmerOrderIds: {
+                  $ifNull: ["$batches.farmerOrderIds.farmerOrder_id", []]
                 }
               },
-              {
-                $project: {
-                  _id: 1,
-                  qtyRemaining: 1,
-                  order_no: 1,
-                  farmer_id: 1
+              pipeline: [
+                {
+                  $match: {
+                    $expr: { $in: ["$_id", "$$farmerOrderIds"] }
+                  }
+                },
+                {
+                  $lookup: {
+                    from: "procurementcenters",   // 🔗 Directly join here
+                    localField: "procurementCenter_id",
+                    foreignField: "_id",
+                    as: "procurementCenter"
+                  }
+                },
+                {
+                  $project: {
+                    _id: 1,
+                    qtyRemaining: 1,
+                    order_no: 1,
+                    farmer_id: 1,
+                    center_name: { $arrayElemAt: ["$procurementCenter.center_name", 0] } // ✅ inline flatten
+                  }
                 }
-              }
-            ],
-            as: "farmerOrdersData"
+              ],
+              as: "farmerOrdersData"
+            }
           }
-        },
+          ,
         { $unwind: { path: "$farmerOrdersData", preserveNullAndEmptyArrays: true } },
       
         // --- Farmers ---
@@ -146,17 +164,24 @@ module.exports.Reports = async (req, res) => {
           }
         },
         { $unwind: { path: "$farmers", preserveNullAndEmptyArrays: true } },
-      
+       {$limit: 10}, // Limit the number of documents to 1000
         // --- Final Projection ---
         {
           $project: {
             _id: 1,
             OrderId: "$reqNo",
-            users: 1,
-            farmers: 1,
-            batches: 1,
-            order_no: "$farmerOrdersData.order_no",
-            farmer_name: "$farmers.name"
+            batcheId: "$batches.batchId",
+            batchQty: "$batches.qty",
+            farmerName: "$farmers.name",
+            farmerqty: "$farmerOrdersData.qtyRemaining",
+            commodityName: "$commodities.name",
+            schemeName: "$schemes.schemeName",
+            lot_id:"$farmerOrdersData.order_no",
+            associateName: "$users.associateName",
+            msp: "$quotedPrice",
+            center_name: "$farmerOrdersData.center_name",
+            warehouseName: "$batches.warehouseName",
+
           }
         },
       
