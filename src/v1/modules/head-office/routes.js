@@ -17,6 +17,7 @@ const { _userType } = require("@src/v1/utils/constants/index")
 const { associateMngmntRoutes } = require("./associate-management/Routes");
 const {dropDownRoute} = require("./ho-dropdwon/Routes");
 const { mandiWiseProcurementRoute } = require("./mandiWiseProcurement/Routes");
+const { reportsRoutes } = require("./reports/Routes");
 
 headOfficeRoutes.use("/auth", hoAuthRoutes)
 headOfficeRoutes.use("/branch",authenticateUser,authorizeRoles(_userType.ho), Auth, hoBranchRoutes)
@@ -28,6 +29,7 @@ headOfficeRoutes.use("/payment",authenticateUser,authorizeRoles(_userType.ho ,_u
 headOfficeRoutes.use("/schemeAssigned",authenticateUser,authorizeRoles(_userType.ho ,_userType.bo), Auth, schemeRoutes)
 headOfficeRoutes.use("/sla",authenticateUser,authorizeRoles(_userType.ho), Auth, slaRoute)
 headOfficeRoutes.use("/associate", associateMngmntRoutes);
+headOfficeRoutes.use("/reports",authenticateUser,authorizeRoles(_userType.ho), Auth,reportsRoutes)
 
 headOfficeRoutes.use("/dropdown", authenticateUser,authorizeRoles(_userType.ho) ,dropDownRoute )
 headOfficeRoutes.use("/mandiWiseProcurement", authenticateUser,authorizeRoles(_userType.ho) ,mandiWiseProcurementRoute )
