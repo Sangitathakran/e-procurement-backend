@@ -24,14 +24,9 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     const { user_id, user_type } = req;
     const { quotedPrice, deliveryDate, name, warehouse_id, commodityImage, grade, quantity, deliveryLocation, lat, long, quoteExpiry, head_office_id, branch_id, expectedProcurementDate, commodity_id, schemeId, standard, substandard, sla_id } = req.body;
 
-
-    
-
     if (user_type && user_type != _userType.agent) {
         return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.Unauthorized() }] }));
     }
-
-    
 
     let randomVal;
     let isUnique = false;
@@ -49,9 +44,6 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
     if (moment(delivery_date).isBefore(quoteExpiry)) {
         return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.invalid_delivery_date("Delivery date") }] }));
     }
-    // console.log('tetetette');
-    // console.log('deliveryLocation',deliveryLocation); return false;
-
 
     const record = await RequestModel.create({
         head_office_id,
@@ -94,17 +86,6 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
         'basic_details.associate_details.email': { $exists: true }
     }).select('basic_details.associate_details.email basic_details.associate_details.associate_name');
 
-    // await Promise.all(
-    //     users.map(user => {
-    //         const { email, associate_name } = user.basic_details.associate_details;
-    //         return emailService.sendProposedQuantityEmail({
-    //             ...requestData,
-    //             email,
-    //             associate_name: associate_name
-    //         });
-    //     })
-    // );
-
     const branchData = await Branches.findOne({ _id: branch_id });
 
     const subject = `Procurement Requirement ${record?.reqNo} Successfully Added`;
@@ -145,7 +126,7 @@ module.exports.createProcurement = asyncErrorHandler(async (req, res) => {
 
 module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit, skip, paginate = 1, sortBy, search = '',cna, scheme, commodity, branchName, sla, isExport = 0 } = req.query
+    const { page, limit, skip, paginate = 1, sortBy, search = '', ho_id, bo_id, schemeId, commodity, isExport = 0 } = req.query
     const { portalId, user_id } = req;
 
     let query = search ? {
@@ -158,76 +139,60 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
 
     query["sla_id"] = { $in: [portalId, user_id] };
 
-    if (scheme) {
-        query["product.schemeId"] = await Scheme.findOne({ schemeName: { $regex: scheme, $options: "i" } }).select("_id");
-    }
-    
-    // Filter by commodity name
     if (commodity) {
-        query["product.name"] = { $regex: commodity, $options: "i" };
+        query["product.name"] = { $regex: commodity, $options: 'i' };
     }
-    
-    // Filter by CNA (Head Office ID)
-    if (cna) {
-        query["head_office_id"] = cna; // Assuming `cna` is the ID of the head office
+
+    if (schemeId) {
+        const schemeIds = Array.isArray(schemeId) ? schemeId : schemeId.split(",");
+        query["product.schemeId"] = { $in: schemeIds.map(id => new mongoose.Types.ObjectId(id)) };
     }
-    
-    // Filter by Branch Office Name
-    if (branchName) {
-        const branches = await Branches.find({
-            branchName: { $regex: branchName, $options: "i" }
-        }).select("_id");
-        if (branches.length > 0) {
-            const branchIds = branches.map(branch => branch._id);
-            query["branch_id"] = { $in: branchIds };
-        } else {
-            query["branch_id"] = null; 
-        }
+
+    if (ho_id) {
+        const hoIds = Array.isArray(ho_id) ? ho_id : ho_id.split(",");
+        query["head_office_id"] = { $in: hoIds.map(id => new mongoose.Types.ObjectId(id)) };
     }
-    
-    // Filter by SLA (Service Level Agreement) - Assuming SLA is stored in `status` field
-    if (sla) {
-        query["status"] = sla;
+
+    if (bo_id) {
+        const boIds = Array.isArray(bo_id) ? bo_id : bo_id.split(",");
+        query["branch_id"] = { $in: boIds.map(id => new mongoose.Types.ObjectId(id)) };
     }
 
     const records = { count: 0 };
 
-    if(isExport!=1 && paginate == 1 )
-    {
+    if (isExport != 1 && paginate == 1) {
         records.rows = await RequestModel.find(query)
-        .sort(sortBy)
-        .skip(skip)
-        .populate({ path: "branch_id", select: "_id branchName branchId" })
-        .populate({ path: "head_office_id", select: "_id company_details.name" })
-        .populate({ path: "sla_id", select: "_id basic_details.name" })
-        .populate({ path: "warehouse_id", select: "addressDetails" })
-        .populate({ path: "product.schemeId", select: "schemeName season period" })
-        .limit(parseInt(limit))
-    }else {
+            .sort(sortBy)
+            .skip(skip)
+            .populate({ path: "branch_id", select: "_id branchName branchId" })
+            .populate({ path: "head_office_id", select: "_id company_details.name" })
+            .populate({ path: "sla_id", select: "_id basic_details.name" })
+            .populate({ path: "warehouse_id", select: "addressDetails" })
+            .populate({ path: "product.schemeId", select: "schemeName season period" })
+            .limit(parseInt(limit))
+    } else {
         records.rows = await RequestModel.find(query)
-        .sort(sortBy)
-        .populate({ path: "branch_id", select: "_id branchName branchId" })
-        .populate({ path: "head_office_id", select: "_id company_details.name" })
-        .populate({ path: "sla_id", select: "_id basic_details.name" })
-        .populate({ path: "warehouse_id", select: "addressDetails" })
-        .populate({ path: "product.schemeId", select: "schemeName season period" })
+            .sort(sortBy)
+            .populate({ path: "branch_id", select: "_id branchName branchId" })
+            .populate({ path: "head_office_id", select: "_id company_details.name" })
+            .populate({ path: "sla_id", select: "_id basic_details.name" })
+            .populate({ path: "warehouse_id", select: "addressDetails" })
+            .populate({ path: "product.schemeId", select: "schemeName season period" })
     }
 
-    
+    records.rows = records.rows.map(item => {
+        const scheme = item?.product?.schemeId;
+        const commodity = item?.product?.name;
 
-   records.rows = records.rows.map(item => {
-    const scheme = item?.product?.schemeId;
-    const commodity = item?.product?.name;
+        const schemeName = scheme
+            ? `${scheme.schemeName || ''} ${commodity || ''} ${scheme.season || ''} ${scheme.period || ''}`
+            : `${commodity || 'NA'}`;
 
-    const schemeName = scheme
-        ? `${scheme.schemeName || ''} ${commodity || ''} ${scheme.season || ''} ${scheme.period || ''}`
-        : `${commodity || 'NA'}`; 
-
-    return {
-        ...item.toObject(),
-        SchemeName: schemeName
-    };
-});
+        return {
+            ...item.toObject(),
+            SchemeName: schemeName
+        };
+    });
 
 
 
@@ -249,7 +214,7 @@ module.exports.getProcurement = asyncErrorHandler(async (req, res) => {
                 "Order Id": item?.reqNo || "NA",
                 "Commodity": item?.product?.name || "NA",
                 "Scheme": item?.SchemeName || "NA",
-                 "CNA Name": item?.head_office_id?.company_details?.name || "NA",
+                "CNA Name": item?.head_office_id?.company_details?.name || "NA",
                 "BO Name": item?.branch_id?.branchName || "NA",
                 "SLA Name": item?.sla_id?.basic_details?.name || "NA",
                 "Sub Standard": item?.product?.substandard || "NA",
@@ -960,7 +925,7 @@ module.exports.schemeCommodity = asyncErrorHandler(async (req, res) => {
     } else {
         aggregationPipeline.push({ $sort: { [sortBy || 'createdAt']: -1, _id: -1 } },);
     }
-   
+
     const rows = await Scheme.aggregate(aggregationPipeline);
     const countPipeline = [
         { $match: matchQuery },
