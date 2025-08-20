@@ -180,7 +180,7 @@ module.exports.getProcurement = async (req, res) => {
         {
           $unwind: {
             path: "$associateUserDetails",
-            preserveNullAndEmptyArrays: false,
+            preserveNullAndEmptyArrays: true,
           },
         },
         ...(stateObjectId.length > 0
@@ -607,15 +607,15 @@ module.exports.getProcurement = async (req, res) => {
           RequestModel.aggregate(countPipeline),
           RequestModel.aggregate(pipelineNoStatus),
         ]);
-
+        const totalCount = countResult?.[0]?.count || 0;
         const records = {
           rows,
-          count: countResult.length > 0 ? countResult[0].count : 0,
+          count: totalCount,
           page: parseInt(page),
           limit: parseInt(limit),
           pages:
             parseInt(limit) !== 0
-              ? Math.ceil(countResult[0].count / parseInt(limit))
+              ? Math.ceil(totalCount / parseInt(limit))
               : 0,
         };
 
