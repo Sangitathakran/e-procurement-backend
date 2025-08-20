@@ -14,7 +14,7 @@ const { SESsendEmail } = require("@src/common/services/emailServices/AWS_SES");
 const { mailProviders, allowedEmailDomains } = require("../constants");
 const { _query } = require("../constants/messages");
 const logger = require("@src/common/logger/logger");
-const { sendWithSMTP } = require("@src/common/services/emailServices/smtp");
+const { sendWithSMTP } = require("@src/common/services/emailServices/SMTP");
 
 const defaultMailConfig = {
   user: mailer.user,
