@@ -7,16 +7,18 @@ module.exports.Reports = async (req, res) => {
       const { _id } = req.user.portalId;
       let { schemeId = [], branchId = [] } = req.body;
       let {page, skip, limit} = req.query;
-
-      schemeId = schemeId.map((id) => new mongoose.Types.ObjectId(id));
-      branchId = branchId.map((id) => new mongoose.Types.ObjectId(id));
- 
+      schemeId = schemeId?.map((id) => new mongoose.Types.ObjectId(id)) || [];
+      branchId = branchId?.map((id) => new mongoose.Types.ObjectId(id)) || [];
+ console.log("schemeId",_id, schemeId, "branchId", branchId);
       const dataPipeline = [
         {
           $match: {
-            "product.schemeId": { $in: schemeId },
-            head_office_id: new mongoose.Types.ObjectId(_id),
-            branch_id: { $in: branchId }
+              $or: [
+                { "product.schemeId": { $in: schemeId } },
+                { "product.branchId": { $in: branchId } },
+               { head_office_id: new mongoose.Types.ObjectId(_id)}
+              ]
+          
           }
         },
   
