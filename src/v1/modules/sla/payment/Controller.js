@@ -2200,7 +2200,7 @@ module.exports.associateBillApprove = async (req, res) => {
     const logs = pendingBatchIds.map(batchId => ({
       entityType: _approvalEntityType.Batch,
       entityId: batchId,
-      level: _approvalLevel.SLA, // adjust dynamically if needed
+      level: _approvalLevel.SLA, 
       action: _paymentApproval.approved,
       sla_id: portalId,
       sla_approval: _paymentApproval.approved,

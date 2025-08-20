@@ -2642,6 +2642,7 @@ module.exports.batchApprove = async (req, res) => {
       { entityId: { $in: batchIds } },
       {
         $set: {
+          level: _approvalLevel.HO,
           ho_id: portalId,
           ho_approval: _paymentApproval.approved,
           ho_approval_at: new Date(),
