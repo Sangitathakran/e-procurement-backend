@@ -126,6 +126,7 @@ module.exports.getProcurement = async (req, res) => {
             as: "myoffer",
           },
         },
+         { $unwind: "$myoffer" },
         {
           $lookup: {
             from: "payments",
@@ -144,7 +145,6 @@ module.exports.getProcurement = async (req, res) => {
               { $limit: 1 },
                       {
                 $project: {
-                  _id: 0,
                   associate_id: 1,
                 },
               },
@@ -170,7 +170,6 @@ module.exports.getProcurement = async (req, res) => {
               },
               {
                 $project: {
-                  _id: 0,
                   address: 1, 
                 },
               },
@@ -195,7 +194,6 @@ module.exports.getProcurement = async (req, res) => {
                   : []),
 
         ...conditionPipeline,
-        { $unwind: "$myoffer" },
         {
           $match: {
             "myoffer.seller_id": new mongoose.Types.ObjectId(user_id),
@@ -313,7 +311,6 @@ module.exports.getProcurement = async (req, res) => {
                   name: 1,
                   category: 1,
                   unit: 1,
-                  _id: 1,
                 },
               },
             ],
