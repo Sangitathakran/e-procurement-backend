@@ -33,6 +33,6 @@ paymentRoutes.post("/verify-otp", authenticateUser, authorizeRoles(_userType.bo)
 paymentRoutes.post("/reSend-otp", authenticateUser, authorizeRoles(_userType.bo), Auth, reSendOtp);
 // agent bill rejection case 
 paymentRoutes.put("/bill-reject", authenticateUser, authorizeRoles(_userType.bo), Auth, boBillRejection)
-paymentRoutes.get("/batch-approval-logs", Auth, batchApprovalLogs);
+paymentRoutes.get("/batch-approval-logs", authenticateUser, authorizeRoles(_userType.bo), Auth, batchApprovalLogs);
 
 module.exports = { paymentRoutes }; 

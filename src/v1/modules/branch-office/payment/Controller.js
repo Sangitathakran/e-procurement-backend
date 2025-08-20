@@ -20,6 +20,7 @@ const { Branches } = require("@src/v1/models/app/branchManagement/Branches")
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
 const { ApprovalLog } = require("@src/v1/models/app/procurement/ApprovalHistory");
+const { default: mongoose } = require("mongoose");
 
 const validateMobileNumber = async (mobile) => {
     let pattern = /^[0-9]{10}$/;
