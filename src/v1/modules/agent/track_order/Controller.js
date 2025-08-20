@@ -337,11 +337,10 @@ const { schemeName, commodity, slaName, branchName, cna } = req.query;
 module.exports.getOrderedAssociate = asyncErrorHandler(async (req, res) => {
 
     const { page, limit, skip, sortBy, search = '', status, paginate = 1, req_id, isExport = 0 } = req.query;
-
     let query = search ? {
         $or: [
-            { "assocaite.user_code": { $regex: search, $options: 'i' } },
-            { "assocaite.basic_details.associate_details.associate_name": { $regex: search, $options: 'i' } },
+            { "associate.user_code": { $regex: search, $options: 'i' } },
+            { "associate.basic_details.associate_details.organization_name": { $regex: search, $options: 'i' } },
         ]
     } : {};
 
