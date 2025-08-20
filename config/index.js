@@ -16,9 +16,7 @@ const procurement_partners = {
     NEML: "NEML",
     Others: "Others"
 };
-const {
-    HEADOFFICE, BRANCHOFFICE, ADMIN, DISTILLER, NCCF_DISTILLER, WAREHOUSE, FARMER, SLA, ASSOCIATE
-} = process.env;
+
 
 
 module.exports = {
@@ -56,6 +54,16 @@ module.exports = {
         },
         requireTLS: true
     },
+    smtpMailer: {
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT,
+        secure: false, //process.env.SMTP_SECURE,
+        auth: {
+            user: process.env.SMTP_EMAIL_USER,
+            pass: process.env.SMTP_EMAIL_PASS
+        }
+    },
+
     s3Config: {
         accessKey: process.env.ACCESS_KEY_ID,
         secretKey: process.env.SECRET_ACCESS_KEY,
@@ -89,7 +97,7 @@ module.exports = {
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     region: process.env.AWS_REGION,
     sourceEmail: process.env.AWS_SOURCE_EMAIL,
-    mailProvider:  'mailtrap', 
+    mailProvider:  process.env.PROVIDER, 
 
     // FRONTEND URLS
     FRONTEND_URLS: {
@@ -110,5 +118,10 @@ REDIS_PORT: process.env.REDIS_PORT,
 REDIS_DB: process.env.REDIS_DB,
 REDIS_URL: process.env.REDIS_URL,
 },
+
+environments: {
+    dev: "development",
+    prod: 'production'
+}
 
 }
