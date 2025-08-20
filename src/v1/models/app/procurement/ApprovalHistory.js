@@ -12,6 +12,10 @@ const approvalLogSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         index: true
     },
+    req_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: _collectionName.Request
+    },
     level: {
         type: String,
         enum: Object.values(_approvalLevel),
@@ -22,8 +26,50 @@ const approvalLogSchema = new mongoose.Schema({
         enum: Object.values(_paymentApproval),
         default: _paymentApproval.pending
     },
-    approvedBy: { type: mongoose.Schema.Types.ObjectId }, // or HeadOffice/Branch/SLA
-    approvedAt: { type: Date, default: Date.now },
+    sla_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: _collectionName.SLA
+    },
+    sla_approval: {
+        type: String,
+        enum: Object.values(_paymentApproval),
+        default: _paymentApproval.pending
+    },
+    sla_approval_at:{
+        type: Date,
+        default: Date.now
+    },
+    ho_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: _collectionName.HeadOffice
+    },
+    ho_approval: {
+        type: String,
+        enum: Object.values(_paymentApproval),
+        default: _paymentApproval.pending
+    },
+    ho_approval_at:{
+        type: Date,
+        default: Date.now
+    },
+    bo_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: _collectionName.BranchOffice
+    },
+    bo_approval: {
+        type: String,
+        enum: Object.values(_paymentApproval),
+        default: _paymentApproval.pending
+    },
+    bo_approval_at:{
+        type: Date,
+        default: Date.now
+    },
+    Status: {
+        type: String,
+        enum: Object.values(_paymentApproval),
+        default: _paymentApproval.pending
+    }, 
     remarks: { type: String, default: null },
     ..._commonKeys,
 }, { timestamps: true });

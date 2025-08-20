@@ -732,8 +732,9 @@ module.exports.batchApprove = async (req, res) => {
             entityId: batchId,
             level: _approvalLevel.BO, // adjust dynamically if needed
             action: _paymentApproval.approved,
-            approvedBy: portalId,
-            approvedAt: new Date(),
+            bo_id: portalId,
+            bo_approval_at: new Date(),
+            bo_approval: _paymentApproval.approved
         }));
 
         await ApprovalLog.insertMany(batchLogs);
@@ -751,18 +752,6 @@ module.exports.batchApprove = async (req, res) => {
         })
 
         await PaymentLogsHistory.insertMany(paymentLogs)
-
-        // Insert logs only for newly approved batches
-        const paymentLogHistory = batchIds.map(batchId => ({
-            entityType: _approvalEntityType.Payment,
-            entityId: batchId,
-            level: _approvalLevel.BO, // adjust dynamically if needed
-            action: _paymentApproval.approved,
-            approvedBy: portalId,
-            approvedAt: new Date(),
-        }));
-
-        await ApprovalLog.insertMany(paymentLogHistory);
 
         return res.status(200).send(new serviceResponse({ status: 200, message: `${result.modifiedCount} Batch Approved successfully` }));
 

@@ -2079,8 +2079,6 @@ module.exports.AssociateTabBatchApprove = async (req, res) => {
       entityId: batchId,
       level: _approvalLevel.Admin, // adjust dynamically if needed
       action: _paymentApproval.approved,
-      approvedBy: portalId,
-      approvedAt: new Date(),
     }));
 
     await ApprovalLog.insertMany(logs);
@@ -2365,8 +2363,6 @@ module.exports.associateBillReject = async (req, res) => {
       entityId: batchId,
       level: _approvalLevel.Admin, // adjust dynamically if needed
       action: _paymentApproval.rejected,
-      approvedBy: null,
-      approvedAt: null,
     }));
 
     await ApprovalLog.insertMany(logs);
