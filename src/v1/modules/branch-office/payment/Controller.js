@@ -728,18 +728,16 @@ module.exports.batchApprove = async (req, res) => {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
         }
 
-        // Insert logs only for newly approved batches
-        const batchLogs = batchIds.map(batchId => ({
-            entityType: _approvalEntityType.Batch,
-            entityId: batchId,
-            level: _approvalLevel.BO, // adjust dynamically if needed
-            action: _paymentApproval.approved,
-            bo_id: portalId,
-            bo_approval: _paymentApproval.approved,
-            bo_approval_at: new Date(),
-        }));
-
-        await ApprovalLog.insertMany(batchLogs);
+        await ApprovalLog.updateMany(
+            { entityId: { $in: batchIds } },
+            {
+                $set: {
+                    bo_id: portalId,
+                    bo_approval: _paymentApproval.approved,
+                    bo_approval_at: new Date(),
+                },
+            }
+        );
 
         await Payment.updateMany(
             { batch_id: { $in: batchIds } },

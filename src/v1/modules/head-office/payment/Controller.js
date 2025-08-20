@@ -2638,18 +2638,16 @@ module.exports.batchApprove = async (req, res) => {
       }
     );
 
-    // Insert logs only for newly approved batches
-    const logs = batchIds.map(batchId => ({
-      entityType: _approvalEntityType.Batch,
-      entityId: batchId,
-      level: _approvalLevel.HO, // adjust dynamically if needed
-      action: _paymentApproval.approved,
-      ho_id: portalId,
-      ho_approval: _paymentApproval.approved,
-      ho_approval_at: new Date(),
-    }));
-
-    await ApprovalLog.insertMany(logs);
+    await ApprovalLog.updateMany(
+      { entityId: { $in: batchIds } },
+      {
+        $set: {
+          ho_id: portalId,
+          ho_approval: _paymentApproval.approved,
+          ho_approval_at: new Date(),
+        },
+      }
+    );
 
     return res.status(200).send(
       new serviceResponse({
