@@ -2203,8 +2203,8 @@ module.exports.associateBillApprove = async (req, res) => {
       level: _approvalLevel.HO, // adjust dynamically if needed
       action: _paymentApproval.approved,
       sla_id: portalId,
+      sla_approval: _paymentApproval.approved,
       sla_approval_at: new Date(),
-      sla_approval: _paymentApproval.approved
     }));
 
     await ApprovalLog.insertMany(logs);
