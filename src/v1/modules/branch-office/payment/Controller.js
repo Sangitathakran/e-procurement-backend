@@ -726,7 +726,7 @@ module.exports.batchApprove = async (req, res) => {
         if (result.matchedCount === 0) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
         }
-        
+
         // Insert logs only for newly approved batches
         const batchLogs = batchIds.map(batchId => ({
             entityType: _approvalEntityType.Batch,
@@ -1251,7 +1251,6 @@ module.exports.paymentLogsHistory = async (req, res) => {
     }
 }
 
-
 //////////////////////////////////////////////////////////////
 
 /*
@@ -1751,7 +1750,6 @@ module.exports.paymentWithoutAggregtionExport = async (req, res) => {
     }
 };
 
-
 /// resend OTP
 
 module.exports.reSendOtp = async (req, res) => {
@@ -1775,3 +1773,50 @@ module.exports.reSendOtp = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+module.exports.batchApprovalLogs = async (req, res) => {
+    try {
+        const { batch_id } = req.query; // reading from query
+
+        if (!batch_id) {
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    message: "batch_id is required",
+                })
+            );
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(batch_id)) {
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    message: "Invalid batch_id format",
+                })
+            );
+        }
+
+        const result = await ApprovalLog.find({
+            entityId: new mongoose.Types.ObjectId(batch_id),
+        });
+
+        if (!result || result.length === 0) {
+            return res.status(404).send(
+                new serviceResponse({
+                    status: 404,
+                    message: _response_message.notFound("batchApprovalLogs"),
+                })
+            );
+        }
+
+        return res.status(200).send(
+            new serviceResponse({
+                status: 200,
+                data: result,
+                message: _response_message.found("batchApprovalLogs"),
+            })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};

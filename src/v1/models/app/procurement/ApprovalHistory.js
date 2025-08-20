@@ -54,7 +54,7 @@ const approvalLogSchema = new mongoose.Schema({
     },
     bo_id: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: _collectionName.BranchOffice
+        ref: _collectionName.Branch
     },
     bo_approval: {
         type: String,

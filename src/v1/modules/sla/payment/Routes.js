@@ -6,7 +6,7 @@ const { payment, associateOrders, batchList, lot_list, AssociateTabPaymentReques
     associateBillReject, editAssociateBill, proceedToPayPayment, proceedToPayPaymentExport, proceedToPayBatchList, paymentLogsHistory, qcReport,
     agentDashboardPaymentList,
     agentDashboardAssociateList,
-    paymentWithoutAgreegation} = require("./Controller");
+    paymentWithoutAgreegation, batchApprovalLogs} = require("./Controller");
 
 const { verifyAgent } = require("../utils/verifyAgent");
 const { Auth } = require("@src/v1/middlewares/jwt")
@@ -50,5 +50,6 @@ paymentRoutes.get("/payment-logs", Auth, paymentLogsHistory);
 paymentRoutes.get("/qc-report", Auth, qcReport);
 
 paymentRoutes.get('/', Auth, paymentWithoutAgreegation);
+paymentRoutes.get("/batch-approval-logs", Auth, batchApprovalLogs);
 
 module.exports = { paymentRoutes }; 
