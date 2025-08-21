@@ -438,7 +438,8 @@ module.exports.orderDetails = asyncErrorHandler(async (req, res) => {
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
             distiller_id: new mongoose.Types.ObjectId(organization_id._id),
-            status: _poBatchStatus.accepted,
+            // status: _poBatchStatus.accepted,
+            status: { $nin: [_poBatchStatus.pending, _poBatchStatus.rejected] },
             ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
