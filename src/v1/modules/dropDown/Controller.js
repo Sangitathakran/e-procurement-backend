@@ -559,7 +559,7 @@ module.exports.getStatesByPincode = async (req, res) => {
     }
     let stateCacheData = await redisService.getJson(redisKeys.STATES_DATA);
     if(!stateCacheData){
-      cacheStatesData();
+      stateCacheData = await cacheStatesData();
     }
     const states = stateCacheData ||   await getAllStates();
     const filteredState = states.find(
