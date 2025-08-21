@@ -865,18 +865,7 @@ module.exports.getBoFarmer = async (req, res) => {
     }
 
     state  = state ? state : user?.state_id;
-    // console.log('?>>>>>>>>>>>>>>>>>>>>>>>>', user)
-    // if (!state) {
-    //   return res
-    //     .status(400)
-    //     .send({ message: "User's state information is missing." });
-    // }
-    // const stateData = await getStateId(state);
-    // if (!stateData || !stateData.stateId) {
-    //   return res
-    //     .status(400)
-    //     .send({ message: "State ID not found for the user's state." });
-    // }
+    
 
     let query = { };
 
@@ -995,18 +984,14 @@ module.exports.getBoFarmer = async (req, res) => {
     ]);
     const totalFarmers = await farmer.countDocuments(query);
 
-    if (farmers.length === 0) {
-      return res
-        .status(404)
-        .send({ message: `No farmers found in state: ${state}` });
-    }
+   
     return res.status(200).send({
       status: 200,
       totalFarmers,
       currentPage: page,
       totalPages: Math.ceil(totalFarmers / parsedLimit),
       data: farmers,
-      message: `Farmers found in state: ${state} `,
+      message: `Farmers found in state: ${user?.state} `,
     });
   } catch (error) {
     console.error(error);

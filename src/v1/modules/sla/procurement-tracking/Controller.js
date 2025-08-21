@@ -12,7 +12,7 @@ const mongoose = require("mongoose");
 
 module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
 
-    const { page, limit, skip, paginate = 1, sortBy, search = '', schemeName, commodity, cnaName, branchOffice } = req.query
+    const { page, limit, skip, paginate = 1, sortBy, search = '', commodity, schemeId, ho_id, bo_id } = req.query
 
     const requestIds = (await AssociateOffers.find({})).map((ele) => ele.req_id);
 
@@ -32,36 +32,25 @@ module.exports.getProcurementTracking = asyncErrorHandler(async (req, res) => {
     query._id = { $in: requestIds };
     query.sla_id = new mongoose.Types.ObjectId(req.user_id);
 
-    if (schemeName) {
-        const schemeIds = await Scheme.find({ schemeName: { $regex: schemeName, $options: 'i' } }).distinct('_id');
-        if (schemeIds.length > 0) {
-            query["product.schemeId"] = { $in: schemeIds };
-        } else {
-            query["product.schemeId"] = { $in: [] };
-        }
-    }
-
     if (commodity) {
         query["product.name"] = { $regex: commodity, $options: 'i' };
     }
 
-    if (cnaName) {
-        const slaIds = await HeadOffice.find({ "company_details.name": { $regex: cnaName, $options: 'i' } }).distinct('_id');
-        if (slaIds.length > 0) {
-            query.head_office_id = { $in: slaIds };
-        } else {
-            query.head_office_id = { $in: [] };
-        }
+    if (schemeId) {
+        const schemeIds = Array.isArray(schemeId) ? schemeId : schemeId.split(",");
+        query["product.schemeId"] = { $in: schemeIds.map(id => new mongoose.Types.ObjectId(id)) };
     }
 
-    if (branchOffice) {
-        const branchIds = await Branches.find({ branchName: { $regex: branchOffice, $options: 'i' } }).distinct('_id');
-        if (branchIds.length > 0) {
-            query.branch_id = { $in: branchIds };
-        } else {
-            query.branch_id = { $in: [] };
-        }
+    if (ho_id) {
+        const hoIds = Array.isArray(ho_id) ? ho_id : ho_id.split(",");
+        query["head_office_id"] = { $in: hoIds.map(id => new mongoose.Types.ObjectId(id)) };
     }
+
+    if (bo_id) {
+        const boIds = Array.isArray(bo_id) ? bo_id : bo_id.split(",");
+        query["branch_id"] = { $in: boIds.map(id => new mongoose.Types.ObjectId(id)) };
+    }
+
     const records = { count: 0 };
 
     records.rows = await RequestModel.find(query)
