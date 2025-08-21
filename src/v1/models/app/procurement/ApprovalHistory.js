@@ -3,11 +3,11 @@ const { _collectionName, _approvalLevel, _approvalEntityType, _paymentApproval }
 const { _commonKeys } = require('@src/v1/utils/helpers/collection');
 
 const approvalLogSchema = new mongoose.Schema({
-    entityType: {
-        type: String,
-        enum: Object.values(_approvalEntityType),
-        default: _approvalEntityType.Batch
-    },
+    // entityType: {
+    //     type: String,
+    //     enum: Object.values(_approvalEntityType),
+    //     default: _approvalEntityType.Batch
+    // },
     entityId: {
         type: mongoose.Schema.Types.ObjectId,
         index: true
