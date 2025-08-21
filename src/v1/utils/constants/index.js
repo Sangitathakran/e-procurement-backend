@@ -685,7 +685,8 @@ const dateRangesObj = {
 };
 const mailProviders = {
     mailtrap: "mailtrap",
-    ses: "ses"
+    ses: "ses",
+    smtp: 'smtp',
 };
 
 const userTypeToURL = {

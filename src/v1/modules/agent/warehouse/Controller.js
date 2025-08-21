@@ -457,11 +457,9 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
           'procurementcenter.center_name': 1,
           available_qty: 1,
           qty: 1,
+          createdAt: 1
         },
       },
-      { $sort: sortBy },
-      { $skip: (page - 1) * limit },
-      { $limit: parseInt(limit) },
     ];
 
     const sumPipeline = [
@@ -474,7 +472,15 @@ module.exports.getWarehouseInword = asyncErrorHandler(async (req, res) => {
         },
       },
     ];
-
+    let sortObject = {};
+            try {
+                sortObject = sortBy ? JSON.parse(sortBy) : { createdAt: -1 };
+            } catch {
+                sortObject = { createdAt: -1 };
+            }
+    pipeline.push({ $sort: sortObject });
+    pipeline.push({ $skip: (page - 1) * limit });
+    pipeline.push({ $limit: parseInt(limit) });
     if (isExport == 1) {
       const data = await Batch.aggregate([...pipeline.slice(0, -2)]);
 

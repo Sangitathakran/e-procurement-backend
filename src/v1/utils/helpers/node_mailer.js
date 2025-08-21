@@ -1,5 +1,10 @@
 "use strict";
-const { mailer, mailProvider } = require("@config/index");
+const {
+  mailer,
+  mailProvider,
+  NODE_ENV,
+  environments,
+} = require("@config/index");
 const nodemailer = require("nodemailer");
 const { MailtrapTransport } = require("mailtrap");
 const {
@@ -9,6 +14,7 @@ const { SESsendEmail } = require("@src/common/services/emailServices/AWS_SES");
 const { mailProviders, allowedEmailDomains } = require("../constants");
 const { _query } = require("../constants/messages");
 const logger = require("@src/common/logger/logger");
+const { sendWithSMTP } = require("@src/common/services/emailServices/SMTP");
 
 const defaultMailConfig = {
   user: mailer.user,
@@ -56,8 +62,14 @@ const sendMail = async (
     //     logger.error(`Email domain not allowed for ${to}`);
     //    // throw new Error(`Email domain not allowed for ${to}`);
     // }
-
-    if (provider === mailProviders.mailtrap) {
+    if (NODE_ENV === environments.dev) {
+      return await sendWithSMTP({
+        to,
+        subject,
+        html: body,
+        attachments: mailAttachments,
+      });
+    } else if (provider === mailProviders.mailtrap) {
       return await sendWithMailtrap({
         to,
         subject,
@@ -78,7 +90,7 @@ const sendMail = async (
   } catch (err) {
     logger.error(err.message);
     //  throw new Error(err.message);
-    return
+    return;
   }
 };
 
