@@ -52,7 +52,7 @@ module.exports = {
 
     handleRateLimit: rateLimit({
         windowMs: 60 * 1000,       // 1 minute
-        max: 100,                   // Limit each IP to 50 requests per 1 minute
+        max: 200,                   // Limit each IP to 50 requests per 1 minute
         standardHeaders: false,    // Do NOT return modern RateLimit-* headers
         legacyHeaders: true,       // Send old X-RateLimit-* headers
         handler: (req, res, next, options) => {
