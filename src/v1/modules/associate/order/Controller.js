@@ -12,6 +12,7 @@ const { AssociateInvoice } = require("@src/v1/models/app/payment/associateInvoic
 const { emailService } = require("@src/v1/utils/third_party/EmailServices");
 const { User } = require("@src/v1/models/app/auth/User");
 const { wareHouseDetails } = require("@src/v1/models/app/warehouse/warehouseDetailsSchema");
+const mongoose = require("mongoose");
 
 
 module.exports.batch = async (req, res) => {
@@ -234,47 +235,81 @@ async function generateBatchId() {
     return batchId;
 }
 
+
 module.exports.editTrackDelivery = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
     try {
-
-        const { form_type, id, material_img = [], weight_slip = [], procurementExp, qc_survey, gunny_bags, weighing_stiching,
+        const {
+            form_type, id, material_img = [], weight_slip = [], procurementExp, qc_survey, gunny_bags, weighing_stiching,
             loading_unloading, transportation, driage, storageExp, qc_report = [], lab_report = [], name, contact, license,
             aadhar, aadhar_image, licenseImg, service_name, vehicleNo, vehicle_weight, loaded_weight, gst_number, pan_number,
-            intransit_weight_slip, no_of_bags, weight, warehousedetails_id } = req.body;
-        const { user_id } = req
+            intransit_weight_slip, no_of_bags, weight, warehousedetails_id
+        } = req.body;
+        const { user_id } = req;
 
-        const record = await Batch.findOne({ _id: id });
+        const record = await Batch.findOne({ _id: id }).session(session);
 
         if (!record) {
-            return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("order") }] }))
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(400).send(new serviceResponse({
+                status: 400,
+                errors: [{ message: _response_message.notFound("order") }]
+            }));
         }
 
         switch (form_type) {
             case _batchStatus.mark_ready:
-                if (record.status != _batchStatus.pending) {
-                    return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "Your batch is already mark ready " }] }));
+                if (record?.status !== _batchStatus.pending) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    return res.status(400).send(new serviceResponse({
+                        status: 400,
+                        errors: [{ message: "Your batch is already mark ready " }]
+                    }));
                 }
 
                 if (material_img && weight_slip && procurementExp && qc_survey && gunny_bags && weighing_stiching && loading_unloading && transportation && driage && storageExp && qc_report && lab_report) {
-                    // const RateOfProcurement = 840.00;
-                    // const RateOfDriage = 100.00;
                     const RateOfStorage = 160.00;
                     const RateOfProcurement = 890.00;
                     const RateOfDriage = 200.00;
 
-                    const sumOfqty = record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + handleDecimal(currentValue.qty), 0);
+                    const sumOfqty = record?.farmerOrderIds?.reduce((acc, cur) => acc + handleDecimal(cur?.qty), 0);
 
                     if (handleDecimal(procurementExp) > (sumOfqty * RateOfProcurement)) {
-                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Procurement Expenses should be less than ${(sumOfqty * RateOfProcurement)}` }] }));
+                        await session.abortTransaction();
+                        session.endSession();
+                        return res.status(400).send(new serviceResponse({
+                            status: 400,
+                            errors: [{ message: `Procurement Expenses should be less than ${(sumOfqty * RateOfProcurement)}` }]
+                        }));
                     } else if (handleDecimal(driage) > (sumOfqty * RateOfDriage)) {
-                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Driage Expenses should be less than ${(sumOfqty * RateOfDriage)}` }] }));
+                        await session.abortTransaction();
+                        session.endSession();
+                        return res.status(400).send(new serviceResponse({
+                            status: 400,
+                            errors: [{ message: `Driage Expenses should be less than ${(sumOfqty * RateOfDriage)}` }]
+                        }));
                     } else if (handleDecimal(storageExp) > (sumOfqty * RateOfStorage)) {
-                        return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: `Storage Expenses should be less than ${(sumOfqty * RateOfStorage)}` }] }));
+                        await session.abortTransaction();
+                        session.endSession();
+                        return res.status(400).send(new serviceResponse({
+                            status: 400,
+                            errors: [{ message: `Storage Expenses should be less than ${(sumOfqty * RateOfStorage)}` }]
+                        }));
                     }
 
-                    record.dispatched.material_img.inital.push(...material_img.map(i => { return { img: i, on: moment() } }));
-                    record.dispatched.weight_slip.inital.push(...weight_slip.map(i => { return { img: i, on: moment() } }));
+                    record.dispatched = record.dispatched || {};
+                    record.dispatched.material_img = record.dispatched.material_img || { inital: [] };
+                    record.dispatched.weight_slip = record.dispatched.weight_slip || { inital: [] };
+                    record.dispatched.qc_report = record.dispatched.qc_report || { inital: [] };
+                    record.dispatched.lab_report = record.dispatched.lab_report || { inital: [] };
+                    record.dispatched.bills = record.dispatched.bills || {};
+
+                    record.dispatched.material_img?.inital?.push(...material_img.map(i => ({ img: i, on: moment() })));
+                    record.dispatched.weight_slip?.inital?.push(...weight_slip.map(i => ({ img: i, on: moment() })));
                     record.dispatched.bills.procurementExp = handleDecimal(procurementExp);
                     record.dispatched.bills.qc_survey = qc_survey;
                     record.dispatched.bills.gunny_bags = gunny_bags;
@@ -283,34 +318,54 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.dispatched.bills.transportation = transportation;
                     record.dispatched.bills.driage = handleDecimal(driage);
                     record.dispatched.bills.storageExp = handleDecimal(storageExp);
-                    record.dispatched.bills.commission = handleDecimal((handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp)) * 0.005);
-                    record.dispatched.bills.total = handleDecimal(handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp) + handleDecimal((handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp)) * 0.005));
-                    record.dispatched.qc_report.inital.push(...qc_report.map(i => { return { img: i, on: moment() } }));
-                    record.dispatched.lab_report.inital.push(...lab_report.map(i => { return { img: i, on: moment() } }));
+                    record.dispatched.bills.commission = handleDecimal(
+                        (handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp)) * 0.005
+                    );
+                    record.dispatched.bills.total = handleDecimal(
+                        handleDecimal(procurementExp) +
+                        handleDecimal(driage) +
+                        handleDecimal(storageExp) +
+                        handleDecimal((handleDecimal(procurementExp) + handleDecimal(driage) + handleDecimal(storageExp)) * 0.005)
+                    );
+                    record.dispatched.qc_report?.inital?.push(...qc_report.map(i => ({ img: i, on: moment() })));
+                    record.dispatched.lab_report?.inital?.push(...lab_report.map(i => ({ img: i, on: moment() })));
                     record.dispatched.dispatched_at = new Date();
                     record.dispatched.dispatched_by = user_id;
 
                     record.status = _batchStatus.mark_ready;
                 } else {
-                    return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
+                    await session.abortTransaction();
+                    session.endSession();
+                    return res.status(400).send(new serviceResponse({
+                        status: 400,
+                        errors: [{ message: _middleware.require("field") }]
+                    }));
                 }
                 break;
 
             case _batchStatus.intransit:
-
-                if (record.status != _batchStatus.mark_ready) {
-                    return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "your batch should be Mark Ready" }] }));
+                if (record?.status !== _batchStatus.mark_ready) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    return res.status(400).send(new serviceResponse({
+                        status: 400,
+                        errors: [{ message: "your batch should be Mark Ready" }]
+                    }));
                 }
 
                 if (name && contact && license && aadhar && licenseImg && service_name && vehicleNo && vehicle_weight && loaded_weight && gst_number && pan_number && intransit_weight_slip && no_of_bags && weight) {
+                    const reqRec = await RequestModel.findOne({ _id: record?.req_id }).session(session);
 
-                    const reqRec = await RequestModel.findOne({ _id: record?.req_id });
+                    record.intransit = record.intransit || {};
+                    record.intransit.driver = record.intransit.driver || { aadhar_image: {} };
+                    record.intransit.transport = record.intransit.transport || {};
+
                     record.intransit.driver.name = name;
                     record.intransit.driver.contact = contact;
                     record.intransit.driver.license = license;
                     record.intransit.driver.aadhar = aadhar;
-                    record.intransit.driver.aadhar_image.front = aadhar_image.front;
-                    record.intransit.driver.aadhar_image.back = aadhar_image.back;
+                    record.intransit.driver.aadhar_image.front = aadhar_image?.front;
+                    record.intransit.driver.aadhar_image.back = aadhar_image?.back;
 
                     record.intransit.licenseImg = licenseImg;
                     record.intransit.transport.service_name = service_name;
@@ -329,57 +384,78 @@ module.exports.editTrackDelivery = async (req, res) => {
                     record.status = _batchStatus.intransit;
                     record.warehousedetails_id = warehousedetails_id;
 
-                    const associateInvoice = await AssociateInvoice.findOne({ batch_id: record?._id });
+                    const associateInvoice = await AssociateInvoice.findOne({ batch_id: record?._id }).session(session);
                     if (reqRec && !associateInvoice) {
-                        await AssociateInvoice.create({
+                        await AssociateInvoice.create([{
                             req_id: reqRec?._id,
                             ho_id: reqRec?.head_office_id,
                             bo_id: reqRec?.branch_id,
                             associate_id: user_id,
                             batch_id: record?._id,
-                            qtyProcured: record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + handleDecimal(currentValue.qty), 0),
-                            goodsPrice: record.farmerOrderIds.reduce((accumulator, currentValue) => accumulator + handleDecimal(currentValue.qty), 0),
+                            qtyProcured: record?.farmerOrderIds?.reduce((acc, cur) => acc + handleDecimal(cur?.qty), 0),
+                            goodsPrice: record?.farmerOrderIds?.reduce((acc, cur) => acc + handleDecimal(cur?.qty), 0),
                             initiated_at: new Date(),
                             bills: record?.dispatched?.bills,
                             associateOffer_id: record?.associateOffer_id,
-
-                        });
+                        }], { session });
                     }
 
-                    const associate_id = record.seller_id;
-                    const associateData = await User.findOne({ _id: associate_id });
+                    const associate_id = record?.seller_id;
+                    const associateData = await User.findOne({ _id: associate_id }).session(session);
 
                     const emailPayloadData = {
-                        batch_id: record.batchId,
-                        order_no: reqRec.reqNo,
-                        driver_name: record.intransit.driver.name,
-                        driver_phone: record.intransit.driver.contact,
-                        transport_service: record.intransit.transport.service_name,
-                        vehicle_no: record.intransit.transport.vehicleNo = vehicleNo,
-                        email: associateData.basic_details.associate_details.email,
-                        associate_name: associateData.basic_details.associate_details.associate_name
-                    }
+                        batch_id: record?.batchId,
+                        order_no: reqRec?.reqNo,
+                        driver_name: record?.intransit?.driver?.name,
+                        driver_phone: record?.intransit?.driver?.contact,
+                        transport_service: record?.intransit?.transport?.service_name,
+                        vehicle_no: vehicleNo,
+                        email: associateData?.basic_details?.associate_details?.email,
+                        associate_name: associateData?.basic_details?.associate_details?.associate_name
+                    };
 
-                    await emailService.sendTrackDeliveryInTransitEmail(emailPayloadData);
+                    req.emailPayloadData = emailPayloadData;
                 } else {
-                    return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: _middleware.require("field") }] }));
+                    await session.abortTransaction();
+                    session.endSession();
+                    return res.status(400).send(new serviceResponse({
+                        status: 400,
+                        errors: [{ message: _middleware.require("field") }]
+                    }));
                 }
-
                 break;
 
             default:
-
-                return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "enter correct form_type" }] }));
-                break;
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).send(new serviceResponse({
+                    status: 400,
+                    errors: [{ message: "enter correct form_type" }]
+                }));
         }
 
-        await record.save();
-        return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.updated("batch") }));
+        await record.save({ session });
+
+        await session.commitTransaction();
+        session.endSession();
+
+        // email send after transaction success
+        if (req.emailPayloadData) {
+            await emailService.sendTrackDeliveryInTransitEmail(req.emailPayloadData);
+        }
+
+        return res.status(200).send(new serviceResponse({
+            status: 200,
+            data: record,
+            message: _response_message.updated("batch")
+        }));
 
     } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
         _handleCatchErrors(error, res);
     }
-}
+};
 
 module.exports.viewTrackDelivery = async (req, res) => {
     try {
