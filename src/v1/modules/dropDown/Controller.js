@@ -561,8 +561,7 @@ module.exports.getStatesByPincode = async (req, res) => {
     if(!stateCacheData){
       stateCacheData = await cacheStatesData();
     }
-    const states = stateCacheData ||   await getAllStates();
-    const filteredState = states.find(
+    const filteredState = stateCacheData.find(
       (obj) =>
         obj.state_title.toLowerCase() ===
         pincode_data?.PostOffice[0]?.State?.toLowerCase()
@@ -570,7 +569,7 @@ module.exports.getStatesByPincode = async (req, res) => {
     return res.send(
       new serviceResponse({
         message: "OK",
-        data: { states: [filteredState] || states },
+        data: { states: [filteredState] },
       })
     );
   } catch (err) {
