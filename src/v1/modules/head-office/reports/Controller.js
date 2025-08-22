@@ -213,7 +213,7 @@ module.exports.Reports = async (req, res) => {
     ];
 
     const data = await RequestModel.aggregate(dataPipeline).allowDiskUse(true);
-    if(isExport === 1) {
+    if(isExport == 1) {
       const fieldConfig = fields && typeof fields === "object" ? fields : {};
       const selectedFields = Object.keys(fieldConfig).filter(key => fieldConfig[key]);
       const exportData = data.map(item => {
