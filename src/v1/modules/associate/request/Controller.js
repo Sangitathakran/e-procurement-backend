@@ -1262,7 +1262,8 @@ module.exports.offeredFarmerList = async (req, res) => {
           farmer_type: "$farmer_data.user_type",
           "farmer_data.name": 1,
           "farmer_data.mobile_no": 1,
-          "farmer_data.basic_details": 1, // Include basic_details field
+          "farmer_data.parents": 1,
+          "farmer_data.basic_details": 1,
           "farmer_data.address": 1,
           "location_data.state_title": 1,
           "location_data.district_title": 1,
