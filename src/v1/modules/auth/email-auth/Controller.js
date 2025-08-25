@@ -150,11 +150,11 @@ module.exports.login = async (req, res) => {
     };
 
     if (isSlaPortal) {
-      slaResult = await SLAManagement.findOne({ _id: user.portalId._id })
+      slaResult = await SLAManagement.findOne({ _id: user?.portalId?._id })
         .select("address")
         .lean();
 
-      if (!slaResult || !slaResult.address || !slaResult.address.state_id) {
+      if (!slaResult || !slaResult.address || !slaResult?.address?.state_id) {
         return res.status(400).send(
           new serviceResponse({
             status: 400,
@@ -162,7 +162,7 @@ module.exports.login = async (req, res) => {
           })
         );
       }else{
-        payload["state_id"] = slaResult.address.state_id;
+        payload["state_id"] = slaResult?.address?.state_id;
       }
     }
 
@@ -349,8 +349,7 @@ exports.resetPassword = async (req, res) => {
       user.passwordChangedAt = new Date();
       await user.save();
       await LoginAttempt.deleteMany({ email: decodedToken.email.trim() });
-
-      // Invalidate all previous reset links for this user
+      await LoginHistory.deleteMany({ master_id: user?._id });
       await ResetLinkHistory.deleteMany({ email: decodedToken.email });
 
       return res.status(200).send(

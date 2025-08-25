@@ -865,18 +865,7 @@ module.exports.getBoFarmer = async (req, res) => {
     }
 
     state  = state ? state : user?.state_id;
-    // console.log('?>>>>>>>>>>>>>>>>>>>>>>>>', user)
-    // if (!state) {
-    //   return res
-    //     .status(400)
-    //     .send({ message: "User's state information is missing." });
-    // }
-    // const stateData = await getStateId(state);
-    // if (!stateData || !stateData.stateId) {
-    //   return res
-    //     .status(400)
-    //     .send({ message: "State ID not found for the user's state." });
-    // }
+    
 
     let query = { };
 
@@ -995,18 +984,14 @@ module.exports.getBoFarmer = async (req, res) => {
     ]);
     const totalFarmers = await farmer.countDocuments(query);
 
-    if (farmers.length === 0) {
-      return res
-        .status(404)
-        .send({ message: `No farmers found in state: ${state}` });
-    }
+   
     return res.status(200).send({
       status: 200,
       totalFarmers,
       currentPage: page,
       totalPages: Math.ceil(totalFarmers / parsedLimit),
       data: farmers,
-      message: `Farmers found in state: ${state} `,
+      message: `Farmers found in state: ${user?.state} `,
     });
   } catch (error) {
     console.error(error);
@@ -3060,10 +3045,25 @@ module.exports.getAllFarmers = async (req, res) => {
       localQuery["address.state_id"] = new mongoose.Types.ObjectId(state_id);
     }
 
+    const isAssociateSearch = search && /^AS\d+$/.test(search);
+    
     if (search) {
-      const searchCondition = { name: { $regex: search, $options: "i" } };
-      associatedQuery = { ...associatedQuery, ...searchCondition };
-      localQuery = { ...localQuery, ...searchCondition };
+      if (isAssociateSearch) {
+        associatedQuery.associate_id = { $exists: true, $ne: null };
+        localQuery = { ...localQuery, associate_id: null };
+      } else {
+        const searchCondition = {
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { farmer_id: { $regex: search, $options: "i" } },
+            { "basic_details.name": { $regex: search, $options: "i" } },
+            { mobile_no: { $regex: search, $options: "i" } },
+            { "basic_details.mobile_no": { $regex: search, $options: "i" } },
+          ]
+        };
+        associatedQuery = { ...associatedQuery, ...searchCondition };
+        localQuery = { ...localQuery, ...searchCondition };
+      }
     }
 
     if (verified === "true") {
@@ -3094,33 +3094,75 @@ module.exports.getAllFarmers = async (req, res) => {
       [sortBy]: 1,
       _id: 1,
     };
-    if (paginate) {
-      records.associatedFarmers = await farmer
-        .find(associatedQuery)
-        .populate("associate_id", "_id user_code basic_details.associate_details.organization_name bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
-        .sort(sortCriteria)
-        .skip(skip)
-        .limit(parsedLimit);
 
-      records.localFarmers = await farmer
-        .find(localQuery)
-        .populate("associate_id", "_id user_code bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
-        .sort(sortCriteria)
-        .skip(skip)
-        .limit(parsedLimit);
+    
+    if (isAssociateSearch) {
+      const associate = await User.findOne({ user_code: search });
+      
+      if (associate) {
+        const associateSpecificQuery = { ...associatedQuery, associate_id: associate._id };
+        
+        if (paginate) {
+          records.associatedFarmers = await farmer
+            .find(associateSpecificQuery)
+            .populate("associate_id", "_id user_code basic_details.associate_details.organization_name bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
+            .sort(sortCriteria)
+            .skip(skip)
+            .limit(parsedLimit);
+        } else {
+          records.associatedFarmers = await farmer
+            .find(associateSpecificQuery)
+            .populate("associate_id", "_id user_code basic_details.associate_details.organization_name bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
+            .sort(sortCriteria);
+        }
+        
+        records.localFarmers = [];
+      } else {
+        records.associatedFarmers = [];
+        records.localFarmers = [];
+      }
     } else {
-      records.associatedFarmers = await farmer
-        .find(associatedQuery)
-        .populate("associate_id", "_id user_code basic_details.associate_details.organization_name bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
-        .sort(sortCriteria);
+      if (paginate) {
+        records.associatedFarmers = await farmer
+          .find(associatedQuery)
+          .populate("associate_id", "_id user_code basic_details.associate_details.organization_name bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
+          .sort(sortCriteria)
+          .skip(skip)
+          .limit(parsedLimit);
 
-      records.localFarmers = await farmer
-        .find(localQuery)
-        .populate("associate_id", "_id user_code bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
-        .sort(sortCriteria);
+        records.localFarmers = await farmer
+          .find(localQuery)
+          .populate("associate_id", "_id user_code bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
+          .sort(sortCriteria)
+          .skip(skip)
+          .limit(parsedLimit);
+      } else {
+        records.associatedFarmers = await farmer
+          .find(associatedQuery)
+          .populate("associate_id", "_id user_code basic_details.associate_details.organization_name bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
+          .sort(sortCriteria);
+
+        records.localFarmers = await farmer
+          .find(localQuery)
+          .populate("associate_id", "_id user_code bank_details.is_verified proof.is_verified proof.is_verfiy_aadhar_date")
+          .sort(sortCriteria);
+      }
     }
-    records.count = await farmer.countDocuments(associatedQuery);
-    records.localFarmersCount = await farmer.countDocuments(localQuery);
+    // Update count logic for associate searches
+    if (isAssociateSearch) {
+      const associate = await User.findOne({ user_code: search });
+      if (associate) {
+        const associateSpecificQuery = { ...associatedQuery, associate_id: associate._id };
+        records.count = await farmer.countDocuments(associateSpecificQuery);
+        records.localFarmersCount = 0;
+      } else {
+        records.count = 0;
+        records.localFarmersCount = 0;
+      }
+    } else {
+      records.count = await farmer.countDocuments(associatedQuery);
+      records.localFarmersCount = await farmer.countDocuments(localQuery);
+    }
 
     // const getData = await getAddress(records.localFarmers[1]);
     // for fetching address detail for farmer

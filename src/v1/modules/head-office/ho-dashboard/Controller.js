@@ -2542,11 +2542,12 @@ module.exports.getBenefittedFarmersAndPaymentAmount = async (req, res) => {
       const paymentIds = await Payment.distinct('req_id', {
         ho_id: { $in: [portalId, user_id] },
         bo_approve_status: _paymentApproval.approved,
+        payment_status: _paymentstatus.completed,
       });
 
     //  console.log('paymentIds', paymentIds);
       let query = {
-        'request._id': { $in: paymentIds },
+        'req_id': { $in: paymentIds },
       };
 
       const ho_id = new mongoose.Types.ObjectId(req.portalId);
@@ -2582,11 +2583,11 @@ module.exports.getBenefittedFarmersAndPaymentAmount = async (req, res) => {
     const pipeline = [
       {
         $match: {
-         //ho_id: new ObjectId(ho_id),
-          payment_status: _paymentstatus.completed,
-          ...dateFilter,
-        },
+        ...query,
+        ...dateFilter,
+        }
       },
+     
       {
         $lookup: {
           from: 'batches',
@@ -2596,6 +2597,7 @@ module.exports.getBenefittedFarmersAndPaymentAmount = async (req, res) => {
         },
       },
       { $unwind: '$batch' },
+      {$match: { 'batch.bo_approve_status': _paymentApproval.approved, 'batch.ho_approve_status': _paymentApproval.approved } },
 
       {
         $lookup: {
@@ -2616,7 +2618,7 @@ module.exports.getBenefittedFarmersAndPaymentAmount = async (req, res) => {
         },
       },
       { $unwind: '$request' },
-      { $match: query},
+     // { $match: query},
 
       {
         $lookup: {
@@ -3268,166 +3270,3 @@ console.log({user_id, portalId})
     });
   }
 });
-module.exports.getBenefittedFarmersAndPaymentAmount = async (req, res) => {
-  try {
-    const { states, season, schemeId, commodity_id, dateRange } =
-      req.query;
-      const { portalId, user_id } = req;
-      const paymentIds = await Payment.distinct('req_id', {
-        ho_id: { $in: [portalId, user_id] },
-        bo_approve_status: _paymentApproval.approved,
-      });
-
-    //  console.log('paymentIds', paymentIds);
-      let query = {
-        'request._id': { $in: paymentIds },
-      };
-
-      const ho_id = new mongoose.Types.ObjectId(req.portalId);
-
-    if (!ho_id) {
-      return res
-        .status(400)
-        .json({ status: 400, message: 'ho_id is required' });
-    }
-
-    const stateArr = states
-      ? states.split(',').map(id => new ObjectId(id.trim()))
-      : null;
-
-    const schemeArr = schemeId
-      ? schemeId.split(',').map(id => new ObjectId(id.trim()))
-      : null;
-    const commodityArr = commodity_id
-      ? commodity_id.split(',').map(id => new ObjectId(id.trim()))
-      : null;
-    const seasonArr = season
-      ? season.split(',').map(s => new RegExp(s.trim(), 'i'))
-      : null;
-
-    const hasRequestFilters = schemeArr || commodityArr || seasonArr;
-
-    let dateFilter = {};
-    if (dateRange) {
-      const { startDate, endDate } = parseDateRange(dateRange);
-      dateFilter.createdAt = { $gte: startDate, $lte: endDate };
-    }
-
-    const pipeline = [
-      {
-        $match: {
-         //ho_id: new ObjectId(ho_id),
-          payment_status: _paymentstatus.completed,
-          ...dateFilter,
-        },
-      },
-      {
-        $lookup: {
-          from: 'batches',
-          localField: 'batch_id',
-          foreignField: '_id',
-          as: 'batch',
-        },
-      },
-      { $unwind: '$batch' },
-
-      {
-        $lookup: {
-          from: 'procurementcenters',
-          localField: 'batch.procurementCenter_id',
-          foreignField: '_id',
-          as: 'center',
-        },
-      },
-      { $unwind: { path: '$center', preserveNullAndEmptyArrays: true } },
-
-      {
-        $lookup: {
-          from: 'requests',
-          localField: 'req_id',
-          foreignField: '_id',
-          as: 'request',
-        },
-      },
-      { $unwind: '$request' },
-      { $match: query},
-
-      {
-        $lookup: {
-          from: 'schemes',
-          let: { schemeId: '$request.product.schemeId' },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ['$_id', '$$schemeId'] },
-              },
-            },
-            { $project: { season: 1 } },
-          ],
-          as: 'scheme',
-        },
-      },
-      { $unwind: { path: '$scheme', preserveNullAndEmptyArrays: true } },
-
-      {
-        $match: {
-          ...(stateArr && {
-            'center.address.state_id': { $in: stateArr },
-          }),
-          ...(schemeArr && {
-            'request.product.schemeId': { $in: schemeArr },
-          }),
-          ...(commodityArr && {
-            'request.product.commodity_id': { $in: commodityArr },
-          }),
-          ...(seasonArr && {
-            $or: [
-              { 'request.product.season': { $in: seasonArr } },
-              { 'scheme.season': { $in: seasonArr } },
-            ],
-          }),
-        },
-      },
-
-      {
-        $group: {
-          _id: {
-            state_id: '$center.address.state_id',
-            state: '$center.address.state',
-          },
-          benefitted_farmers: { $addToSet: '$farmer_id' },
-          total_payment_amount: { $sum: '$amount' },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          state_id: '$_id.state_id',
-          state: '$_id.state',
-          benefitted_farmers_count: { $size: '$benefitted_farmers' },
-          total_payment_amount: 1,
-        },
-      },
-    ];
-
-    const result = await Payment.aggregate(pipeline);
-    //console.log( result)
-    const data = {
-      benefitted_farmers_count: result.reduce( (acc, curr) => acc+curr.benefitted_farmers_count, 0),
-      total_payment_amount: result.reduce( (acc, curr) => acc+curr.total_payment_amount, 0),
-    };
-
-    return res.status(200).json({
-      status: 200,
-      message: 'Benefitted farmers and total payment fetched successfully.',
-      data,
-    });
-  } catch (err) {
-    console.error('Error in getBenefittedFarmersAndPaymentAmount:', err);
-    return res.status(500).json({
-      status: 500,
-      message: 'Internal Server Error',
-      error: err.message,
-    });
-  }
-};
