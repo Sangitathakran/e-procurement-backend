@@ -568,19 +568,22 @@ module.exports.getTrucks = asyncErrorHandler(async (req, res) => {
 module.exports.batchOrderStatsData = async (req, res) => {
     try {
         const { warehouseIds = [] } = req.body;
+        const { organization_id } = req;
         const getToken = req.headers.token || req.cookies.token;
-        if (!getToken) {
-            return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
-        }
+        // if (!getToken) {
+        //     return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        // }
 
-        const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        // const decode = await decryptJwtToken(getToken);
+        // const UserId = decode.data.user_id;
 
-        if (!mongoose.Types.ObjectId.isValid(UserId)) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
-        }
+        // if (!mongoose.Types.ObjectId.isValid(UserId)) {
+        //     return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+        // }
 
-        const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+        // const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+        const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(organization_id) });
+        
         const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
 
         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
@@ -593,8 +596,9 @@ module.exports.batchOrderStatsData = async (req, res) => {
                 message: "No warehouses found for the user."
             }));
         }
-
-        const query = { "warehousedetails_id": { $in: finalwarehouseIds } };
+        
+        // const query = { "warehousedetails_id": { $in: finalwarehouseIds } };
+        const query = { "warehouseId": { $in: finalwarehouseIds } };
 
         const rows = await BatchOrderProcess.find(query);
         let totalPurchaseOrder = 0;
@@ -609,7 +613,7 @@ module.exports.batchOrderStatsData = async (req, res) => {
 
             if (batchStatus == _poBatchStatus.pending) {
                 pendingPurchaseOrder++;
-            } else if (batchStatus == _poBatchStatus.inProgress) {
+            } else if (batchStatus == _poBatchStatus.accepted) {
                 inTransitPurchaseOrder++;
             } else if (batchStatus == _poBatchStatus.rejected) {
                 rejectedPurchaseOrder++;
