@@ -21,9 +21,9 @@ const { Truck } = require('@src/v1/models/app/warehouse/Truck');
 module.exports.orderList = asyncErrorHandler(async (req, res) => {
 
     const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
-    const { user_id, organization_id, portalId } = req;
+    const { user_id, organization_id } = req;
     //warehouseId
-    console.log(organization_id);
+   
     let query = {
         'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
@@ -96,14 +96,14 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
 
         const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-        const { user_id } = req;
+        const { user_id, organization_id } = req;
         if (!order_id) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("orderId") }] }));
         }
 
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
-            warehouseOwnerId: new mongoose.Types.ObjectId(user_id),//user_id
+            warehouseOwnerId: new mongoose.Types.ObjectId(organization_id),//user_id
             ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
@@ -211,8 +211,6 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("purchase order") }))
 })
 
-
-
 module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
     const { batches = [], purchaseOrder_id } = req.body;
@@ -288,7 +286,6 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
 
 })
-
 
 module.exports.inTransit = asyncErrorHandler(async (req, res) => {
 
@@ -450,7 +447,6 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
     return res.status(200).send({ status: 200, data: trackOrderRecord, message: _response_message.updated("track") })
 })
 
-
 module.exports.getBatches = asyncErrorHandler(async (req, res) => {
 
     const { id } = req.params;
@@ -529,7 +525,6 @@ module.exports.getStatus = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: record.data, message: _response_message.found("status") }));
 
 })
-
 
 module.exports.getTrucks = asyncErrorHandler(async (req, res) => {
 
@@ -640,6 +635,7 @@ module.exports.batchOrderStatsData = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
 module.exports.rejectTrack = asyncErrorHandler(async (req, res) => {
 
 
