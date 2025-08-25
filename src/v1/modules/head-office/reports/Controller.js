@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 module.exports.Reports = async (req, res) => {
   try {
     const { _id } = req.user.portalId;
-    let { schemeId = [], branchId = [],fields={} } = req.body;
+    let { schemeId = [], branchId = [],fields={},search="" } = req.body;
     let { page = 1, skip = 0, limit = 10, isExport = 0 } = req.query;
 
 
@@ -20,7 +20,8 @@ module.exports.Reports = async (req, res) => {
           $or: [
             { "product.schemeId": { $in: schemeId } },
             { "product.branchId": { $in: branchId } },
-            { head_office_id: new mongoose.Types.ObjectId(_id) }
+            { head_office_id: new mongoose.Types.ObjectId(_id)},
+            {orderId: {$regex: search, $options: "i"}}
           ]
         }
       },
