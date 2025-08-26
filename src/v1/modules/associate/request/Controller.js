@@ -97,7 +97,6 @@ module.exports.getProcurement = async (req, res) => {
       query["product.commodity_id"] = { $in: commodityObjectId };
     }
     if (status) {
-      // Handle status-based filtering
       const conditionPipeline = [];
       if (status === _associateOfferStatus.ordered) {
         conditionPipeline.push(
@@ -111,7 +110,7 @@ module.exports.getProcurement = async (req, res) => {
           },
           {
             $addFields: {
-              batchesCount: { $size: "$batches" }, // Add batch count
+              batchesCount: { $size: "$batches" }, 
             },
           }
         );
@@ -183,16 +182,6 @@ module.exports.getProcurement = async (req, res) => {
             preserveNullAndEmptyArrays: true,
           },
         },
-        ...(stateObjectId.length > 0
-                  ? [
-                      {
-                        $match: {
-                          "associateUserDetails.address.registered.state_id": { $in: stateObjectId }
-                        },
-                      },
-                    ]
-                  : []),
-
         ...conditionPipeline,
         {
           $match: {
@@ -346,6 +335,7 @@ module.exports.getProcurement = async (req, res) => {
               {
                 $project: {
                   branchName: "$branchName",
+                  state_id: 1,
                   _id: 0,
                 },
               },
@@ -356,7 +346,15 @@ module.exports.getProcurement = async (req, res) => {
         {
           $unwind: { path: "$branchDetails", preserveNullAndEmptyArrays: true },
         },
-        // Add computed fields
+              ...(stateObjectId.length > 0
+        ? [
+            {
+              $match: {
+                "branchDetails.state_id": { $in: stateObjectId }
+              },
+            },
+          ]
+        : []),
         {
           $addFields: {
             schemeName: {
@@ -430,7 +428,21 @@ module.exports.getProcurement = async (req, res) => {
             },
           },
           { $unwind: { path: "$payments", preserveNullAndEmptyArrays: true } },
-
+           {
+              $lookup: {
+                from: "branches",
+                let: { branchId: "$branch_id" },
+                pipeline: [
+                  { $match: { $expr: { $eq: ["$_id", "$$branchId"] } } },
+                  { $project: { branchName: 1, state_id: 1 } },
+                ],
+                as: "branchDetails",
+              },
+            },
+            { $unwind: { path: "$branchDetails", preserveNullAndEmptyArrays: true } },
+            ...(stateObjectId.length > 0
+              ? [{ $match: { "branchDetails.state_id": { $in: stateObjectId } } }]
+              : []),
           {
             $lookup: {
               from: "users",
@@ -447,19 +459,6 @@ module.exports.getProcurement = async (req, res) => {
             },
           },
           { $unwind: { path: "$associateUserDetails", preserveNullAndEmptyArrays: true } },
-
-          ...(stateObjectId.length > 0
-            ? [
-                {
-                  $match: {
-                    "associateUserDetails.address.registered.state_id": {
-                      $in: stateObjectId,
-                    },
-                  },
-                },
-              ]
-            : []),
-
           { $count: "count" },
         ];
 
@@ -480,6 +479,21 @@ module.exports.getProcurement = async (req, res) => {
             },
           },
           { $unwind: { path: "$payments", preserveNullAndEmptyArrays: true } },
+           {
+              $lookup: {
+                from: "branches",
+                let: { branchId: "$branch_id" },
+                pipeline: [
+                  { $match: { $expr: { $eq: ["$_id", "$$branchId"] } } },
+                  { $project: { branchName: 1, state_id: 1 } },
+                ],
+                as: "branchDetails",
+              },
+            },
+            { $unwind: { path: "$branchDetails", preserveNullAndEmptyArrays: true } },
+            ...(stateObjectId.length > 0
+              ? [{ $match: { "branchDetails.state_id": { $in: stateObjectId } } }]
+              : []),
 
           {
             $lookup: {
@@ -491,19 +505,6 @@ module.exports.getProcurement = async (req, res) => {
             },
           },
           { $unwind: { path: "$associateUserDetails", preserveNullAndEmptyArrays: true } },
-
-          ...(stateObjectId.length > 0
-            ? [
-                {
-                  $match: {
-                    "associateUserDetails.address.registered.state_id": {
-                      $in: stateObjectId,
-                    },
-                  },
-                },
-              ]
-            : []),
-
           {
             $lookup: {
               from: "headoffices",
@@ -561,18 +562,6 @@ module.exports.getProcurement = async (req, res) => {
           ...(commodityObjectId.length > 0
             ? [{ $match: { "commodityDetails._id": { $in: commodityObjectId } } }]
             : []),
-
-          {
-            $lookup: {
-              from: "branches",
-              localField: "branch_id",
-              foreignField: "_id",
-              pipeline: [{ $project: { branchName: 1 } }],
-              as: "branchDetails",
-            },
-          },
-          { $unwind: { path: "$branchDetails", preserveNullAndEmptyArrays: true } },
-
           {
             $addFields: {
               schemeName: {
