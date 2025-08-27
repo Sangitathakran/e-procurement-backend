@@ -271,39 +271,35 @@ module.exports.getSLAList = asyncErrorHandler(async (req, res) => {
         pipeline: [ { $project: { scheme_id: 1} }]
       },
     },
-    { $unwind: "$assignSchemes"},
+    { $unwind: { path: "$assignSchemes", preserveNullAndEmptyArrays: true } },
    // { $match: { "assignSchemes.schemes.branch": { $in: [portalObjectId, userObjectId] } } },
     //   { $match: matchQuery },
     {
-      $project: {
-        _id: 1,
-        slaId: 1,
-        email: "$basic_details.email",
-        sla_name: "$basic_details.name",
-        associate_count: { $size: "$associatOrder_id" },
-        address: {
-          $concat: [
-            "$address.line1",
-            ", ",
-            { $ifNull: ["$address.line2", ""] },
-            ", ",
-            "$address.city",
-            ", ",
-            "$address.district",
-            ", ",
-            "$address.state",
-            ", ",
-            "$address.pinCode",
-            ", ",
-            { $ifNull: ["$address.country", ""] },
-          ],
+      $group: {
+        _id: "$_id",
+        slaId: { $first: "$slaId" },
+        email: { $first: "$basic_details.email" },
+        sla_name: { $first: "$basic_details.name" },
+        associate_count: { $first: { $size: "$associatOrder_id" } },
+        address: { 
+          $first: {
+            $concat: [
+              "$address.line1", ", ",
+              { $ifNull: ["$address.line2", ""] }, ", ",
+              "$address.city", ", ",
+              "$address.district", ", ",
+              "$address.state", ", ",
+              "$address.pinCode", ", ",
+              { $ifNull: ["$address.country", ""] }
+            ]
+          }
         },
-        status: 1,
-        poc: "$point_of_contact.name",
-        branch: "$schemes.branch",
-        scheme_id: "$assignSchemes.scheme_id",
-        state_id: "$address.state_id",
-      },
+        status: { $first: "$status" },
+        poc: { $first: "$point_of_contact.name" },
+        branch: { $first: "$schemes.branch" },
+        scheme_ids: { $addToSet: "$assignSchemes.scheme_id" }, // 🔑 unique scheme ids array
+        state_id: { $first: "$address.state_id" },
+      }
     },
   ];
 

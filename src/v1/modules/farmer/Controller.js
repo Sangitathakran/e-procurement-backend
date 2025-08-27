@@ -881,6 +881,7 @@ module.exports.getBoFarmer = async (req, res) => {
     
     if (search) {
       query.name = { $regex: search, $options: "i" };
+      query.farmer_id = { $regex: search, $options: "i" };
     }
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const parsedLimit = parseInt(limit);
