@@ -19,6 +19,8 @@ const {
   _batchStatus,
   _associateOfferStatus,
   _paymentstatus,
+  _approvalLevel,
+  _approvalEntityType
 } = require("@src/v1/utils/constants");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
@@ -42,7 +44,8 @@ const {
 const PaymentLogsHistory = require("@src/v1/models/app/procurement/PaymentLogsHistory");
 const { Commodity } = require("@src/v1/models/master/Commodity");
 const { getCache, setCache } = require("@src/v1/utils/cache");
-// const { setCache, getCache } = require("@src/v1/utils/cache");
+
+const { ApprovalLog } = require("@src/v1/models/app/procurement/ApprovalHistory");
 
 module.exports.payment = async (req, res) => {
   try {
@@ -61,11 +64,11 @@ module.exports.payment = async (req, res) => {
     // limit = 5
     let query = search
       ? {
-          $or: [
-            { reqNo: { $regex: search, $options: "i" } },
-            { "product.name": { $regex: search, $options: "i" } },
-          ],
-        }
+        $or: [
+          { reqNo: { $regex: search, $options: "i" } },
+          { "product.name": { $regex: search, $options: "i" } },
+        ],
+      }
       : {};
 
     const { portalId, user_id } = req;
@@ -299,9 +302,8 @@ module.exports.payment = async (req, res) => {
           item.sellers?.[0]?.basic_details?.associate_details || {};
         const farmerDetails = item.farmer ? item.farmer[0] || {} : {};
         const farmerAddress = item.farmer?.address
-          ? `${farmerDetails.address.village || "NA"}, ${
-              farmerDetails.address.block || "NA"
-            }, 
+          ? `${farmerDetails.address.village || "NA"}, ${farmerDetails.address.block || "NA"
+          }, 
                        ${farmerDetails.address.country || "NA"}`
           : "NA";
         return {
@@ -371,7 +373,7 @@ module.exports.associateOrders = async (req, res) => {
       isExport = 0,
     } = req.query;
 
-        const paymentIds = (await Payment.find({ req_id })).map(i => i.associateOffers_id);
+    const paymentIds = (await Payment.find({ req_id })).map(i => i.associateOffers_id);
 
     let query = {
       _id: { $in: paymentIds },
@@ -396,7 +398,7 @@ module.exports.associateOrders = async (req, res) => {
       status: 1,
     });
 
-        const reqDetailsObj = records.reqDetails.toObject();
+    const reqDetailsObj = records.reqDetails.toObject();
 
     if (
       reqDetailsObj?.address?.deliveryLocation &&
@@ -460,23 +462,23 @@ module.exports.associateOrders = async (req, res) => {
         "Quantity Purchased": item?.offeredQty || "NA",
       }));
 
-            if (record.length > 0) {
-                dumpJSONToExcel(req, res, {
-                    data: record,
-                    fileName: `Associate Orders-Associate Orders.xlsx`,
-                    worksheetName: `Associate Orders-record-Associate Orders`
-                });
-                return;
-            } else {
-                return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }));
-            }
-        }
-
-        return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
-
-    } catch (error) {
-        _handleCatchErrors(error, res);
+      if (record.length > 0) {
+        dumpJSONToExcel(req, res, {
+          data: record,
+          fileName: `Associate Orders-Associate Orders.xlsx`,
+          worksheetName: `Associate Orders-record-Associate Orders`
+        });
+        return;
+      } else {
+        return res.status(400).send(new serviceResponse({ status: 400, data: records, message: _response_message.notFound("Associate Orders") }));
+      }
     }
+
+    return res.status(200).send(new serviceResponse({ status: 200, data: records, message: _response_message.found("Payment") }));
+
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
 };
 
 /*
@@ -572,16 +574,16 @@ module.exports.batchList = async (req, res) => {
           : _paymentApproval.approved,
       ...(search
         ? {
-            $or: [
-              { batchId: { $regex: search, $options: "i" } },
-              {
-                "final_quality_check.whr_receipt": {
-                  $regex: search,
-                  $options: "i",
-                },
+          $or: [
+            { batchId: { $regex: search, $options: "i" } },
+            {
+              "final_quality_check.whr_receipt": {
+                $regex: search,
+                $options: "i",
               },
-            ],
-          }
+            },
+          ],
+        }
         : {}),
     };
 
@@ -2020,6 +2022,27 @@ module.exports.AssociateTabBatchApprove = async (req, res) => {
   try {
     const { batchIds } = req.body;
     const { portalId } = req;
+
+    // Find batches that are already approved
+    const alreadyApprovedBatches = await Batch.find({
+      _id: { $in: batchIds },
+      agent_approve_status: _paymentApproval.approved,
+    }).select("_id");
+
+    const alreadyApprovedIds = alreadyApprovedBatches.map(b => b._id.toString());
+
+    // Filter out already approved ones
+    const pendingBatchIds = batchIds.filter(id => !alreadyApprovedIds.includes(id.toString()));
+
+    if (pendingBatchIds.length === 0) {
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          message: "All selected batches are already approved. No new logs created.",
+        })
+      );
+    }
+
     const result = await Batch.updateMany(
       { _id: { $in: batchIds } }, // Match any batchIds in the provided array
       {
@@ -2049,6 +2072,16 @@ module.exports.AssociateTabBatchApprove = async (req, res) => {
         },
       }
     );
+
+    // Insert logs only for newly approved batches
+    const logs = pendingBatchIds.map(batchId => ({
+      entityType: _approvalEntityType.Batch,
+      entityId: batchId,
+      level: _approvalLevel.Admin, // adjust dynamically if needed
+      action: _paymentApproval.approved,
+    }));
+
+    await ApprovalLog.insertMany(logs);
 
     return res.status(200).send(
       new serviceResponse({
@@ -2323,6 +2356,16 @@ module.exports.associateBillReject = async (req, res) => {
         },
       }
     );
+    
+    // Insert logs only for newly approved batches
+    const logs = fetchedBatchIds.map(batchId => ({
+      entityType: _approvalEntityType.Batch,
+      entityId: batchId,
+      level: _approvalLevel.Admin, // adjust dynamically if needed
+      action: _paymentApproval.rejected,
+    }));
+
+    await ApprovalLog.insertMany(logs);
 
     return res.status(200).send(
       new serviceResponse({
@@ -2350,12 +2393,12 @@ module.exports.agentPayments = async (req, res) => {
 
     let query = search
       ? {
-          $or: [
-            { reqNo: { $regex: search, $options: "i" } },
-            { branchId: { $regex: search, $options: "i" } },
-            { productName: { $regex: search, $options: "i" } },
-          ],
-        }
+        $or: [
+          { reqNo: { $regex: search, $options: "i" } },
+          { branchId: { $regex: search, $options: "i" } },
+          { productName: { $regex: search, $options: "i" } },
+        ],
+      }
       : {};
 
     const records = { count: 0 };
@@ -2363,24 +2406,24 @@ module.exports.agentPayments = async (req, res) => {
     records.rows =
       paginate == 1
         ? await AgentInvoice.find(query)
-            .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
-            .populate([
-              { path: "bo_id", select: "branchId" },
-              {
-                path: "req_id",
-                select: "product deliveryDate quotedPrice reqNo",
-              },
-            ])
-            .sort(sortBy)
-            .skip(skip)
-            .limit(parseInt(limit))
+          .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
+          .populate([
+            { path: "bo_id", select: "branchId" },
+            {
+              path: "req_id",
+              select: "product deliveryDate quotedPrice reqNo",
+            },
+          ])
+          .sort(sortBy)
+          .skip(skip)
+          .limit(parseInt(limit))
         : await Batch.find(query)
-            .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
-            .populate([
-              { path: "bo_id", select: "branchId" },
-              { path: "req_id", select: "reqNo product.name" },
-            ])
-            .sort(sortBy);
+          .select({ qtyProcured: 1, payment_status: 1, bill: 1 })
+          .populate([
+            { path: "bo_id", select: "branchId" },
+            { path: "req_id", select: "reqNo product.name" },
+          ])
+          .sort(sortBy);
     records.count = await AgentInvoice.countDocuments(query);
     if (isExport == 1) {
       const recordsdata = await AgentInvoice.find(query)
@@ -3903,11 +3946,11 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
     // Step 2: Build search query
     const searchQuery = search
       ? {
-          $or: [
-            { reqNo: { $regex: search, $options: "i" } },
-            { "product.name": { $regex: search, $options: "i" } },
-          ],
-        }
+        $or: [
+          { reqNo: { $regex: search, $options: "i" } },
+          { "product.name": { $regex: search, $options: "i" } },
+        ],
+      }
       : {};
 
     let query = {};
@@ -4100,9 +4143,8 @@ module.exports.paymentWithoutAgreegation = async (req, res) => {
           },
         },
         scheme: {
-          schemeName: `${req.scheme?.schemeName || ""} ${
-            req.scheme?.commodity_name || ""
-          } ${req.scheme?.season || ""} ${req.scheme?.period || ""}`,
+          schemeName: `${req.scheme?.schemeName || ""} ${req.scheme?.commodity_name || ""
+            } ${req.scheme?.season || ""} ${req.scheme?.period || ""}`,
         },
         approval_status: req.approval_status,
         qtyPurchased: req.qtyPurchased,
@@ -4367,8 +4409,8 @@ module.exports.agentDashboardPaymentListWOAggregation = async (req, res) => {
     const finalRecords = validInvoices.map((invoice) => {
       const billing_month = invoice.createdAt
         ? new Date(invoice.createdAt).toLocaleString("default", {
-            month: "long",
-          })
+          month: "long",
+        })
         : null;
 
       return {
@@ -4709,7 +4751,7 @@ module.exports.proceedToPayPaymentNew = async (req, res) => {
 
 module.exports.proceedToPayPaymentExport = async (req, res) => {
   try {
-    let { page, limit, search = "", isExport = 0, payment_status, dateRange , } = req.query;
+    let { page, limit, search = "", isExport = 0, payment_status, dateRange, } = req.query;
     limit = parseInt(limit) || 10;
     page = parseInt(page) || 1;
 
@@ -4729,11 +4771,11 @@ module.exports.proceedToPayPaymentExport = async (req, res) => {
         })
       );
     }
-    
-      let dateFilter = {};
+
+    let dateFilter = {};
     const now = new Date();
-    
-    switch(dateRange) {
+
+    switch (dateRange) {
       case "current_month":
         dateFilter.createdAt = {
           $gte: new Date(now.getFullYear(), now.getMonth(), 1),
@@ -4771,7 +4813,7 @@ module.exports.proceedToPayPaymentExport = async (req, res) => {
         break;
     }
 
-    console.log("dateFilter",dateFilter);
+    console.log("dateFilter", dateFilter);
 
     const paymentIds = await Payment.distinct("req_id");
     if (!paymentIds.length) {
@@ -4785,7 +4827,7 @@ module.exports.proceedToPayPaymentExport = async (req, res) => {
     }
     // const requestIds = await RequestModel.find(dateFilter).distinct("_id");
 
-  //  console.log("paymentIds",paymentIds);
+    //  console.log("paymentIds",paymentIds);
     let query = { _id: { $in: paymentIds } };
     if (search) {
       query.$or = [
@@ -4830,7 +4872,7 @@ module.exports.proceedToPayPaymentExport = async (req, res) => {
         ...query,
         _id: { $in: chunk },
       };
-      console.log("chunkQuery ",chunkQuery);
+      console.log("chunkQuery ", chunkQuery);
 
       const aggregationPipeline = [
         { $match: chunkQuery },
@@ -4860,7 +4902,7 @@ module.exports.proceedToPayPaymentExport = async (req, res) => {
                           {
                             $project: {
                               _id: 1,
-                              name : 1,
+                              name: 1,
                               bank_details: 1,
                               address: 1,
                               basic_details: 1,
@@ -5088,7 +5130,7 @@ module.exports.proceedToPayPaymentExport = async (req, res) => {
             "sla.basic_details.name": 1,
             schemeName: 1,
             batches: 1,
-            createdAt : 1,
+            createdAt: 1,
           },
         },
       ];

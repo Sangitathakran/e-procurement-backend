@@ -3,7 +3,7 @@ const { serviceResponse } = require("@src/v1/utils/helpers/api_response");
 const { _query, _response_message } = require("@src/v1/utils/constants/messages");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
-const { _userType, _paymentstatus, _batchStatus, _associateOfferStatus, _paymentApproval, received_qc_status } = require('@src/v1/utils/constants');
+const { _userType, _paymentstatus, _batchStatus, _associateOfferStatus, _paymentApproval, received_qc_status, _approvalLevel, _approvalEntityType } = require('@src/v1/utils/constants');
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
 const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
@@ -19,7 +19,8 @@ const SLA = require("@src/v1/models/app/auth/SLAManagement");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches")
 const { Scheme } = require("@src/v1/models/master/Scheme");
 const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
-
+const { ApprovalLog } = require("@src/v1/models/app/procurement/ApprovalHistory");
+const { default: mongoose } = require("mongoose");
 
 const validateMobileNumber = async (mobile) => {
     let pattern = /^[0-9]{10}$/;
@@ -726,6 +727,19 @@ module.exports.batchApprove = async (req, res) => {
         if (result.matchedCount === 0) {
             return res.status(400).send(new serviceResponse({ status: 400, errors: [{ message: "No matching Batch found" }] }));
         }
+
+        await ApprovalLog.updateMany(
+            { entityId: { $in: batchIds } },
+            {
+                $set: {
+                    level: _approvalLevel.BO,
+                    bo_id: portalId,
+                    bo_approval: _paymentApproval.approved,
+                    bo_approval_at: new Date(),
+                },
+            }
+        );
+
         await Payment.updateMany(
             { batch_id: { $in: batchIds } },
             { $set: { bo_approve_status: _paymentApproval.approved, bo_approve_at: new Date(), bo_approve_by: portalId } }
@@ -1237,7 +1251,6 @@ module.exports.paymentLogsHistory = async (req, res) => {
     }
 }
 
-
 //////////////////////////////////////////////////////////////
 
 /*
@@ -1415,10 +1428,10 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
             ];
         }
         if (commodity) baseMatch["product.commodity_id"] = convertToObjecId(commodity);
-        if(schemeName){
-            baseMatch["product.schemeId"] = convertToObjecId(schemeName);
+        if (scheme) {
+            baseMatch["product.schemeId"] = convertToObjecId(scheme);
         }
-        if(branchName){
+        if (branchName) {
             baseMatch['branch_id'] = convertToObjecId(branchName)
         }
 
@@ -1431,7 +1444,7 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
             .lean();
 
         const requestIds = requests.map(r => r._id);
-        
+
         // Step 4: Fetch all batches in bulk
         const batches = await Batch.find({ req_id: { $in: requestIds } }, {
             _id: 1, req_id: 1, qty: 1, totalPrice: 1, batchId: 1, bo_approve_status: 1
@@ -1737,7 +1750,6 @@ module.exports.paymentWithoutAggregtionExport = async (req, res) => {
     }
 };
 
-
 /// resend OTP
 
 module.exports.reSendOtp = async (req, res) => {
@@ -1761,3 +1773,50 @@ module.exports.reSendOtp = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 }
+
+module.exports.batchApprovalLogs = async (req, res) => {
+    try {
+        const { batch_id } = req.query; // reading from query
+
+        if (!batch_id) {
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    message: "batch_id is required",
+                })
+            );
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(batch_id)) {
+            return res.status(400).send(
+                new serviceResponse({
+                    status: 400,
+                    message: "Invalid batch_id format",
+                })
+            );
+        }
+
+        const result = await ApprovalLog.find({
+            entityId: new mongoose.Types.ObjectId(batch_id),
+        });
+
+        if (!result || result.length === 0) {
+            return res.status(404).send(
+                new serviceResponse({
+                    status: 404,
+                    message: _response_message.notFound("batchApprovalLogs"),
+                })
+            );
+        }
+
+        return res.status(200).send(
+            new serviceResponse({
+                status: 200,
+                data: result,
+                message: _response_message.found("batchApprovalLogs"),
+            })
+        );
+    } catch (error) {
+        _handleCatchErrors(error, res);
+    }
+};
