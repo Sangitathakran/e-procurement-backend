@@ -9,7 +9,7 @@ const { RequestModel } = require("@src/v1/models/app/procurement/Request");
 const { Branches } = require("@src/v1/models/app/branchManagement/Branches");
 const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const { decryptJwtToken } = require("@src/v1/utils/helpers/jwt");
-const { _userType, _userStatus, _status, _procuredStatus, _paymentStatus, _associateOfferStatus } = require("@src/v1/utils/constants");
+const { _userType, _userStatus, _status, _procuredStatus, _paymentStatus, _associateOfferStatus, _poRequestStatus } = require("@src/v1/utils/constants");
 const { AgentInvoice } = require("@src/v1/models/app/payment/agentInvoice");
 const { Batch } = require("@src/v1/models/app/procurement/Batch");
 // const { commodity } = require("../../dropDown/Controller");
@@ -18,6 +18,8 @@ const { StateDistrictCity } = require("@src/v1/models/master/StateDistrictCity")
 const { Payment } = require("@src/v1/models/app/procurement/Payment");
 const mongoose = require("mongoose");
 const { Scheme } = require("@src/v1/models/master/Scheme");
+const { getStateWiseFarmerCount, getStateWiseWarehouseCount, getProcuredQtyAndAmount } = require("./Service");
+const { ProcurementCenter } = require("@src/v1/models/app/procurement/ProcurementCenter");
 
 /*
 module.exports.getDashboardStats = async (req, res) => {
@@ -117,9 +119,12 @@ module.exports.getDashboardStats = async (req, res) => {
     try {
         const boId = new mongoose.Types.ObjectId(req.portalId);
         const { commodity, season, scheme } = req.query;
-        console.log(boId);
+        let state = req.user?.portalId?.state_id?.toString() || null;
         // Step 1: Build Request Filters
-        const filters = [{ branch_id: boId }];
+        const paymentIds = await Payment.distinct('req_id', { bo_id: { $in: [boId] } });
+        const filters = [ { _id: {$in: paymentIds}  } ];//[{ branch_id: boId }];
+
+        
 
         if (commodity) {
             const ids = commodity.split(',').filter(Boolean).map(id => new mongoose.Types.ObjectId(id));
@@ -140,59 +145,50 @@ module.exports.getDashboardStats = async (req, res) => {
 
         const requestMatch = { $and: filters };
 
-        // Step 2: Aggregate Requests for totals
-        const requestAgg = await RequestModel.aggregate([
-            { $match: requestMatch },
+
+        const procurementCenterCountPipeline = [
+            { $match: { deletedAt: null} },
             {
-                $group: {
-                    _id: null,
-                    totalQty: { $sum: { $toDouble: "$fulfilledQty" } },
-                    totalAmount: { $sum: { $multiply: [{ $toDouble: "$fulfilledQty" }, { $toDouble: "$quotedPrice" }] } },
-                    requestIds: { $addToSet: "$_id" }
+                $lookup: {
+                    from: "users",
+                    localField: "user_id",
+                    foreignField: "_id",
+                    as: "user_id",
+                    pipeline: [
+                        {
+                            $project: {
+                                _id: 1,
+                                user_code: 1,
+                                "basic_details.associate_details.associate_name": 1,
+                                "basic_details.associate_details.associate_type": 1,
+                                "basic_details.associate_details.organization_name": 1
+                            }
+                        }
+                    ]
                 }
-            }
-        ]);
+            },
+            { $unwind: { path: "$user_id", preserveNullAndEmptyArrays: true } },
+            { $count: "count" } 
+        ];
+        const ProcurementCenterData = await ProcurementCenter.aggregate(procurementCenterCountPipeline);
+        const whrData = await getStateWiseWarehouseCount( { season: season, commodity_id: commodity, schemeId: scheme} );
+        const warehouseCount = whrData; 
+        const procurementCenterCount =  ProcurementCenterData.length ? ProcurementCenterData[0].count : 0; 
+        
+        const farmersData = await getStateWiseFarmerCount( { season, schemeId: scheme, commodity_id: commodity, states: state} );
+        const procurementData = await getProcuredQtyAndAmount( requestMatch);
+        const farmerRegisteredCount = farmersData?.total_farmers || 0;
 
-        if (!requestAgg.length) {
-            return res.send(new serviceResponse({
-                status: 200,
-                data: { farmerRegisteredCount: 0, warehouseCount: 0, procurementCenterCount: 0, PaymentInitiatedCount: 0, totalProcurementCount: 0 },
-                message: _response_message.notFound("Dashboard Stats")
-            }));
-        }
-
-        const { totalQty, totalAmount, requestIds } = requestAgg[0];
-
-        // Step 3: Batch aggregation for unique warehouses & procurement centers
-        const batchAgg = await Batch.aggregate([
-            { $match: { req_id: { $in: requestIds } } },
-            {
-                $group: {
-                    _id: null,
-                    warehouseIds: { $addToSet: "$warehousedetails_id" },
-                    pocIds: { $addToSet: "$procurementCenter_id" }
-                }
-            }
-        ]);
-
-        const warehouseCount = batchAgg.length ? batchAgg[0].warehouseIds.filter(Boolean).length : 0;
-        const procurementCenterCount = batchAgg.length ? batchAgg[0].pocIds.filter(Boolean).length : 0;
-
-        // Step 4: Farmer count (based on Payment)
-        const payments = await Payment.distinct("farmer_id", {
-            req_id: { $in: requestIds },
-            payment_status: "Completed"
-        });
-        const farmerRegisteredCount = payments.length;
-
+        let totalProcQty = procurementData.reduce((acc, curr) => acc+ curr.qtyPurchased, 0);
+        let totalPaytAmt = procurementData.filter( (ele) => ele.approve_status === _poRequestStatus.approved ).reduce((acc, curr) => acc+ curr.amountPayable, 0);
         return res.send(new serviceResponse({
             status: 200,
             data: {
                 farmerRegisteredCount,
                 warehouseCount,
                 procurementCenterCount,
-                PaymentInitiatedCount: handleDecimal(totalAmount),
-                totalProcurementCount: handleDecimal(totalQty)
+                PaymentInitiatedCount: handleDecimal(totalPaytAmt),
+                totalProcurementCount: handleDecimal(totalProcQty)
             },
             message: _response_message.found("Dashboard Stats")
         }));
@@ -550,7 +546,6 @@ module.exports.farmerPayments = async (req, res) => {
         const commodityArray = parseArray(commodity);
         const seasonArray = parseArray(season);
         const schemeArray = parseArray(scheme);
-        // console.log(commodityArray, commodity)
         //Base query
         let query = {
             deletedAt: null,
