@@ -105,7 +105,7 @@ const Readable = require('stream').Readable;
 
 module.exports.getProcurementCenter = async (req, res) => {
     try {
-        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = { createdAt: -1 }, search = '', isExport = 0, associateName, state, city } = req.query;
+        const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = { createdAt: -1 }, search = '', isExport = 0, supervisor, state, city } = req.query;
 
         // base match query
         let matchQuery = {
@@ -121,8 +121,8 @@ module.exports.getProcurementCenter = async (req, res) => {
             ];
         }
 
-        if (associateName) {
-            matchQuery["user_id"] = convertToObjecId(associateName);
+        if (supervisor) {
+            matchQuery["user_id"] = convertToObjecId(supervisor);
         }
 
         if (state) {
