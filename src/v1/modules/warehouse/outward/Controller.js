@@ -26,8 +26,15 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
    
     let query = {
         'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
-        ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
+        deletedAt: null
     };
+
+    if (search) {
+        query.$or = [
+            { 'purchasedOrder.poNo': { $regex: search, $options: "i" } }, 
+            { 'product.name': { $regex: search, $options: "i" } }
+        ];
+    }
 
     let records = { count: 0 };
 
