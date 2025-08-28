@@ -141,7 +141,7 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
         });
         let baseQuery = { active: true };
         if (state) baseQuery["addressDetails.state.state_id"] = convertToObjecId(state);
-        if (city) baseQuery["addressDetails.city"] = { $regex: city, $options: "i" };
+        if (city) baseQuery["addressDetails.district.district_id"] = { $regex: city, $options: "i" };
 
         const pipeline = [
             { $match: baseQuery },
