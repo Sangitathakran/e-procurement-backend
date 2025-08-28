@@ -247,7 +247,7 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "Qty Allotment should not exceeds Available Qty of batches" }] }))
         }
 
-        if (batch.qtyAllotment == 0) {
+        if (batch.qtyAllotment >= 0) {
             return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "Qty Allotment should be greater then zero" }] }))
         }
 
