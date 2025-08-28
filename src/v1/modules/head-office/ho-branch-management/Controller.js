@@ -25,6 +25,7 @@ const { SchemeAssign } = require("@src/v1/models/master/SchemeAssign");
 const { asyncErrorHandler } = require("@src/v1/utils/helpers/asyncErrorHandler");
 const { mongoose } = require("mongoose");
 const { convertToObjecId } = require("@src/v1/utils/helpers/api.helper");
+const { getStateIdByTitle, getDistrictIdByTitle } = require("@src/common/helpers/states.helper");
 
 module.exports.importBranches = async (req, res) => {
   try {
@@ -172,6 +173,8 @@ module.exports.importBranches = async (req, res) => {
     // Insert the branches into the database
     for (const branchData of branches) {
       // checking the existing user in Master User collectio
+      let state_id = await getStateIdByTitle(branchData.state?.trim())
+      let district_id = await getDistrictIdByTitle(state_id, branchData.district?.trim());
       const newBranchPayload = {
         branchName: branchData.branchName,
         emailAddress: branchData.emailAddress,
@@ -184,6 +187,8 @@ module.exports.importBranches = async (req, res) => {
         cityVillageTown: branchData.cityVillageTown,
         district: branchData.district,
         state: branchData.state,
+        state_id: state_id,
+        district_id: district_id,
         pincode: branchData.pincode,
         headOfficeId: headOfficeId,
         password: branchData.hashedPassword,

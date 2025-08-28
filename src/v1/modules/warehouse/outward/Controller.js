@@ -11,24 +11,21 @@ const { BatchOrderProcess } = require('@src/v1/models/app/distiller/batchOrderPr
 const { PurchaseOrderModel } = require('@src/v1/models/app/distiller/purchaseOrder');
 const { TrackOrder } = require('@src/v1/models/app/warehouse/TrackOrder');
 const { batch } = require('../../associate/order/Controller');
-const { _trackOrderStatus } = require('@src/v1/utils/constants');
+const { _trackOrderStatus, _poAdvancePaymentStatus, _poBatchStatus } = require('@src/v1/utils/constants');
 const { ExternalBatch } = require("@src/v1/models/app/procurement/ExternalBatch");
 const { ExternalOrder } = require("@src/v1/models/app/warehouse/ExternalOrder");
 const { Truck } = require('@src/v1/models/app/warehouse/Truck');
-
-
 
 
 //order-list 
 module.exports.orderList = asyncErrorHandler(async (req, res) => {
 
     const { page, limit, skip, paginate = 1, sortBy, search = '', isExport = 0 } = req.query
-    const { user_id } = req;
+    const { user_id, organization_id } = req;
     //warehouseId
-
+   
     let query = {
-        // 'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
-        //   warehouseId: new mongoose.Types.ObjectId(user_id),
+        'paymentInfo.advancePaymentStatus': _poAdvancePaymentStatus.paid,
         ...(search ? { orderId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null })
     };
 
@@ -45,7 +42,8 @@ module.exports.orderList = asyncErrorHandler(async (req, res) => {
         records.rows.map(async (item) => {
             console.log(item._id)
             let batchOrderProcess = await BatchOrderProcess.findOne({
-                warehouseOwnerId: user_id,
+                warehouseOwnerId: new mongoose.Types.ObjectId(organization_id),
+                'payment.status': "Paid",
                 orderId: item._id,
             }).select('warehouseId orderId');
 
@@ -98,14 +96,14 @@ module.exports.getPuchaseList = asyncErrorHandler(async (req, res) => {
 
         const { page = 1, limit = 10, sortBy, search = '', filters = {}, order_id } = req.query;
         const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-        const { user_id } = req;
+        const { user_id, organization_id } = req;
         if (!order_id) {
             return res.send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("orderId") }] }));
         }
 
         let query = {
             orderId: new mongoose.Types.ObjectId(order_id),
-            warehouseOwnerId: new mongoose.Types.ObjectId(user_id),//user_id
+            warehouseOwnerId: new mongoose.Types.ObjectId(organization_id),//user_id
             ...(search ? { purchaseId: { $regex: search, $options: "i" }, deletedAt: null } : { deletedAt: null }) // Search functionality
         };
 
@@ -213,8 +211,6 @@ module.exports.getPurchaseOrderById = asyncErrorHandler(async (req, res) => {
     return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("purchase order") }))
 })
 
-
-
 module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
     const { batches = [], purchaseOrder_id } = req.body;
@@ -290,7 +286,6 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
 
 })
-
 
 module.exports.inTransit = asyncErrorHandler(async (req, res) => {
 
@@ -452,7 +447,6 @@ module.exports.inTransit = asyncErrorHandler(async (req, res) => {
     return res.status(200).send({ status: 200, data: trackOrderRecord, message: _response_message.updated("track") })
 })
 
-
 module.exports.getBatches = asyncErrorHandler(async (req, res) => {
 
     const { id } = req.params;
@@ -532,7 +526,6 @@ module.exports.getStatus = asyncErrorHandler(async (req, res) => {
 
 })
 
-
 module.exports.getTrucks = asyncErrorHandler(async (req, res) => {
 
 
@@ -575,19 +568,22 @@ module.exports.getTrucks = asyncErrorHandler(async (req, res) => {
 module.exports.batchOrderStatsData = async (req, res) => {
     try {
         const { warehouseIds = [] } = req.body;
+        const { organization_id } = req;
         const getToken = req.headers.token || req.cookies.token;
-        if (!getToken) {
-            return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
-        }
+        // if (!getToken) {
+        //     return res.status(401).send(new serviceResponse({ status: 401, message: _middleware.require('token') }));
+        // }
 
-        const decode = await decryptJwtToken(getToken);
-        const UserId = decode.data.user_id;
+        // const decode = await decryptJwtToken(getToken);
+        // const UserId = decode.data.user_id;
 
-        if (!mongoose.Types.ObjectId.isValid(UserId)) {
-            return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
-        }
+        // if (!mongoose.Types.ObjectId.isValid(UserId)) {
+        //     return res.status(400).send(new serviceResponse({ status: 400, message: "Invalid token user ID" }));
+        // }
 
-        const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+        // const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(UserId) });
+        const warehouseDetails = await wareHouseDetails.find({ warehouseOwnerId: new mongoose.Types.ObjectId(organization_id) });
+        
         const ownerwarehouseIds = warehouseDetails.map(warehouse => warehouse._id.toString());
 
         const finalwarehouseIds = Array.isArray(warehouseIds) && warehouseIds.length
@@ -600,8 +596,9 @@ module.exports.batchOrderStatsData = async (req, res) => {
                 message: "No warehouses found for the user."
             }));
         }
-
-        const query = { "warehousedetails_id": { $in: finalwarehouseIds } };
+        
+        // const query = { "warehousedetails_id": { $in: finalwarehouseIds } };
+        const query = { "warehouseId": { $in: finalwarehouseIds } };
 
         const rows = await BatchOrderProcess.find(query);
         let totalPurchaseOrder = 0;
@@ -616,7 +613,7 @@ module.exports.batchOrderStatsData = async (req, res) => {
 
             if (batchStatus == _poBatchStatus.pending) {
                 pendingPurchaseOrder++;
-            } else if (batchStatus == _poBatchStatus.inProgress) {
+            } else if (batchStatus == _poBatchStatus.accepted) {
                 inTransitPurchaseOrder++;
             } else if (batchStatus == _poBatchStatus.rejected) {
                 rejectedPurchaseOrder++;
@@ -642,6 +639,7 @@ module.exports.batchOrderStatsData = async (req, res) => {
         _handleCatchErrors(error, res);
     }
 };
+
 module.exports.rejectTrack = asyncErrorHandler(async (req, res) => {
 
 
@@ -682,7 +680,7 @@ module.exports.createExternalOrder = async (req, res) => {
                 message: "External Batch not found"
             }));
         }
-        
+
         let errors = [];
 
         if (quantity <= 0) {
@@ -700,7 +698,7 @@ module.exports.createExternalOrder = async (req, res) => {
         if (errors.length > 0) {
             return res.status(400).json(new serviceResponse({
                 status: 400,
-                message: errors.join(", ") 
+                message: errors.join(", ")
             }));
         }
         batchExists.outward_quantity += quantity;
@@ -711,7 +709,7 @@ module.exports.createExternalOrder = async (req, res) => {
             commodity,
             quantity: quantity || 0,
             external_batch_id,
-            warehousedetails_id : batchExists.warehousedetails_id,
+            warehousedetails_id: batchExists.warehousedetails_id,
             basic_details: {
                 buyer_name: basic_details.buyer_name,
                 email: basic_details.email?.toLowerCase(),
@@ -732,8 +730,8 @@ module.exports.createExternalOrder = async (req, res) => {
 
         const newExternalOrder = new ExternalOrder(orderData);
         const savedOrder = await newExternalOrder.save();
-        
-        
+
+
 
         return res.status(200).send(new serviceResponse({ message: _query.add('External Order'), data: savedOrder }));
 
@@ -756,7 +754,7 @@ module.exports.listExternalOrderList = async (req, res) => {
     try {
         const { page = 1, limit = 10, skip = 0, paginate = 1, sortBy = "_id", search = "" } = req.query;
 
-         let matchQuery = {};
+        let matchQuery = {};
         if (search) {
             matchQuery["$or"] = [
                 { "external_batch_id.batchName": { $regex: search, $options: "i" } },
@@ -770,7 +768,7 @@ module.exports.listExternalOrderList = async (req, res) => {
         const pipeline = [
             {
                 $lookup: {
-                    from: "externalbatches", 
+                    from: "externalbatches",
                     localField: "external_batch_id",
                     foreignField: "_id",
                     as: "external_batch_id"
@@ -879,14 +877,14 @@ module.exports.shippedView = asyncErrorHandler(async (req, res) => {
     const batches = trackRecord.ready_to_ship?.pickup_batch;
 
     let totalBags = 0;
-    let totalQty = 0 ;
+    let totalQty = 0;
     for (let batch of batches) {
 
         totalBags += batch.no_of_bags;
-        totalQty+=batch.qtyAllotment ; 
+        totalQty += batch.qtyAllotment;
     }
 
-    const orderDetails = { commodity: record.orderId.product.name, orderId: record.orderId.purchasedOrder.poNo, qty: record.quantityRequired, totalBags , totalQty };
+    const orderDetails = { commodity: record.orderId.product.name, orderId: record.orderId.purchasedOrder.poNo, qty: record.quantityRequired, totalBags, totalQty };
 
     const data = { batches, orderDetails };
 

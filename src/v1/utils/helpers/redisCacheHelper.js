@@ -47,6 +47,7 @@ async function cacheStatesData(ttl = null) {
     );
 
     logger.info(`Cached ${statesData.length} states & districts in Redis`);
+    return statesData;
   } catch (error) {
     logger.error("Error caching states & districts:", error);
   }

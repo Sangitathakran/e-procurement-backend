@@ -139,18 +139,12 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                 [item]: { $regex: search, $options: 'i' }
             }))
         });
-        const query = search ? makeSearchQuery(searchFields) : {};
-        if (ownerName) {
-            query["warehouseOwner.ownerDetails.name"] = { $regex: ownerName, $options: "i" };
-        }
-        if (state) {
-            query["addressDetails.state.state_id"] = convertToObjecId(state);
-        }
+        let baseQuery = { active: true };
+        if (state) baseQuery["addressDetails.state.state_id"] = convertToObjecId(state);
+        if (city) baseQuery["addressDetails.city"] = { $regex: city, $options: "i" };
 
-        if (city) {
-            query["addressDetails.city"] = { $regex: city, $options: "i" };
-        }
         const pipeline = [
+            { $match: baseQuery },
             {
                 $lookup: {
                     from: "warehousev2",
@@ -222,13 +216,12 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                 }
              },
             { $unwind: { path: "$warehouseOwner", preserveNullAndEmptyArrays: true } },
-            // { $unwind: { path: "$batches", preserveNullAndEmptyArrays: true } },
-          //  { $match: {...query,active:true} },
+           
             {
                 $match: {
-                ...(commodity ? { commodity_id: new mongoose.Types.ObjectId(commodity) } : {}),
-                active: true,
-                ...query
+                ...(search ? makeSearchQuery(searchFields) : {}),
+                ...(ownerName ? { "warehouseOwner.ownerDetails.name": { $regex: ownerName, $options: "i" } } : {}),
+                ...(commodity ? { commodity_id: new mongoose.Types.ObjectId(commodity) } : {})
                 }
             },
             {
@@ -249,13 +242,14 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
                     createdAt: 1
                 }
             },
-            { $sort: sortBy },
-            { $skip: (page - 1) * limit },
-            { $limit: parseInt(limit) },
         ];
-        const sumPipeline = [
-        
-        ...pipeline.slice(0, -3),
+       const countResult = await wareHouseDetails.aggregate([
+            ...pipeline,
+            { $count: "count" }
+       ]);
+       const count = countResult?.[0]?.count ?? 0;
+       const grandTotals = await wareHouseDetails.aggregate([
+            ...pipeline,
         {
             $group: {
             _id: null,
@@ -264,9 +258,17 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
             },
            
         }
-        ];
+        ]);
+            const totalPages = limit != 0 ? Math.ceil(count / limit) : 0;
+                let currentPage = Number(page);
+                if (currentPage > totalPages) currentPage = totalPages || 1;
 
-
+            const dataPipeline = [
+                ...pipeline,
+                { $sort: sortBy || { createdAt: -1 } },
+                { $skip: (currentPage - 1) * parseInt(limit) },
+                { $limit: parseInt(limit) }
+                ];
         if (isExport == 1) {
             const data = await wareHouseDetails.aggregate([...pipeline.slice(0, -2)]);
     
@@ -294,19 +296,17 @@ module.exports.getWarehouseList = asyncErrorHandler(async (req, res) => {
             }
 
         }
-        const records = { count: 0, totalAvailableQty:0, totalCapacity: 0, rows: [] };
-        records.rows = await wareHouseDetails.aggregate(pipeline);
+        const rows = await wareHouseDetails.aggregate(dataPipeline);
 
-        const grandTotals = await wareHouseDetails.aggregate(sumPipeline);
-        records.totalAvailableQty = (grandTotals[0]?.totalAvailableQty ?? 0).toFixed(3);
-        records.totalCapacity = (grandTotals[0]?.totalCapacity ?? 0).toFixed(3);
-
-
-        const countResult = await wareHouseDetails.aggregate([...pipeline.slice(0, -3), { $count: "count" }]);
-        records.count = countResult?.[0]?.count ?? 0;
-        records.page = page;
-        records.limit = limit;
-        records.pages = limit != 0 ? Math.ceil(records.count / limit) : 0;
+        const records = {
+            count,
+            totalAvailableQty: (grandTotals[0]?.totalAvailableQty ?? 0).toFixed(3),
+            totalCapacity: (grandTotals[0]?.totalCapacity ?? 0).toFixed(3),
+            rows,
+            page: currentPage,
+            limit: Number(limit),
+            pages: totalPages
+        };
 
         return sendResponse({
             res,

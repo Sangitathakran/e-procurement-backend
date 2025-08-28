@@ -19,7 +19,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
       paginate = 1,
       sortBy,
       search = '',
-      scheme,
+      schemeName,
       status,
       commodity,
       season,
@@ -75,8 +75,8 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
 
     // Apply filters for schemeName, commodity, season, status, sla
     const filterConditions = {};
-    if (scheme) {
-      filterConditions["schemeDetails._id"] = convertToObjecId(scheme);
+    if (schemeName) {
+      filterConditions["schemeDetails._id"] = convertToObjecId(schemeName);
     }
     if (commodity) {
       filterConditions["commodityDetails._id"] = convertToObjecId(commodity);
@@ -141,6 +141,7 @@ module.exports.getAssignedScheme = asyncErrorHandler(async (req, res) => {
         procurementTarget: "$assignQty",
         schemeId: "$schemeDetails.schemeId",
         schemeName: 1,
+        schemeSeason: 1,
         scheme_id: "$schemeDetails._id",
         commodity: "$commodityDetails.name",
         commodity_id: "$commodityDetails._id",

@@ -1408,7 +1408,7 @@ module.exports.paymentWithoutAggregtion = async (req, res) => {
     try {
         let {
             page = 1, limit = 10, paginate = 1, sortBy, search = '', user_type,
-            isExport = 0, approve_status = "Pending", scheme, commodity, branchName, state
+            isExport = 0, approve_status = "Pending", scheme, commodity, schemeName, branchName, state
         } = req.query;
 
         page = parseInt(page);
