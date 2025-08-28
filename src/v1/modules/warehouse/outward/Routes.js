@@ -25,6 +25,4 @@ wareHouseOutwardRoutes.get("/shipped-view/:id"  , verifyWarehouseOwner , shipped
 wareHouseOutwardRoutes.get("/transit-view/:id"  , verifyWarehouseOwner, transitVeiw)
 
 
-
-
 module.exports = { wareHouseOutwardRoutes }; 

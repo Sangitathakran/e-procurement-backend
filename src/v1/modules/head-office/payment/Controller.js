@@ -23,11 +23,10 @@ const {
   received_qc_status,
   dateRanges,
   dateRangesObj,
+  _approvalLevel,
+  _approvalEntityType
 } = require("@src/v1/utils/constants");
 const { RequestModel } = require("@src/v1/models/app/procurement/Request");
-// const { FarmerOrders } = require("@src/v1/models/app/procurement/FarmerOrder");
-// const { AgentPayment } = require("@src/v1/models/app/procurement/AgentPayment");
-// const { farmer } = require("@src/v1/models/app/farmerDetails/Farmer");
 const {
   AssociateOffers,
 } = require("@src/v1/models/app/procurement/AssociateOffers");
@@ -72,6 +71,10 @@ const validateMobileNumber = async (mobile) => {
   return pattern.test(mobile);
 };
 const escapeRegex = (text) => text.replace(/[-[\]/{}()*+?.\\^$|]/g, "\\$&");
+const { ApprovalLog } = require("@src/v1/models/app/procurement/ApprovalHistory");
+
+
+
 /*
 module.exports.payment = async (req, res) => {
   try {
@@ -1223,7 +1226,7 @@ module.exports.payment = async (req, res) => {
     };
     let filterQuery = {};
 
-     if (state || commodityName || schemeName || branch) {
+    if (state || commodityName || schemeName || branch) {
       filterQuery['$and'] = [
         ...(state ? [{ "sellers.address.registered.state_id": convertToObjecId(state) }] : []),
         ...(commodityName ? [{ "product.commodity_id": convertToObjecId(commodityName) }] : []),
@@ -1237,7 +1240,7 @@ module.exports.payment = async (req, res) => {
     // Step 4: Aggregation Pipeline
     const aggregationPipeline = [
       { $match: query },
-      
+
       {
         $lookup: {
           from: "batches",
@@ -1277,7 +1280,7 @@ module.exports.payment = async (req, res) => {
         },
       },
       { $unwind: { path: "$sellers", preserveNullAndEmptyArrays: true } },
-      { $match: filterQuery},
+      { $match: filterQuery },
       {
         $lookup: {
           from: "branches",
@@ -1483,7 +1486,7 @@ module.exports.payment = async (req, res) => {
           ho_approval_at: { $first: "$ho_approval_at" },
           commodity: { $first: "$product.name" },
           commodity_id: { $first: "$product.commodity_id" },
-          scheme_id: { $first: "$product.schemeId"},
+          scheme_id: { $first: "$product.schemeId" },
           schemeFirst: { $first: "$schemeDetails.schemeName" },
           state: { $first: "$sellers" },
           schemeName: {
@@ -1516,7 +1519,7 @@ module.exports.payment = async (req, res) => {
     }
 
 
-   
+
     // aggregationPipeline.push(
     //   {
     //     $match: {
@@ -1989,8 +1992,8 @@ module.exports.associateOrders = async (req, res) => {
         })
       );
     }
-    if(!req_id){
-      return res.json( { status: 400, message: _middleware.require('req_id')} );
+    if (!req_id) {
+      return res.json({ status: 400, message: _middleware.require('req_id') });
     }
 
     // Get payment-related offer IDs
@@ -2004,9 +2007,9 @@ module.exports.associateOrders = async (req, res) => {
       req_id: new mongoose.Types.ObjectId(req_id),
       bo_approve_status: _paymentApproval.approved,
     });
-    console.log({portalId},{req_id})
-console.log(paymentIds.length,paymentIds, "paymentIds"
-)
+    console.log({ portalId }, { req_id })
+    console.log(paymentIds.length, paymentIds, "paymentIds"
+    )
     // Fetch request metadata
     const reqDetails = await RequestModel.findOne({ _id: req_id })
       .select({
@@ -2019,11 +2022,11 @@ console.log(paymentIds.length,paymentIds, "paymentIds"
         status: 1,
       })
       .lean();
-      let batchObj = await Batch.find( { req_id}, { qty: 1}  ).lean();
-      console.log(batchObj.length, batchObj)
-      reqDetails.product.quantity = reqDetails.product.quantity = Number(
-        batchObj.reduce((acc, curr) => acc + (curr.qty || 0), 0)
-      ).toFixed(3);
+    let batchObj = await Batch.find({ req_id }, { qty: 1 }).lean();
+    console.log(batchObj.length, batchObj)
+    reqDetails.product.quantity = reqDetails.product.quantity = Number(
+      batchObj.reduce((acc, curr) => acc + (curr.qty || 0), 0)
+    ).toFixed(3);
 
 
     if (!reqDetails) {
@@ -2631,6 +2634,18 @@ module.exports.batchApprove = async (req, res) => {
           ho_approve_status: _paymentApproval.approved,
           ho_approve_at: new Date(),
           ho_approve_by: portalId,
+        },
+      }
+    );
+
+    await ApprovalLog.updateMany(
+      { entityId: { $in: batchIds } },
+      {
+        $set: {
+          level: _approvalLevel.HO,
+          ho_id: portalId,
+          ho_approval: _paymentApproval.approved,
+          ho_approval_at: new Date(),
         },
       }
     );
@@ -4081,9 +4096,9 @@ module.exports.proceedToPayPayment = async (req, res) => {
       schemeName = "",
       commodityName = "",
       paginate = 1,
-      dateFilterType="",
-      startDate='',
-      endDate=''
+      dateFilterType = "",
+      startDate = '',
+      endDate = ''
     } = req.query;
 
     limit = parseInt(limit) || 10;
@@ -4092,18 +4107,18 @@ module.exports.proceedToPayPayment = async (req, res) => {
 
     const { portalId, user_id } = req;
     let exportDates = {};
-    if(dateFilterType.trim() && !dateRanges.includes(dateFilterType)){
-      return res.status(400).json( { status: 400, message: _query.invalid(dateFilterType)} );
+    if (dateFilterType.trim() && !dateRanges.includes(dateFilterType)) {
+      return res.status(400).json({ status: 400, message: _query.invalid(dateFilterType) });
     }
 
-    if(dateFilterType.trim()){
+    if (dateFilterType.trim()) {
       exportDates = buildDateRange(dateFilterType)
-    }else if(startDate && endDate){
+    } else if (startDate && endDate) {
       exportDates = buildDateRange(dateRangesObj.custom, startDate, endDate);
-    }else{
+    } else {
       exportDates = buildDateRange(dateRangesObj.currentMonth);
     }
-    
+
 
     // Ensure indexes (if not already present, ideally done at setup)
     await Payment.createIndexes({ ho_id: 1, bo_approve_status: 1 });
@@ -4135,8 +4150,8 @@ module.exports.proceedToPayPayment = async (req, res) => {
       query.$or = [
         { reqNo: { $regex: search, $options: "i" } },
         { "product.name": { $regex: search, $options: "i" } },
-        { "branchDetails.branchId": {$regex: search, $options: "i"} }
-        
+        { "branchDetails.branchId": { $regex: search, $options: "i" } }
+
       ];
     }
 
@@ -4164,9 +4179,9 @@ module.exports.proceedToPayPayment = async (req, res) => {
       paymentStatusCondition = "Failed";
     }
 
-     let filterQuery = {};
+    let filterQuery = {};
 
-     if (state || commodityName || schemeName || branch) {
+    if (state || commodityName || schemeName || branch) {
       filterQuery['$and'] = [
         ...(state ? [{ "sla.address.state_id": convertToObjecId(state) }] : []),
         ...(commodityName ? [{ "product.commodity_id": convertToObjecId(commodityName) }] : []),
@@ -4178,7 +4193,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
     const aggregationPipeline = [
       // { $match: query },
       { $sort: { createdAt: -1 } },
-     
+
       {
         $lookup: {
           from: "batches",
@@ -4227,7 +4242,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
           as: "branchDetails",
         },
       },
-       { $match: query },
+      { $match: query },
       {
         $addFields: {
           branchDetails: {
@@ -4246,7 +4261,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
         },
       },
       { $unwind: { path: "$sla", preserveNullAndEmptyArrays: true } },
-      { $match: filterQuery},
+      { $match: filterQuery },
       {
         $lookup: {
           from: "schemes",
@@ -4300,18 +4315,18 @@ module.exports.proceedToPayPayment = async (req, res) => {
           },
         },
       },
-      
+
     ];
-    if( isExport == 1){
+    if (isExport == 1) {
       aggregationPipeline.push(
         {
-      $match: {
-        approval_date: {
-          $gte: exportDates.from,
-          $lte: exportDates.to,
-        },
-      },
-    }
+          $match: {
+            approval_date: {
+              $gte: exportDates.from,
+              $lte: exportDates.to,
+            },
+          },
+        }
       )
     }
 
@@ -4374,7 +4389,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
       // { $limit: limit }
     );
 
-    if (paginate == 1 && isExport !=1) {
+    if (paginate == 1 && isExport != 1) {
       aggregationPipeline.push(
         { $skip: (page - 1) * limit },
         { $limit: limit }
@@ -4412,7 +4427,7 @@ module.exports.proceedToPayPayment = async (req, res) => {
         "AMOUNT PAID": item?.amountPayable || "NA",
         "APPROVAL DATE": item?.approval_date || "NA",
       }));
-     // return res.json({ record});
+      // return res.json({ record});
       if (record.length > 0) {
         dumpJSONToExcel(req, res, {
           data: record,
@@ -4456,8 +4471,8 @@ module.exports.proceedToPayBatchList = async (req, res) => {
       payment_status,
       isExport = 0,
     } = req.query;
-   // const paymentIds = (await Payment.find({ req_id })).map((i) => i.batch_id);
-   const paymentIds = await Payment.distinct('batch_id', { req_id });
+    // const paymentIds = (await Payment.find({ req_id })).map((i) => i.batch_id);
+    const paymentIds = await Payment.distinct('batch_id', { req_id });
 
 
     let query = {
@@ -4493,16 +4508,16 @@ module.exports.proceedToPayBatchList = async (req, res) => {
     }
 
     const combinedMatch = {
-  ...query,
-  ...(search
-    ? {
-        $or: [
-          { batchId: { $regex: search, $options: "i" } },
-          { "final_quality_check.whr_receipt": { $regex: search, $options: "i" } },
-        ],
-      }
-    : {}),
-};
+      ...query,
+      ...(search
+        ? {
+          $or: [
+            { batchId: { $regex: search, $options: "i" } },
+            { "final_quality_check.whr_receipt": { $regex: search, $options: "i" } },
+          ],
+        }
+        : {}),
+    };
 
 
     const records = { count: 0 };
@@ -4687,8 +4702,8 @@ module.exports.proceedToPayBatchList = async (req, res) => {
           tags: 1,
           approval_status: 1,
           payment_date: "$payment_at",
-          payment_status: { $arrayElemAt: [ "$payment.payment_status", 0 ] },//"$payment.payment_status",
-          bankStatus: { $arrayElemAt: [ "$payment.payment_status", 0 ] }//"$payment.payment_status",
+          payment_status: { $arrayElemAt: ["$payment.payment_status", 0] },//"$payment.payment_status",
+          bankStatus: { $arrayElemAt: ["$payment.payment_status", 0] }//"$payment.payment_status",
         },
       },
       // Start of Sangita code
@@ -4825,7 +4840,7 @@ module.exports.proceedToPaybatchListWithoutAggregation = async (req, res) => {
       payment_status,
       isExport,
     });
-    console.log('>>>>>>>>>>>>>',cacheKey);
+    console.log('>>>>>>>>>>>>>', cacheKey);
 
     const cachedData = getCache(cacheKey);
     if (cachedData && isExport != 1) {
@@ -4938,7 +4953,7 @@ module.exports.proceedToPaybatchListWithoutAggregation = async (req, res) => {
           batch_id: batch._id,
           amountPayable: (batch.totalPrice || 0).toFixed(3),
           qtyPurchased: (batch.qty || 0).toFixed(3),
-          amountProposed:  (batch.goodsPrice || 0).toFixed(3),
+          amountProposed: (batch.goodsPrice || 0).toFixed(3),
           associateName:
             batch.seller_id?.basic_details?.associate_details?.associate_name,
           organisationName:
@@ -5024,7 +5039,7 @@ module.exports.paymentLogsHistory = async (req, res) => {
   try {
     const { batchId } = req.query;
     console.log(batchId, typeof batchId)//undefined string
-    if (!batchId || !mongoose.Types.ObjectId.isValid(batchId) ) {
+    if (!batchId || !mongoose.Types.ObjectId.isValid(batchId)) {
       return res.status(400).send(
         new serviceResponse({
           status: 400,
@@ -6008,7 +6023,7 @@ module.exports.exportFarmerPayments = async (req, res) => {
       },
     ];
 
-    
+
     aggregationPipeline.push(
       {
         $project: {
@@ -6029,7 +6044,7 @@ module.exports.exportFarmerPayments = async (req, res) => {
           createdAt: 1,
         },
       },
-     
+
     );
 
     let response = { count: 0 };
@@ -6039,94 +6054,141 @@ module.exports.exportFarmerPayments = async (req, res) => {
       ...aggregationPipeline.slice(0, -2),
       { $count: "count" },
     ]);
-   
-   
-      const record = [];
 
-      response.rows.forEach((item) => {
-        const request = item;
-        const product = item.product;
-        const branch = item.branchDetails?.[0] || {};
-        const schemeName = item.scheme?.schemeName || "NA";
 
-        item.batches.forEach((batch) => {
-          const procurementCenter = batch.procurementCenter?.address || {};
-          const crops = batch.crops || [];
-          const request = batch.request || [];
+    const record = [];
 
-          batch.payment.forEach((payment) => {
-            const farmer = payment.farmerDetails || {};
-            const address = farmer.address || {};
-            const bank = farmer.bank_details || {};
-            const basic = farmer.basic_details || {};
-            const parents = farmer.parents || {};
+    response.rows.forEach((item) => {
+      const request = item;
+      const product = item.product;
+      const branch = item.branchDetails?.[0] || {};
+      const schemeName = item.scheme?.schemeName || "NA";
 
-            const farmerCropNames = crops
-              .filter((c) => String(c.farmer_id) === String(farmer._id))
-              .map((c) => c.crop_name)
-              .join(", ");
+      item.batches.forEach((batch) => {
+        const procurementCenter = batch.procurementCenter?.address || {};
+        const crops = batch.crops || [];
+        const request = batch.request || [];
 
-            record.push({
-              "Order ID": request.reqNo || "NA",
-              "BRANCH ID": branch.branchId || "NA",
-              "Farmer ID": farmer.farmer_id || "NA",
-              "Branch name": branch.branchName || "NA",
-              "SLA ": item.sla || "NA",
-              "Procurement center":
-                [
-                  procurementCenter?.line1,
-                  procurementCenter?.line2,
-                  procurementCenter?.city,
-                  procurementCenter?.district,
-                  procurementCenter?.state,
-                  procurementCenter?.country,
-                  procurementCenter?.postalCode,
-                ]
-                  .filter(Boolean)
-                  .join(", ") || "NA",
-              "Farmer Name": farmer.name || "NA",
-              "Father Name": parents.father_name || "NA",
-              Address: [
-                address.village,
-                address.block,
-                address.country,
-                address.pin_code,
+        batch.payment.forEach((payment) => {
+          const farmer = payment.farmerDetails || {};
+          const address = farmer.address || {};
+          const bank = farmer.bank_details || {};
+          const basic = farmer.basic_details || {};
+          const parents = farmer.parents || {};
+
+          const farmerCropNames = crops
+            .filter((c) => String(c.farmer_id) === String(farmer._id))
+            .map((c) => c.crop_name)
+            .join(", ");
+
+          record.push({
+            "Order ID": request.reqNo || "NA",
+            "BRANCH ID": branch.branchId || "NA",
+            "Farmer ID": farmer.farmer_id || "NA",
+            "Branch name": branch.branchName || "NA",
+            "SLA ": item.sla || "NA",
+            "Procurement center":
+              [
+                procurementCenter?.line1,
+                procurementCenter?.line2,
+                procurementCenter?.city,
+                procurementCenter?.district,
+                procurementCenter?.state,
+                procurementCenter?.country,
+                procurementCenter?.postalCode,
               ]
                 .filter(Boolean)
-                .join(", "),
-              "Crop Name": farmerCropNames || "NA",
-              "Quantity in MT": product.quantity || batch.qty || "NA",
-              "Rate (MSP)": request.quotedPrice || "NA",
-              "TOTAL AMOUNT": batch.goodsPrice || "NA",
-              "Bank Name": bank.bank_name || "NA",
-              "Branch name ": bank.branch_name || "NA",
-              "Account No.": bank.account_no || "NA",
-              IFSC: bank.ifsc_code || "NA",
-              "Reference ID / UTR No.": payment._id?.toString() || "NA",
-              "Payment Status": payment.payment_status || "NA",
-              "Approval Date": batch.payement_approval_at || "NA",
-              // "Created At": request.createdAt || "NA",
-            });
+                .join(", ") || "NA",
+            "Farmer Name": farmer.name || "NA",
+            "Father Name": parents.father_name || "NA",
+            Address: [
+              address.village,
+              address.block,
+              address.country,
+              address.pin_code,
+            ]
+              .filter(Boolean)
+              .join(", "),
+            "Crop Name": farmerCropNames || "NA",
+            "Quantity in MT": product.quantity || batch.qty || "NA",
+            "Rate (MSP)": request.quotedPrice || "NA",
+            "TOTAL AMOUNT": batch.goodsPrice || "NA",
+            "Bank Name": bank.bank_name || "NA",
+            "Branch name ": bank.branch_name || "NA",
+            "Account No.": bank.account_no || "NA",
+            IFSC: bank.ifsc_code || "NA",
+            "Reference ID / UTR No.": payment._id?.toString() || "NA",
+            "Payment Status": payment.payment_status || "NA",
+            "Approval Date": batch.payement_approval_at || "NA",
+            // "Created At": request.createdAt || "NA",
           });
         });
       });
+    });
 
-      if (record.length > 0) {
-        dumpJSONToExcel(req, res, {
-          data: record,
-          fileName: `Farmer-Payment-records.xlsx`,
-          worksheetName: `Farmer-Payment-records`,
-        });
-      } else {
-        return res.status(200).send(
-          new serviceResponse({
-            status: 200,
-            data: response,
-            message: "No payments found",
-          })
-        );
-      }
+    if (record.length > 0) {
+      dumpJSONToExcel(req, res, {
+        data: record,
+        fileName: `Farmer-Payment-records.xlsx`,
+        worksheetName: `Farmer-Payment-records`,
+      });
+    } else {
+      return res.status(200).send(
+        new serviceResponse({
+          status: 200,
+          data: response,
+          message: "No payments found",
+        })
+      );
+    }
 
+  } catch (error) {
+    _handleCatchErrors(error, res);
+  }
+};
+
+module.exports.batchApprovalLogs = async (req, res) => {
+  try {
+    const { batch_id } = req.query; // reading from query
+
+    if (!batch_id) {
+      return res.status(400).send(
+        new serviceResponse({
+          status: 400,
+          message: "batch_id is required",
+        })
+      );
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(batch_id)) {
+      return res.status(400).send(
+        new serviceResponse({
+          status: 400,
+          message: "Invalid batch_id format",
+        })
+      );
+    }
+
+    const result = await ApprovalLog.find({
+      entityId: new mongoose.Types.ObjectId(batch_id),
+    });
+
+    if (!result || result.length === 0) {
+      return res.status(404).send(
+        new serviceResponse({
+          status: 404,
+          message: _response_message.notFound("batchApprovalLogs"),
+        })
+      );
+    }
+
+    return res.status(200).send(
+      new serviceResponse({
+        status: 200,
+        data: result,
+        message: _response_message.found("batchApprovalLogs"),
+      })
+    );
   } catch (error) {
     _handleCatchErrors(error, res);
   }
