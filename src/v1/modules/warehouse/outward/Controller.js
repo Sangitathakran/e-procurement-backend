@@ -243,20 +243,15 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
             return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("Batch") }] }));
         }
 
-        // if (batch.qtyAllotment > batch.availableQty.count) {
         if (batch.qtyAllotment > batchRecord.available_qty) {
             return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "Qty Allotment should not exceeds Available Qty of batches" }] }))
         }
 
-        // if (batch.qtyAllotment >= 0) {
         if (batch.qtyAllotment <= 0) {
             return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "Qty Allotment should be greater then zero" }] }))
         }
 
         sumOfAllotedQty += batch.qtyAllotment;
-
-        // batchRecord.allotedQty += batch.qtyAllotment;
-        // batchRecord.available_qty -= batch.qtyAllotment;
 
         if (batchRecord.available_qty < 0) {
             return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: "Entered quantity not available!" }] }))
@@ -267,11 +262,10 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
         await batchRecord.save();
     }
 
-    // const purchaseOrderRecord = await BatchOrderProcess.findOne({ _id: purchaseOrder_id });
     const purchaseOrderRecord = await BatchOrderProcess.findOne({ orderId: purchaseOrder_id });
 
     if (!purchaseOrderRecord) {
-        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("purcahse order") }] }));
+        return res.status(200).send(new serviceResponse({ status: 400, errors: [{ message: _response_message.notFound("Purchase order") }] }));
     }
 
     if (sumOfAllotedQty > purchaseOrderRecord.quantityRequired) {
@@ -280,7 +274,6 @@ module.exports.readyToShip = asyncErrorHandler(async (req, res) => {
 
 
     const trackRecord = await TrackOrder.create({
-        // batch_id,
         purchaseOrder_id,
         ready_to_ship: {
             pickup_batch: batches,
