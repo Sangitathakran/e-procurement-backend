@@ -110,6 +110,7 @@ module.exports = {
   farmer: process.env.FARMER,
   agent: process.env.SLA,
   associate: process.env.ASSOCIATE,
+  ministry: process.env.MINISTRY
 },
 
 REDIS_CRED: {
