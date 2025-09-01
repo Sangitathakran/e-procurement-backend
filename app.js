@@ -35,7 +35,7 @@ const {
 
 app.use(
   cors({
-    origin: ["http://*.khetisauda.com, https://*.khetisauda.com"],
+    origin: ["http://localhost:*", "http://*.khetisauda.com", "https://*.khetisauda.com"],
     methods: ["POST", "GET", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })
@@ -51,7 +51,7 @@ app.use(helmet({
       "base-uri": ["'self'"],
       "font-src": ["'self'", "https:", "data:"],
       "form-action": ["'self'"],
-      "frame-ancestors": ["'self'"],
+      "frame-ancestors": ["'self'"], // Prevents clickjacking
       "img-src": ["'self'", "data:"],
       "object-src": ["'none'"],
       "script-src": ["'self'"],
