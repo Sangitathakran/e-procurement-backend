@@ -35,8 +35,9 @@ const {
 
 app.use(
   cors({
-    origin: "*",
+    origin: ["http://khetisauda.com", "https://*.khetisauda.com"],
     methods: ["POST", "GET", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    credentials: true,
   })
 );
 
@@ -50,7 +51,7 @@ app.use(helmet({
       "base-uri": ["'self'"],
       "font-src": ["'self'", "https:", "data:"],
       "form-action": ["'self'"],
-      "frame-ancestors": ["'none'"],
+      "frame-ancestors": ["'self'", "https://khetisauda.com", "https://*.khetisauda.com"],
       "img-src": ["'self'", "data:"],
       "object-src": ["'none'"],
       "script-src": ["'self'"],
@@ -59,7 +60,6 @@ app.use(helmet({
       "upgrade-insecure-requests": [] // this directive is a boolean-like switch
     }
   },
-  frameguard: { action: "deny" },
   crossOriginOpenerPolicy: { policy: "same-origin" },
   crossOriginResourcePolicy: { policy: "same-origin" },
   referrerPolicy: { policy: "no-referrer" },
@@ -118,7 +118,7 @@ app.all("*", handleRouteNotFound);
 
 app.use((req, res, next) => {
   res.setHeader("cps",
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none';"
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'self' https://khetisauda.com  http://*.khetisauda.com;"
   );
   next();
 });
