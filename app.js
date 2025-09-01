@@ -129,7 +129,7 @@ app.use(express.json({ limit: "50mb" }));
 app.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(compression());
-// app.use(handleCors); // Removed to avoid conflicts with express-cors
+app.use(handleCors); 
 app.use(handlePagination);
 app.use(cookieParser());
 app.disable("x-powered-by");
