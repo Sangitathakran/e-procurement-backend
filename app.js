@@ -32,10 +32,9 @@ const {
   handlePagination,
 } = require("@src/v1/middlewares/express_app");
 
-
 app.use(
   cors({
-    origin: ["http://localhost:*", "http://*.khetisauda.com", "https://*.khetisauda.com"],
+    origin:'*',
     methods: ["POST", "GET", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })
@@ -51,7 +50,7 @@ app.use(helmet({
       "base-uri": ["'self'"],
       "font-src": ["'self'", "https:", "data:"],
       "form-action": ["'self'"],
-      "frame-ancestors": ["'self'"], // Prevents clickjacking
+      "frame-ancestors": ["'self'"], 
       "img-src": ["'self'", "data:"],
       "object-src": ["'none'"],
       "script-src": ["'self'"],
@@ -68,12 +67,10 @@ app.use(helmet({
   hidePoweredBy: true,
 }));
 
-
 const { combinedLogger, combinedLogStream } = require("@config/logger");
 const {
   asyncErrorHandler,
 } = require("@src/v1/utils/helpers/asyncErrorHandler");
-
 
 const { router } = require("./src/v1/routes");
 const { agristackchRoutes } = require("@src/v1/modules/agristack/Routes");
@@ -111,9 +108,6 @@ app.use((req, res, next) => {
   next();
 });
 
-
-
-
 app.all("*", handleRouteNotFound);
 
 app.use((req, res, next) => {
@@ -122,7 +116,6 @@ app.use((req, res, next) => {
   );
   next();
 });
-
 
 // Listner server
 app.listen(PORT, async () => {
