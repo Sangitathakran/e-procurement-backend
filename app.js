@@ -35,8 +35,9 @@ const {
 
 app.use(
   cors({
-    origin: "*",
-    methods: ["POST", "GET", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    origin: ["http://*.khetisauda.com, https://*.khetisauda.com"],
+    methods: ["POST", "GET", "PUT", "DELETE", "PATCH"],
+    credentials: true,
   })
 );
 
@@ -117,7 +118,7 @@ app.all("*", handleRouteNotFound);
 
 app.use((req, res, next) => {
   res.setHeader("cps",
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none';"
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"
   );
   next();
 });
