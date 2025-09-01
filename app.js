@@ -1,9 +1,9 @@
-process.on("uncaughtException", (err) => {
-  console.error("Uncaught Exception:", err);
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
 });
 
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("Unhandled Rejection:", reason);
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
 });
 
 require("module-alias/register");
@@ -34,85 +34,38 @@ const {
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true); 
-
-      if (
-        origin.match(/^https?:\/\/localhost(:\d+)?$/) ||
-        origin.match(/^https?:\/\/.*\.khetisauda\.com$/)
-      ) {
-        return callback(null, true);
-      }
-
-      return callback(new Error("Not allowed by CORS")); 
-    },
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allowedHeaders: [
-      "Origin",
-      "X-Requested-With",
-      "Content-Type",
-      "Accept",
-      "Authorization",
-    ],
+    origin:'*',
+    methods: ["POST", "GET", "PUT", "DELETE", "PATCH"],
     credentials: true,
-    preflightContinue: false,
-    optionsSuccessStatus: 200,
   })
 );
 
-app.use(handleRateLimit);
+app.use(handleRateLimit); 
 
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      useDefaults: false,
-      directives: {
-        "default-src": ["'self'"],
-        "base-uri": ["'self'"],
-        "font-src": ["'self'", "https:", "data:"],
-        "form-action": ["'self'"],
-        "frame-ancestors": ["'self'"],
-        "img-src": ["'self'", "data:"],
-        "object-src": ["'none'"],
-        "script-src": ["'self'"],
-        "script-src-attr": ["'none'"],
-        "style-src": ["'self'"],
-        "upgrade-insecure-requests": [], // this directive is a boolean-like switch
-      },
-    },
-    crossOriginOpenerPolicy: { policy: "same-origin" },
-    crossOriginResourcePolicy: { policy: "same-origin" },
-    referrerPolicy: { policy: "no-referrer" },
-    dnsPrefetchControl: { allow: false },
-    permittedCrossDomainPolicies: { permittedPolicies: "none" },
-    hidePoweredBy: true,
-  })
-);
-
-app.use((req, res, next) => {
-  const origin = req.get("Origin");
-  const referer = req.get("Referer");
-
-  if (
-    req.get("Sec-Fetch-Dest") === "iframe" ||
-    req.get("Sec-Fetch-Mode") === "nested-navigate"
-  ) {
-    if (
-      origin &&
-      (origin.match(/^https?:\/\/localhost(:\d+)?$/) ||
-        origin.match(/^https?:\/\/.*\.khetisauda\.com$/))
-    ) {
-      return next();
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      "default-src": ["'self'"],
+      "base-uri": ["'self'"],
+      "font-src": ["'self'", "https:", "data:"],
+      "form-action": ["'self'"],
+      "frame-ancestors": ["'self'"], 
+      "img-src": ["'self'", "data:"],
+      "object-src": ["'none'"],
+      "script-src": ["'self'"],
+      "script-src-attr": ["'none'"],
+      "style-src": ["'self'"],
+      "upgrade-insecure-requests": [] // this directive is a boolean-like switch
     }
-
-    return res.status(403).json({
-      error: "Forbidden",
-      message: "This resource cannot be embedded in an iframe.",
-    });
-  }
-
-  next();
-});
+  },
+  crossOriginOpenerPolicy: { policy: "same-origin" },
+  crossOriginResourcePolicy: { policy: "same-origin" },
+  referrerPolicy: { policy: "no-referrer" },
+  dnsPrefetchControl: { allow: false },
+  permittedCrossDomainPolicies: { permittedPolicies: "none" },
+  hidePoweredBy: true,
+}));
 
 const { combinedLogger, combinedLogStream } = require("@config/logger");
 const {
@@ -123,20 +76,20 @@ const { router } = require("./src/v1/routes");
 const { agristackchRoutes } = require("@src/v1/modules/agristack/Routes");
 // application level middlewares
 
-app.use(morgan("dev"));
+app.use(morgan('dev'));
 app.use(morgan("combined", { stream: combinedLogStream }));
-app.use(express.json({ limit: "50mb" }));
+app.use(express.json( { limit: "50mb"} ));
 app.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(compression());
-app.use(handleCors); 
+app.use(handleCors);
 app.use(handlePagination);
 app.use(cookieParser());
 app.disable("x-powered-by");
 app.use(apiVersion, router);
-app.use("/farmer-registry-api-up-qa", agristackchRoutes);
+app.use('/farmer-registry-api-up-qa', agristackchRoutes);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-require("./crons/index");
+require('./crons/index')
 // server status
 app.get(
   "/",
@@ -158,8 +111,7 @@ app.use((req, res, next) => {
 app.all("*", handleRouteNotFound);
 
 app.use((req, res, next) => {
-  res.setHeader(
-    "cps",
+  res.setHeader("cps",
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"
   );
   next();
