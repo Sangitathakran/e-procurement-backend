@@ -50,7 +50,7 @@ app.use(helmet({
       "base-uri": ["'self'"],
       "font-src": ["'self'", "https:", "data:"],
       "form-action": ["'self'"],
-      "frame-ancestors": ["'self'"],
+      "frame-ancestors": ["'none'"],
       "img-src": ["'self'", "data:"],
       "object-src": ["'none'"],
       "script-src": ["'self'"],
@@ -59,6 +59,7 @@ app.use(helmet({
       "upgrade-insecure-requests": [] // this directive is a boolean-like switch
     }
   },
+  frameguard: { action: "deny" },
   crossOriginOpenerPolicy: { policy: "same-origin" },
   crossOriginResourcePolicy: { policy: "same-origin" },
   referrerPolicy: { policy: "no-referrer" },
