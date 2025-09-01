@@ -1,8 +1,10 @@
 
 const { rateLimit } = require("express-rate-limit");
 const { sendResponse } = require("../utils/helpers/api_response");
+const securityMiddleware = require("./security");
 
 module.exports = {
+    securityMiddleware,
     handleRouteNotFound: (req, res) => {
         try {
             return sendResponse({ res, status: 404, errors: [{ message: "Route not found." }] })

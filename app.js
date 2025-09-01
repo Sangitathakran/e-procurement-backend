@@ -8,7 +8,6 @@ process.on('unhandledRejection', (reason, promise) => {
 
 require("module-alias/register");
 
-// import modules
 const express = require("express");
 const app = express();
 const morgan = require("morgan");
@@ -42,30 +41,12 @@ app.use(
 
 app.use(handleRateLimit); 
 
-app.use(helmet({
-  contentSecurityPolicy: {
-    useDefaults: false,
-    directives: {
-      "default-src": ["'self'"],
-      "base-uri": ["'self'"],
-      "font-src": ["'self'", "https:", "data:"],
-      "form-action": ["'self'"],
-      "frame-ancestors": ["'self'"],
-      "img-src": ["'self'", "data:"],
-      "object-src": ["'none'"],
-      "script-src": ["'self'"],
-      "script-src-attr": ["'none'"],
-      "style-src": ["'self'"],
-      "upgrade-insecure-requests": [] // this directive is a boolean-like switch
-    }
-  },
-  crossOriginOpenerPolicy: { policy: "same-origin" },
-  crossOriginResourcePolicy: { policy: "same-origin" },
-  referrerPolicy: { policy: "no-referrer" },
-  dnsPrefetchControl: { allow: false },
-  permittedCrossDomainPolicies: { permittedPolicies: "none" },
-  hidePoweredBy: true,
-}));
+const securityConfig = require("./config/security");
+    
+app.use(helmet(securityConfig.helmet));
+
+const securityMiddleware = require("@src/v1/middlewares/security");
+app.use(securityMiddleware);
 
 
 const { combinedLogger, combinedLogStream } = require("@config/logger");
@@ -76,7 +57,6 @@ const {
 
 const { router } = require("./src/v1/routes");
 const { agristackchRoutes } = require("@src/v1/modules/agristack/Routes");
-// application level middlewares
 
 app.use(morgan('dev'));
 app.use(morgan("combined", { stream: combinedLogStream }));
@@ -92,7 +72,7 @@ app.use(apiVersion, router);
 app.use('/farmer-registry-api-up-qa', agristackchRoutes);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 require('./crons/index')
-// server status
+
 app.get(
   "/",
   asyncErrorHandler(async (req, res) => {
@@ -102,7 +82,6 @@ app.get(
   })
 );
 
-// Remove X-Powered-By header
 app.use((req, res, next) => {
   res.removeHeader("X-Powered-By");
   res.removeHeader("server");
@@ -123,7 +102,6 @@ app.use((req, res, next) => {
 });
 
 
-// Listner server
 app.listen(PORT, async () => {
   console.log("E-procurement server is running on PORT:", PORT);
 });
