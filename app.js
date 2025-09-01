@@ -35,9 +35,21 @@ const {
 
 app.use(
   cors({
-    origin: ["http://localhost:*", "http://*.khetisauda.com", "https://*.khetisauda.com"],
-    methods: ["POST", "GET", "PUT", "DELETE", "PATCH"],
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      
+      if (origin.match(/^https?:\/\/localhost(:\d+)?$/) || 
+          origin.match(/^https?:\/\/.*\.khetisauda\.com$/)) {
+        return callback(null, true);
+      }
+      
+      return callback(null, true);
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"],
     credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 200
   })
 );
 
@@ -51,7 +63,7 @@ app.use(helmet({
       "base-uri": ["'self'"],
       "font-src": ["'self'", "https:", "data:"],
       "form-action": ["'self'"],
-      "frame-ancestors": ["'self'"], // Prevents clickjacking
+      "frame-ancestors": ["'self'"], 
       "img-src": ["'self'", "data:"],
       "object-src": ["'none'"],
       "script-src": ["'self'"],
@@ -66,7 +78,29 @@ app.use(helmet({
   dnsPrefetchControl: { allow: false },
   permittedCrossDomainPolicies: { permittedPolicies: "none" },
   hidePoweredBy: true,
+  
 }));
+
+app.use((req, res, next) => {
+  const origin = req.get('Origin');
+  const referer = req.get('Referer');
+  
+  if (req.get('Sec-Fetch-Dest') === 'iframe' || req.get('Sec-Fetch-Mode') === 'nested-navigate') {
+    if (origin && (
+      origin.match(/^https?:\/\/localhost(:\d+)?$/) ||
+      origin.match(/^https?:\/\/.*\.khetisauda\.com$/)
+    )) {
+      return next();
+    }
+    
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: 'This resource cannot be embedded in an iframe.'
+    });
+  }
+  
+  next();
+});
 
 
 const { combinedLogger, combinedLogStream } = require("@config/logger");
@@ -85,7 +119,7 @@ app.use(express.json( { limit: "50mb"} ));
 app.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(compression());
-app.use(handleCors);
+// app.use(handleCors); // Removed to avoid conflicts with express-cors
 app.use(handlePagination);
 app.use(cookieParser());
 app.disable("x-powered-by");

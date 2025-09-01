@@ -13,13 +13,14 @@ module.exports = {
 
     handleCors: (req, res, next) => {
         try {
-            // res.setHeader('Access-Control-Allow-Origin', '*');
-            // res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-            res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-Width, Content-Type, Accept, Authorization');
-            res.setHeader('Access-Control-Allow-Credentials', true);
+            
+            res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH');
+            res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
             next();
         } catch (err) {
-            return sendResponse({ res, status: 404, errors: err.message })
+            return sendResponse({ res, status: 500, errors: [{ message: err.message }] })
         }
     },
 
