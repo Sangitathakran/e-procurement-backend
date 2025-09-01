@@ -35,7 +35,7 @@ const {
 
 app.use(
   cors({
-    origin: ["https://*.khetisauda.com"],
+    origin: ["http://*.khetisauda.com"],
     methods: ["POST", "GET", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })
