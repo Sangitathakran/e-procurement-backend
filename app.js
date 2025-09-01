@@ -35,8 +35,8 @@ const {
 
 app.use(
   cors({
-    origin: ["http://khetisauda.com", "https://*.khetisauda.com"],
-    methods: ["POST", "GET", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    origin: ["https://khetisauda.com", "https://*.khetisauda.com"],
+    methods: ["POST", "GET", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })
 );
@@ -51,7 +51,7 @@ app.use(helmet({
       "base-uri": ["'self'"],
       "font-src": ["'self'", "https:", "data:"],
       "form-action": ["'self'"],
-      "frame-ancestors": ["'self'", "https://khetisauda.com", "https://*.khetisauda.com"],
+      "frame-ancestors": ["'self'"],
       "img-src": ["'self'", "data:"],
       "object-src": ["'none'"],
       "script-src": ["'self'"],
@@ -118,7 +118,7 @@ app.all("*", handleRouteNotFound);
 
 app.use((req, res, next) => {
   res.setHeader("cps",
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'self' https://khetisauda.com  http://*.khetisauda.com;"
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"
   );
   next();
 });
