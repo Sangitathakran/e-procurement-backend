@@ -1,9 +1,9 @@
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection:', reason);
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection:", reason);
 });
 
 require("module-alias/register");
@@ -21,7 +21,7 @@ const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./src/v1/utils/swagger/swagger-output.json");
 require("@src/v1/utils/websocket/server");
 const crypto = require("crypto");
-const { PORT, apiVersion } = require("./config/index");
+const { PORT, apiVersion, FRONTEND_URLS } = require("./config/index");
 // require('newrelic');
 require("./config/database");
 const {
@@ -32,40 +32,75 @@ const {
   handlePagination,
 } = require("@src/v1/middlewares/express_app");
 
+const allowedDomains = [
+  // Local development
+  "http://localhost:5173",
+
+  // Staging environments
+  ...Object.values(FRONTEND_URLS).filter(url => url)
+];
+
 app.use(
   cors({
-    origin:'*',
+    origin: [...allowedDomains],
     methods: ["POST", "GET", "PUT", "DELETE", "PATCH"],
     credentials: true,
   })
 );
 
-app.use(handleRateLimit); 
+app.use(handleRateLimit);
 
-app.use(helmet({
-  contentSecurityPolicy: {
-    useDefaults: false,
-    directives: {
-      "default-src": ["'self'"],
-      "base-uri": ["'self'"],
-      "font-src": ["'self'", "https:", "data:"],
-      "form-action": ["'self'"],
-      "frame-ancestors": ["'self'"], 
-      "img-src": ["'self'", "data:"],
-      "object-src": ["'none'"],
-      "script-src": ["'self'"],
-      "script-src-attr": ["'none'"],
-      "style-src": ["'self'"],
-      "upgrade-insecure-requests": [] // this directive is a boolean-like switch
+app.use((req, res, next) => {
+  const referer = req.get('Referer') || req.get('Origin');
+  
+  const isAllowedDomain = allowedDomains.some(domain => {
+    if (referer) {
+      return referer.startsWith(domain);
     }
-  },
-  crossOriginOpenerPolicy: { policy: "same-origin" },
-  crossOriginResourcePolicy: { policy: "same-origin" },
-  referrerPolicy: { policy: "no-referrer" },
-  dnsPrefetchControl: { allow: false },
-  permittedCrossDomainPolicies: { permittedPolicies: "none" },
-  hidePoweredBy: true,
-}));
+    return false;
+  });
+  
+  if (isAllowedDomain || !referer) {
+    res.setHeader('X-Frame-Options', 'ALLOWALL');
+  } else {
+    res.setHeader('X-Frame-Options', 'DENY');
+  }
+  
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  
+  next();
+});
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: false,
+      frameguard: false,
+      directives: {
+        "frame-ancestors": ["'self'"],
+        "default-src": ["'self'"],
+        "base-uri": ["'self'"],
+        "font-src": ["'self'", "https:", "data:"],
+        "form-action": ["'self'"],
+        "img-src": ["'self'", "data:"],
+        "object-src": ["'none'"],
+        "script-src": ["'self'"],
+        "script-src-attr": ["'none'"],
+        "style-src": ["'self'"],
+        "x-frame-options": ["'self'"],
+        "upgrade-insecure-requests": [],
+      },
+    },
+    crossOriginOpenerPolicy: { policy: "same-origin" },
+    crossOriginResourcePolicy: { policy: "same-origin" },
+    referrerPolicy: { policy: "no-referrer" },
+    dnsPrefetchControl: { allow: false },
+    permittedCrossDomainPolicies: { permittedPolicies: "none" },
+    hidePoweredBy: true,
+  })
+);
 
 const { combinedLogger, combinedLogStream } = require("@config/logger");
 const {
@@ -74,11 +109,10 @@ const {
 
 const { router } = require("./src/v1/routes");
 const { agristackchRoutes } = require("@src/v1/modules/agristack/Routes");
-// application level middlewares
 
-app.use(morgan('dev'));
+app.use(morgan("dev"));
 app.use(morgan("combined", { stream: combinedLogStream }));
-app.use(express.json( { limit: "50mb"} ));
+app.use(express.json({ limit: "50mb" }));
 app.use(bodyParser.urlencoded({ extended: true, limit: "50mb" }));
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(compression());
@@ -87,10 +121,9 @@ app.use(handlePagination);
 app.use(cookieParser());
 app.disable("x-powered-by");
 app.use(apiVersion, router);
-app.use('/farmer-registry-api-up-qa', agristackchRoutes);
+app.use("/farmer-registry-api-up-qa", agristackchRoutes);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-require('./crons/index')
-// server status
+require("./crons/index");
 app.get(
   "/",
   asyncErrorHandler(async (req, res) => {
@@ -100,7 +133,6 @@ app.get(
   })
 );
 
-// Remove X-Powered-By header
 app.use((req, res, next) => {
   res.removeHeader("X-Powered-By");
   res.removeHeader("server");
@@ -110,14 +142,15 @@ app.use((req, res, next) => {
 
 app.all("*", handleRouteNotFound);
 
-app.use((req, res, next) => {
-  res.setHeader("cps",
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"
-  );
-  next();
-});
+// app.use((req, res, next) => {
+//   res.setHeader(
+//     "cps",
+//     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'self';"
+//   );
+//   next();
+// });
 
-// Listner server
+
 app.listen(PORT, async () => {
   console.log("E-procurement server is running on PORT:", PORT);
 });
