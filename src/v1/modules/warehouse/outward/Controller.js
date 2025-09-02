@@ -641,38 +641,28 @@ module.exports.batchOrderStatsData = async (req, res) => {
 };
 
 module.exports.rejectTrack = asyncErrorHandler(async (req, res) => {
-
-
     const { id, reason } = req.body;
     const { organization_id } = req;
 
-    // const record = await TrackOrder.findOne({ purchaseOrder_id: id });
     const result = await BatchOrderProcess.findOne({ _id: id });
 
     if (!result) {
-        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("purchase order") }] }));
+        return res.status(200).send(new serviceResponse({ status: 404, errors: [{ message: _response_message.notFound("Purchase order") }] }));
     }
 
-    // record.rejection.is_reject = true;
-    // record.rejection.reason = reason;
-    // record.status = _trackOrderStatus.rejected;
-    // await record.save();
-
-    // also create entry in TrackOrder
     const record = new TrackOrder({
-        purchaseOrder_id: result._id, // adjust field as per your schema
+        purchaseOrder_id: result._id, 
         status: _trackOrderStatus.rejected,
         rejection: {
             is_reject: true,
             reason: reason
         },
-        createdBy: organization_id || null,          // optional, if you track user
+        createdBy: organization_id || null,        
         createdAt: new Date()
     });
     await record.save();
 
-    return res.status(200).send(new serviceResponse({ status: 200, data: record, message: _response_message.found("purchase order") }));
-
+    return res.status(200).send(new serviceResponse({ status: 200, message: _response_message.rejectedSuccessfully("Purchase order") }));
 })
 
 module.exports.createExternalOrder = async (req, res) => {
