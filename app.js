@@ -35,7 +35,7 @@ const {
 const allowedDomains = [
   // Local development
   "http://localhost:5173",
-  
+
   // Staging environments
   ...Object.values(FRONTEND_URLS).filter(url => url)
 ];
@@ -89,6 +89,7 @@ app.use(
         "script-src": ["'self'"],
         "script-src-attr": ["'none'"],
         "style-src": ["'self'"],
+        "x-frame-options": ["'self'"],
         "upgrade-insecure-requests": [],
       },
     },
