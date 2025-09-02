@@ -89,7 +89,6 @@ app.use(
         "script-src": ["'self'"],
         "script-src-attr": ["'none'"],
         "style-src": ["'self'"],
-        "x-frame-options": ["'self'"],
         "upgrade-insecure-requests": [],
       },
     },
@@ -99,6 +98,7 @@ app.use(
     dnsPrefetchControl: { allow: false },
     permittedCrossDomainPolicies: { permittedPolicies: "none" },
     hidePoweredBy: true,
+    frameguard: { action: "deny" },
   })
 );
 
